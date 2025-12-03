@@ -789,8 +789,8 @@ class CscsHpcStorageBackend:
                     )
 
             # Override inode quotas if provided in options
-            options_soft_inodes = options_dict.get("soft_quota_indoes")
-            options_hard_inodes = options_dict.get("hard_quota_indoes")
+            options_soft_inodes = options_dict.get("soft_quota_inodes")
+            options_hard_inodes = options_dict.get("hard_quota_inodes")
 
             if options_soft_inodes is not None or options_hard_inodes is not None:
                 logger.debug(
@@ -808,7 +808,7 @@ class CscsHpcStorageBackend:
                         )
                     except (ValueError, TypeError):
                         logger.warning(
-                            "  Invalid soft_quota_indoes type in options for resource %s: "
+                            "  Invalid soft_quota_inodes type in options for resource %s: "
                             "expected numeric, got %s. Ignoring override.",
                             waldur_resource.uuid,
                             type(options_soft_inodes).__name__,
@@ -822,7 +822,7 @@ class CscsHpcStorageBackend:
                         )
                     except (ValueError, TypeError):
                         logger.warning(
-                            "  Invalid hard_quota_indoes type in options for resource %s: "
+                            "  Invalid hard_quota_inodes type in options for resource %s: "
                             "expected numeric, got %s. Ignoring override.",
                             waldur_resource.uuid,
                             type(options_hard_inodes).__name__,
