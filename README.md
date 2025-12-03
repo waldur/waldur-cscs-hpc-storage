@@ -13,7 +13,7 @@ pip install waldur-cscs-hpc-storage
 Or install from source:
 
 ```bash
-git clone https://github.com/your-org/waldur-cscs-hpc-storage
+git clone https://github.com/waldur/waldur-cscs-hpc-storage
 cd waldur-cscs-hpc-storage
 pip install .
 ```
