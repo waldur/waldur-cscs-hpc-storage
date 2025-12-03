@@ -36,8 +36,7 @@ variables:
     - pip install uv
     - uv sync --all-packages
     - source .venv/bin/activate
-    - pytest --junitxml=report.xml tests/
-    - coverage xml
+    - pytest --cov=waldur_cscs_hpc_storage --cov-report=xml --junitxml=report.xml tests/
     - coverage report
 
 Run python v3.10 linters:
