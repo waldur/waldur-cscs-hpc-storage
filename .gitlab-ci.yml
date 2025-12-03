@@ -55,12 +55,24 @@ Run python v3.11 linters:
       echo 'default_language_version:' >> .pre-commit-config.yaml
       echo '  python: python3.11' >> .pre-commit-config.yaml
 
+Run python v3.12 linters:
+  image: "registry.hpc.ut.ee/mirror/library/python:3.12"
+  extends: .Run linters template
+  before_script:
+    - |
+      echo 'default_language_version:' >> .pre-commit-config.yaml
+      echo '  python: python3.12' >> .pre-commit-config.yaml
+
 Run python v3.10 tests:
   image: "registry.hpc.ut.ee/mirror/library/python:3.10"
   extends: .Run tests template
 
 Run python v3.11 tests:
   image: "registry.hpc.ut.ee/mirror/library/python:3.11"
+  extends: .Run tests template
+
+Run python v3.12 tests:
+  image: "registry.hpc.ut.ee/mirror/library/python:3.12"
   extends: .Run tests template
 
 Lint dockerfile:
