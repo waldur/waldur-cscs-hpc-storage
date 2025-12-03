@@ -39,7 +39,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get("/api/storage-resources/")
@@ -53,10 +59,18 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slug.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
-        response = self.client.get(f"/api/storage-resources/?storage_system={storage_system}")
+        response = self.client.get(
+            f"/api/storage-resources/?storage_system={storage_system}"
+        )
         assert response.status_code == 200
 
         # Verify the backend was called with the correct storage system
@@ -95,7 +109,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get("/api/storage-resources/")
@@ -124,7 +144,9 @@ class TestStorageProxyAPI:
             },
         }
 
-        response = self.client.get(f"/api/storage-resources/?page={page}&page_size={page_size}")
+        response = self.client.get(
+            f"/api/storage-resources/?page={page}&page_size={page_size}"
+        )
         assert response.status_code == 200
 
         # Verify pagination parameters are passed to backend
@@ -152,7 +174,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get(f"/api/storage-resources/?data_type={data_type}")
@@ -170,7 +198,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get(f"/api/storage-resources/?status={status}")
@@ -188,7 +222,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get(f"/api/storage-resources/?state={state}")
@@ -227,7 +267,9 @@ class TestStorageProxyAPI:
             "api_calls": [],
         }
 
-        response = self.client.get("/api/storage-resources/?storage_system=capstor&debug=true")
+        response = self.client.get(
+            "/api/storage-resources/?storage_system=capstor&debug=true"
+        )
         assert response.status_code == 200
 
         # Verify debug method was called for specific storage system
@@ -266,7 +308,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [mock_storage_resource],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 1, "total": 1},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 1,
+                "total": 1,
+            },
             "filters_applied": {
                 "offering_slugs": ["capstor", "vast", "iopsstor"],
                 "storage_system": None,
@@ -293,7 +341,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slug.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 50, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 50,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get(
@@ -319,7 +373,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slug.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         # First, let's test with a configured storage system to ensure the mock works
@@ -340,7 +400,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get("/api/storage-resources/")
@@ -353,7 +419,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         response = self.client.get("/api/storage-resources/")
@@ -371,7 +443,13 @@ class TestStorageProxyAPI:
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
-            "pagination": {"current": 1, "limit": 100, "offset": 0, "pages": 0, "total": 0},
+            "pagination": {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 0,
+                "total": 0,
+            },
         }
 
         # Make a request without storage_system filter (should use all storage systems)

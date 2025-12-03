@@ -227,17 +227,27 @@ class TestHierarchicalStorageAPI:
         resources = data["resources"]
 
         # Find a complete hierarchy chain
-        capstor_resources = [r for r in resources if r["storageSystem"]["key"] == "capstor"]
-        capstor_tenants = [r for r in capstor_resources if r["target"]["targetType"] == "tenant"]
+        capstor_resources = [
+            r for r in resources if r["storageSystem"]["key"] == "capstor"
+        ]
+        capstor_tenants = [
+            r for r in capstor_resources if r["target"]["targetType"] == "tenant"
+        ]
         capstor_customers = [
             r for r in capstor_resources if r["target"]["targetType"] == "customer"
         ]
-        capstor_projects = [r for r in capstor_resources if r["target"]["targetType"] == "project"]
+        capstor_projects = [
+            r for r in capstor_resources if r["target"]["targetType"] == "project"
+        ]
 
         if capstor_tenants and capstor_customers and capstor_projects:
             tenant = capstor_tenants[0]
-            customer = next(c for c in capstor_customers if c["parentItemId"] == tenant["itemId"])
-            project = next(p for p in capstor_projects if p["parentItemId"] == customer["itemId"])
+            customer = next(
+                c for c in capstor_customers if c["parentItemId"] == tenant["itemId"]
+            )
+            project = next(
+                p for p in capstor_projects if p["parentItemId"] == customer["itemId"]
+            )
 
             # Verify mount point hierarchy
             tenant_mount = tenant["mountPoint"]["default"]
@@ -267,10 +277,18 @@ class TestHierarchicalStorageAPI:
         """Test that filtering by storage system maintains the hierarchy."""
         mock_get_customers.return_value = mock_offering_customers
         # Filter to only capstor resources
-        capstor_resources = [r for r in mock_waldur_resources if r.offering_slug == "capstor"]
+        capstor_resources = [
+            r for r in mock_waldur_resources if r.offering_slug == "capstor"
+        ]
         mock_get_resources.return_value = (
             capstor_resources,
-            {"current": 1, "limit": 100, "offset": 0, "pages": 1, "total": len(capstor_resources)},
+            {
+                "current": 1,
+                "limit": 100,
+                "offset": 0,
+                "pages": 1,
+                "total": len(capstor_resources),
+            },
         )
 
         response = client.get("/api/storage-resources/?storage_system=capstor")
@@ -359,7 +377,9 @@ class TestHierarchicalStorageAPI:
 
         # Should return validation error
         assert "detail" in data
-        assert any("storage_system cannot be empty" in str(error) for error in data["detail"])
+        assert any(
+            "storage_system cannot be empty" in str(error) for error in data["detail"]
+        )
 
     def test_data_type_filter_affects_hierarchy(self, client):
         """Test that data_type filter affects the hierarchy appropriately."""
@@ -480,7 +500,11 @@ class TestHierarchyValidation:
             group_key = f"{storage_key}-{data_type_key}"
 
             if group_key not in hierarchy_groups:
-                hierarchy_groups[group_key] = {"tenant": None, "customers": [], "projects": []}
+                hierarchy_groups[group_key] = {
+                    "tenant": None,
+                    "customers": [],
+                    "projects": [],
+                }
 
             target_type = resource["target"]["targetType"]
             if target_type == "tenant":

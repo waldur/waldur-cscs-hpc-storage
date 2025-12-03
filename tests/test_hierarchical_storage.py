@@ -37,7 +37,9 @@ def backend():
 @pytest.fixture(autouse=True)
 def mock_gid_lookup():
     """Mock GID lookup for all tests in this module."""
-    with patch.object(CscsHpcStorageBackend, "_get_project_unix_gid", return_value=30000):
+    with patch.object(
+        CscsHpcStorageBackend, "_get_project_unix_gid", return_value=30000
+    ):
         yield
 
 
@@ -118,7 +120,8 @@ class TestTenantLevelGeneration:
 
         # Verify mount point
         assert (
-            result["mountPoint"]["default"] == f"/{storage_system}/{storage_data_type}/{tenant_id}"
+            result["mountPoint"]["default"]
+            == f"/{storage_system}/{storage_data_type}/{tenant_id}"
         )
 
         # Verify no parent (top-level)
@@ -170,7 +173,12 @@ class TestCustomerLevelGeneration:
 
     def test_create_customer_storage_resource_with_parent(self, backend):
         """Test creating a customer-level storage resource with parent tenant."""
-        customer_info = {"itemId": str(uuid4()), "key": "mch", "name": "MCH", "uuid": str(uuid4())}
+        customer_info = {
+            "itemId": str(uuid4()),
+            "key": "mch",
+            "name": "MCH",
+            "uuid": str(uuid4()),
+        }
         tenant_id = "cscs"
         parent_tenant_id = str(uuid4())
         storage_system = "capstor"
@@ -190,7 +198,9 @@ class TestCustomerLevelGeneration:
         assert result["target"]["targetItem"]["name"] == customer_info["name"]
 
         # Verify mount point
-        expected_path = f"/{storage_system}/{storage_data_type}/{tenant_id}/{customer_info['key']}"
+        expected_path = (
+            f"/{storage_system}/{storage_data_type}/{tenant_id}/{customer_info['key']}"
+        )
         assert result["mountPoint"]["default"] == expected_path
 
         # Verify parent reference
@@ -204,7 +214,12 @@ class TestCustomerLevelGeneration:
 
     def test_customer_without_parent_tenant(self, backend):
         """Test creating a customer-level resource without parent (legacy mode)."""
-        customer_info = {"itemId": str(uuid4()), "key": "eth", "name": "ETH", "uuid": str(uuid4())}
+        customer_info = {
+            "itemId": str(uuid4()),
+            "key": "eth",
+            "name": "ETH",
+            "uuid": str(uuid4()),
+        }
 
         result = backend._create_customer_storage_resource_json(
             customer_info=customer_info,
@@ -348,9 +363,13 @@ class TestThreeTierHierarchyGeneration:
                 tenant_entries[tenant_key] = tenant_resource["itemId"]
 
             # Create customer entry
-            customer_key = f"{resource.customer_slug}-{storage_system_name}-{storage_data_type}"
+            customer_key = (
+                f"{resource.customer_slug}-{storage_system_name}-{storage_data_type}"
+            )
             if customer_key not in customer_entries:
-                customer_info = mock_get_customers.return_value.get(resource.customer_slug)
+                customer_info = mock_get_customers.return_value.get(
+                    resource.customer_slug
+                )
                 if customer_info:
                     parent_tenant_id = tenant_entries.get(tenant_key)
                     customer_resource = backend._create_customer_storage_resource_json(
@@ -373,15 +392,23 @@ class TestThreeTierHierarchyGeneration:
             storage_resources.append(project_resource)
 
         # Verify results
-        tenants = [r for r in storage_resources if r["target"]["targetType"] == "tenant"]
-        customers = [r for r in storage_resources if r["target"]["targetType"] == "customer"]
-        projects = [r for r in storage_resources if r["target"]["targetType"] == "project"]
+        tenants = [
+            r for r in storage_resources if r["target"]["targetType"] == "tenant"
+        ]
+        customers = [
+            r for r in storage_resources if r["target"]["targetType"] == "customer"
+        ]
+        projects = [
+            r for r in storage_resources if r["target"]["targetType"] == "project"
+        ]
 
         # Should have unique tenants for each storage_system-data_type combo
         assert len(tenants) == 2  # cscs-capstor-store, cscs-capstor-users
 
         # Should have unique customers for each customer-storage_system-data_type combo
-        assert len(customers) == 3  # mch-capstor-store, eth-capstor-store, mch-capstor-users
+        assert (
+            len(customers) == 3
+        )  # mch-capstor-store, eth-capstor-store, mch-capstor-users
 
         # Should have successfully created projects (some might fail validation)
         assert len(projects) >= 2  # At least 2 projects should be created successfully
@@ -433,7 +460,10 @@ class TestThreeTierHierarchyGeneration:
 
         # Verify hierarchy in paths
         assert tenant_mount == f"/{storage_system}/{data_type}/{tenant_id}"
-        assert customer_mount == f"/{storage_system}/{data_type}/{tenant_id}/{customer_key}"
+        assert (
+            customer_mount
+            == f"/{storage_system}/{data_type}/{tenant_id}/{customer_key}"
+        )
         assert (
             project_mount
             == f"/{storage_system}/{data_type}/{tenant_id}/{customer_key}/{project_slug}"
@@ -462,7 +492,12 @@ class TestHierarchyFiltering:
         resources.append(tenant_capstor)
 
         customer_capstor = backend._create_customer_storage_resource_json(
-            customer_info={"itemId": "cust1", "key": "mch", "name": "MCH", "uuid": "cust1"},
+            customer_info={
+                "itemId": "cust1",
+                "key": "mch",
+                "name": "MCH",
+                "uuid": "cust1",
+            },
             storage_system="capstor",
             storage_data_type="store",
             tenant_id="cscs",
@@ -480,7 +515,12 @@ class TestHierarchyFiltering:
         resources.append(tenant_vast)
 
         customer_vast = backend._create_customer_storage_resource_json(
-            customer_info={"itemId": "cust2", "key": "eth", "name": "ETH", "uuid": "cust2"},
+            customer_info={
+                "itemId": "cust2",
+                "key": "eth",
+                "name": "ETH",
+                "uuid": "cust2",
+            },
             storage_system="vast",
             storage_data_type="scratch",
             tenant_id="cscs",
@@ -499,7 +539,9 @@ class TestHierarchyFiltering:
             assert resource["storageSystem"]["key"] == "capstor"
 
         # Verify hierarchy is maintained
-        capstor_tenants = [r for r in capstor_resources if r["target"]["targetType"] == "tenant"]
+        capstor_tenants = [
+            r for r in capstor_resources if r["target"]["targetType"] == "tenant"
+        ]
         capstor_customers = [
             r for r in capstor_resources if r["target"]["targetType"] == "customer"
         ]
@@ -543,8 +585,12 @@ class TestEdgeCases:
 
             # Verify results
             assert len(storage_resources) == 2  # Only tenant and project
-            tenants = [r for r in storage_resources if r["target"]["targetType"] == "tenant"]
-            projects = [r for r in storage_resources if r["target"]["targetType"] == "project"]
+            tenants = [
+                r for r in storage_resources if r["target"]["targetType"] == "tenant"
+            ]
+            projects = [
+                r for r in storage_resources if r["target"]["targetType"] == "project"
+            ]
 
             assert len(tenants) == 1
             assert len(projects) == 1
@@ -571,7 +617,12 @@ class TestEdgeCases:
         customer_results = []
         for _ in range(3):
             result = backend._create_customer_storage_resource_json(
-                customer_info={"itemId": "cust1", "key": "mch", "name": "MCH", "uuid": "cust1"},
+                customer_info={
+                    "itemId": "cust1",
+                    "key": "mch",
+                    "name": "MCH",
+                    "uuid": "cust1",
+                },
                 storage_system="capstor",
                 storage_data_type="store",
                 tenant_id="cscs",
@@ -591,7 +642,12 @@ class TestIntegrationScenarios:
     def test_multi_storage_system_hierarchy(self, mock_get_customers, backend):
         """Test hierarchy with multiple storage systems."""
         mock_get_customers.return_value = {
-            "customer1": {"itemId": "c1", "key": "customer1", "name": "Customer 1", "uuid": "c1"},
+            "customer1": {
+                "itemId": "c1",
+                "key": "customer1",
+                "name": "Customer 1",
+                "uuid": "c1",
+            },
         }
 
         # Create resources across different storage systems
@@ -652,19 +708,25 @@ class TestIntegrationScenarios:
 
             # Create project
             mock_client = Mock()
-            project = backend._create_storage_resource_json(resource, storage_system, mock_client)
+            project = backend._create_storage_resource_json(
+                resource, storage_system, mock_client
+            )
             if project is not None:  # Check if project creation was successful
                 project["parentItemId"] = customer_entries[customer_key]
                 all_resources.append(project)
 
         # Verify we have 3 separate hierarchies
         tenants = [r for r in all_resources if r["target"]["targetType"] == "tenant"]
-        customers = [r for r in all_resources if r["target"]["targetType"] == "customer"]
+        customers = [
+            r for r in all_resources if r["target"]["targetType"] == "customer"
+        ]
         projects = [r for r in all_resources if r["target"]["targetType"] == "project"]
 
         assert len(tenants) == 3  # One per storage system
         assert len(customers) == 3  # One per storage system
-        assert len(projects) >= 2  # At least some projects should be created successfully
+        assert (
+            len(projects) >= 2
+        )  # At least some projects should be created successfully
 
         # Verify each hierarchy is independent
         storage_systems = set(t["storageSystem"]["key"] for t in tenants)

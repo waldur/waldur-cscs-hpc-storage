@@ -32,7 +32,9 @@ class StorageProxyConfig:
     backend_components: dict[str, dict[str, Any]]
     storage_systems: dict[str, str]
     waldur_verify_ssl: bool = True
-    waldur_socks_proxy: Optional[str] = None  # SOCKS proxy URL for Waldur API connections
+    waldur_socks_proxy: Optional[str] = (
+        None  # SOCKS proxy URL for Waldur API connections
+    )
     auth: Optional[AuthConfig] = None
 
     @property
@@ -56,7 +58,9 @@ class StorageProxyConfig:
             auth_data = data["auth"]
             auth_config = AuthConfig(
                 disable_auth=auth_data.get("disable_auth", False),
-                keycloak_url=auth_data.get("keycloak_url", "https://auth-tds.cscs.ch/auth/"),
+                keycloak_url=auth_data.get(
+                    "keycloak_url", "https://auth-tds.cscs.ch/auth/"
+                ),
                 keycloak_realm=auth_data.get("keycloak_realm", "cscs"),
                 keycloak_client_id=auth_data.get("keycloak_client_id"),
                 keycloak_client_secret=auth_data.get("keycloak_client_secret"),
