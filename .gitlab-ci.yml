@@ -124,7 +124,7 @@ Publish multiarch docker image with version:
   interruptible: true
   image: registry.hpc.ut.ee/mirror/docker:latest
   services:
-    - name: public.ecr.aws/docker/library/docker:dind
+    - name: registry.hpc.ut.ee/mirror/docker:dind
       command: ["--mtu=1400"]
       alias: docker
   rules:
