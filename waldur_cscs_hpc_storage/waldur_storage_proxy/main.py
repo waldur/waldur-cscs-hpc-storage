@@ -33,7 +33,7 @@ setup_logging(verbose=DEBUG_MODE)
 if DEBUG_MODE:
     logger.info("Debug mode is enabled")
     # Set debug level for the cscs backend logger
-    cscs_logger = logging.getLogger("waldur_cscs_hpc_storage")
+    cscs_logger = logging.getLogger(__name__)
     cscs_logger.setLevel(logging.DEBUG)
 
 config_file_path = os.getenv("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH")
