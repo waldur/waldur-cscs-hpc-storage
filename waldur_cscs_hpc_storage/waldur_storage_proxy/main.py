@@ -2,29 +2,99 @@
 
 from enum import Enum
 from typing import Annotated, Optional
+import logging
+import os
+import sys
+import yaml
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.logger import logger
 from fastapi.responses import JSONResponse
 from fastapi_keycloak_middleware import (
-    KeycloakConfiguration,
     get_user,
-    setup_keycloak_middleware,
 )
-from pydantic import BaseModel
+from waldur_api_client.models.user import User
 from waldur_api_client.models.resource_state import ResourceState
 
-from waldur_cscs_hpc_storage.waldur_storage_proxy import (
-    CSCS_KEYCLOAK_CLIENT_ID,
-    CSCS_KEYCLOAK_CLIENT_SECRET,
-    CSCS_KEYCLOAK_REALM,
-    CSCS_KEYCLOAK_URL,
-    DISABLE_AUTH,
-    config,
-    cscs_storage_backend,
-    waldur_client,
+from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user
+from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import setup_auth
+from waldur_cscs_hpc_storage.utils import get_client
+from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
+from waldur_cscs_hpc_storage.sync_script import setup_logging
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import StorageProxyConfig
+
+
+# Check if debug mode is enabled via environment variable
+DEBUG_MODE = os.getenv("DEBUG", "false").lower() in ("true", "yes", "1")
+
+setup_logging(verbose=DEBUG_MODE)
+
+if DEBUG_MODE:
+    logger.info("Debug mode is enabled")
+    # Set debug level for the cscs backend logger
+    cscs_logger = logging.getLogger("waldur_cscs_hpc_storage")
+    cscs_logger.setLevel(logging.DEBUG)
+
+config_file_path = os.getenv("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH")
+
+if not config_file_path:
+    logger.error("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH variable is not set")
+    sys.exit(1)
+
+# Load simplified proxy configuration
+try:
+    config = StorageProxyConfig.from_yaml(config_file_path)
+    config.validate()
+except (FileNotFoundError, ValueError, yaml.YAMLError):
+    logger.exception("Failed to load configuration")
+    sys.exit(1)
+
+logger.info("Using configuration file: %s", config_file_path)
+logger.info("Configured storage systems: %s", config.storage_systems)
+
+# Override verify SSL from environment if set
+waldur_verify_ssl = os.getenv("WALDUR_VERIFY_SSL")
+if waldur_verify_ssl is not None:
+    config.waldur_verify_ssl = waldur_verify_ssl.lower() in ("true", "yes", "1")
+
+# Override proxy from environment if set
+waldur_socks_proxy = os.getenv("WALDUR_SOCKS_PROXY")
+if waldur_socks_proxy is not None:
+    config.waldur_socks_proxy = waldur_socks_proxy
+
+# Log proxy configuration
+if config.waldur_socks_proxy:
+    logger.info(
+        "Using SOCKS proxy for Waldur API connections: %s", config.waldur_socks_proxy
+    )
+else:
+    logger.info("No SOCKS proxy configured for Waldur API connections")
+
+# Create Waldur API client
+WALDUR_API_TOKEN = os.getenv("WALDUR_API_TOKEN", "")
+if not WALDUR_API_TOKEN and config.waldur_api_token:
+    WALDUR_API_TOKEN = config.waldur_api_token
+
+waldur_client = get_client(
+    api_url=config.waldur_api_url,
+    access_token=WALDUR_API_TOKEN,
+    verify_ssl=config.waldur_verify_ssl,
+    proxy=config.waldur_socks_proxy,
 )
+
+cscs_storage_backend = CscsHpcStorageBackend(
+    config.backend_settings, config.backend_components
+)
+
+# Authentication settings - environment variables override config file
+disable_auth_env = os.getenv("DISABLE_AUTH")
+if disable_auth_env is not None:
+    DISABLE_AUTH = disable_auth_env.lower() in ("true", "yes", "1")
+elif config.auth:
+    DISABLE_AUTH = config.auth.disable_auth
+else:
+    DISABLE_AUTH = False
 
 app = FastAPI(redirect_slashes=True)
 
@@ -122,91 +192,8 @@ def general_exception_handler(_request: Request, exc: Exception) -> JSONResponse
     )
 
 
-class User(BaseModel):
-    """Model for OIDC user."""
-
-    preferred_username: str
-
-
-async def user_mapper(userinfo: dict) -> User:
-    """Maps user info to a custom user structure."""
-    logger.info("Received userinfo in user_mapper: %s", userinfo)
-    logger.info(
-        "Available userinfo keys: %s", list(userinfo.keys()) if userinfo else "None"
-    )
-
-    # Extract preferred_username (should be service-account-hpc-mp-storage-service-account-dci)
-    preferred_username = userinfo.get("preferred_username")
-    logger.info("Extracted preferred_username: %s", preferred_username)
-
-    # Log additional useful claims for debugging
-    logger.info("Client ID: %s", userinfo.get("clientId"))
-    logger.info("Subject: %s", userinfo.get("sub"))
-    logger.info("Roles: %s", userinfo.get("roles"))
-    logger.info("Groups: %s", userinfo.get("groups"))
-
-    if not preferred_username:
-        logger.error("Missing 'preferred_username' claim in userinfo: %s", userinfo)
-        # Use sub as fallback since it's always present
-        fallback_username = userinfo.get("sub", "unknown_user")
-        logger.warning("Using fallback username from 'sub': %s", fallback_username)
-        preferred_username = fallback_username
-
-    return User(preferred_username=preferred_username)
-
-
-def mock_user() -> User:
-    """Return a mock user when auth is disabled."""
-    return User(preferred_username="dev_user")
-
-
 if not DISABLE_AUTH:
-    logger.info("Setting up Keycloak authentication")
-    logger.info("Keycloak URL: %s", CSCS_KEYCLOAK_URL)
-    logger.info("Keycloak Realm: %s", CSCS_KEYCLOAK_REALM)
-    logger.info("Keycloak Client ID: %s", CSCS_KEYCLOAK_CLIENT_ID)
-    logger.info(
-        "Keycloak Client Secret: %s",
-        "***REDACTED***" if CSCS_KEYCLOAK_CLIENT_SECRET else "NOT SET",
-    )
-
-    if not CSCS_KEYCLOAK_CLIENT_ID or not CSCS_KEYCLOAK_CLIENT_SECRET:
-        logger.error(
-            "Missing required Keycloak configuration: CLIENT_ID or CLIENT_SECRET not set"
-        )
-        error_msg = (
-            "CSCS_KEYCLOAK_CLIENT_ID and CSCS_KEYCLOAK_CLIENT_SECRET must be set"
-        )
-        raise ValueError(error_msg)
-
-    keycloak_config = KeycloakConfiguration(
-        url=CSCS_KEYCLOAK_URL,
-        realm=CSCS_KEYCLOAK_REALM,
-        client_id=CSCS_KEYCLOAK_CLIENT_ID,
-        client_secret=CSCS_KEYCLOAK_CLIENT_SECRET,
-        # Allow missing claims and handle them in user_mapper
-        reject_on_missing_claim=False,
-        # Specify required claims based on your token structure
-        claims=["sub", "preferred_username", "clientId", "roles", "groups"],
-        # Decode options for flexibility
-        decode_options={
-            "verify_signature": True,
-            "verify_aud": False,  # Disable audience verification if causing issues
-            "verify_exp": True,
-        },
-    )
-
-    try:
-        setup_keycloak_middleware(
-            app,
-            keycloak_configuration=keycloak_config,
-            user_mapper=user_mapper,
-        )
-        logger.info("Keycloak middleware setup completed successfully")
-    except Exception as e:
-        logger.error("Failed to setup Keycloak middleware: %s", e)
-        raise
-
+    setup_auth(app, config)
     user_dependency = get_user
 else:
     logger.warning(
