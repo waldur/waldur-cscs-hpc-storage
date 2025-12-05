@@ -1,4 +1,4 @@
-from fastapi.logger import logger
+import logging
 from datetime import datetime
 from typing import Optional
 from uuid import NAMESPACE_OID, uuid5
@@ -14,6 +14,9 @@ from waldur_api_client.types import Unset
 
 from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
 from waldur_cscs_hpc_storage.exceptions import BackendError
+
+
+logger = logging.getLogger(__name__)
 
 
 class CscsHpcStorageBackend:
