@@ -51,6 +51,10 @@ class StorageProxyConfig:
     )
     auth: Optional[AuthConfig] = None
     hpc_user_api: Optional[HpcUserApiConfig] = None
+    # Sentry settings
+    sentry_dsn: Optional[str] = None
+    sentry_environment: Optional[str] = None
+    sentry_traces_sample_rate: Optional[float] = None
 
     @property
     def offering_slugs(self) -> list[str]:
@@ -104,6 +108,9 @@ class StorageProxyConfig:
             storage_systems=data.get("storage_systems", {}),
             auth=auth_config,
             hpc_user_api=hpc_user_api_config,
+            sentry_dsn=data.get("sentry_dsn"),
+            sentry_environment=data.get("sentry_environment"),
+            sentry_traces_sample_rate=data.get("sentry_traces_sample_rate"),
         )
 
     def validate(self) -> None:

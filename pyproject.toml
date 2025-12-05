@@ -11,6 +11,7 @@ dependencies = [
     "httpx[socks]>=0.24.0",
     "waldur-api-client",
     "pyyaml>=6.0",
+    "sentry-sdk[fastapi]>=2.0.0",
 ]
 
 [build-system]

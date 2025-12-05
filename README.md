@@ -44,6 +44,11 @@ backend_settings:
   use_mock_target_items: false                # Enable mock data for development
   unix_gid_field: "unix_gid"                  # Field name in project backend_metadata for Unix GID (default: "unix_gid")
   development_mode: false                     # Enable development mode with fallback mock GID values
+
+# Optional Sentry configuration for error tracking
+sentry_dsn: ""                                # Sentry DSN (Data Source Name) - leave empty to disable
+sentry_environment: "production"              # Environment name: production, staging, development
+sentry_traces_sample_rate: 0.1                # Performance monitoring sample rate (0.0 to 1.0)
 ```
 
 ### Backend Components
@@ -161,6 +166,48 @@ uvicorn waldur_cscs_hpc_storage.waldur_storage_proxy.main:app \
 curl "http://0.0.0.0:8080/api/storage-resources/"
 curl "http://0.0.0.0:8080/api/storage-resources/?storage_system=capstor"
 curl "http://0.0.0.0:8080/api/storage-resources/?storage_system=vast&data_type=users"
+```
+
+### Sentry Error Tracking (Optional)
+
+The storage proxy and sync script support optional Sentry integration for error tracking and performance monitoring.
+
+**Environment Variables:**
+
+```bash
+export SENTRY_DSN="https://your-sentry-dsn@sentry.io/project-id"
+export SENTRY_ENVIRONMENT="production"  # or "staging", "development"
+export SENTRY_TRACES_SAMPLE_RATE="0.1"  # 10% of transactions for performance monitoring
+export SENTRY_RELEASE="v1.0.0"          # Optional version tag
+```
+
+**Configuration File:**
+
+```yaml
+# In your config.yaml
+sentry_dsn: "https://your-sentry-dsn@sentry.io/project-id"
+sentry_environment: "production"
+sentry_traces_sample_rate: 0.1
+```
+
+**Features:**
+
+- **Automatic error capture**: Unhandled exceptions are automatically sent to Sentry
+- **Performance monitoring**: Track API request performance with configurable sampling
+- **User context**: Authenticated user information is attached to error reports
+- **FastAPI integration**: Automatic instrumentation of API endpoints
+- **Logging integration**: ERROR level logs are sent as Sentry events
+- **Optional**: Sentry is only enabled when DSN is configured
+
+**Privacy Note:** When `send_default_pii` is enabled, user information (username, email) is included in Sentry reports. Disable this in production if needed by modifying `sentry_config.py`.
+
+**Testing Sentry:**
+
+```bash
+# Test with a Sentry DSN
+SENTRY_DSN="https://test@sentry.io/123" \
+SENTRY_ENVIRONMENT="development" \
+uvicorn waldur_cscs_hpc_storage.waldur_storage_proxy.main:app
 ```
 
 ## Data Mapping

@@ -7,6 +7,7 @@ order processing to efficiently handle bulk resource synchronization.
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -107,6 +108,22 @@ def main() -> None:
     args = parser.parse_args()
 
     setup_logging(args.verbose)
+
+    # Initialize Sentry if configured
+    from waldur_cscs_hpc_storage.sentry_config import initialize_sentry
+
+    sentry_dsn = os.getenv("SENTRY_DSN")
+    if sentry_dsn:
+        try:
+            initialize_sentry(
+                dsn=sentry_dsn,
+                environment=os.getenv("SENTRY_ENVIRONMENT"),
+                traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+                release="waldur-cscs-hpc-storage-sync",
+            )
+        except Exception as e:
+            logger.error("Failed to initialize Sentry: %s", e)
+            # Continue without Sentry
 
     # Load configuration
     config_path = Path(args.config)

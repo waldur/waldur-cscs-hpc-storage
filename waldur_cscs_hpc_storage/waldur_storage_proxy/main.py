@@ -23,6 +23,7 @@ from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.sync_script import setup_logging
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import StorageProxyConfig
+from waldur_cscs_hpc_storage.sentry_config import initialize_sentry, set_user_context
 
 
 # Check if debug mode is enabled via environment variable
@@ -52,6 +53,18 @@ except (FileNotFoundError, ValueError, yaml.YAMLError):
 
 logger.info("Using configuration file: %s", config_file_path)
 logger.info("Configured storage systems: %s", config.storage_systems)
+
+# Initialize Sentry if configured
+try:
+    initialize_sentry(
+        dsn=config.sentry_dsn,
+        environment=config.sentry_environment,
+        traces_sample_rate=config.sentry_traces_sample_rate,
+    )
+except Exception as e:
+    logger.error("Failed to initialize Sentry: %s", e)
+    # Continue without Sentry - don't fail the application startup
+
 
 # Override verify SSL from environment if set
 waldur_verify_ssl = os.getenv("WALDUR_VERIFY_SSL")
@@ -287,6 +300,13 @@ def storage_resources(
         data_type,
         status,
         debug,
+    )
+
+    # Set Sentry user context for error tracking
+    set_user_context(
+        user_id=getattr(user, "sub", "unknown"),
+        username=user.preferred_username,
+        email=getattr(user, "email", None),
     )
 
     # Validate that storage_system is one of the configured storage systems (if provided)
