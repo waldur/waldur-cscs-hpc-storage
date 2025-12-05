@@ -87,12 +87,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.uuid.hex = str(uuid4())
         mock_resource.state = "OK"  # Set state to map to "active" status
 
-        # Create mock client
-        mock_client = Mock()
-
-        target_data = self.backend._get_target_item_data(
-            mock_resource, "project", mock_client
-        )
+        target_data = self.backend._get_target_item_data(mock_resource, "project")
 
         assert target_data["name"] == "climate-sim"
         assert "itemId" in target_data
@@ -111,9 +106,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.uuid = Mock()
         mock_resource.uuid.hex = str(uuid4())
 
-        # Create mock client
-        mock_client = Mock()
-
         # Test different Waldur states and their expected target statuses
         test_cases = [
             ("Creating", "pending", False),
@@ -126,9 +118,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         for waldur_state, expected_status, expected_active in test_cases:
             mock_resource.state = waldur_state
 
-            target_data = self.backend._get_target_item_data(
-                mock_resource, "project", mock_client
-            )
+            target_data = self.backend._get_target_item_data(mock_resource, "project")
 
             assert target_data["status"] == expected_status, (
                 f"Waldur state '{waldur_state}' should map to status '{expected_status}', got '{target_data['status']}'"
@@ -810,10 +800,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Test with valid but unknown storage_data_type (should log warning but not fail)
         # Mock _get_project_unix_gid
         with patch.object(self.backend, "_get_project_unix_gid", return_value=30000):
-            mock_client = Mock()
-            result = backend._get_target_data(
-                mock_resource, "unknown_type", mock_client
-            )
+            result = backend._get_target_data(mock_resource, "unknown_type")
             assert result["targetType"] == "project"  # Should fallback to default
 
     def test_system_identifiers_use_deterministic_uuids(self):
@@ -1239,161 +1226,57 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         )
 
 
-class TestGidLookup(TestCscsHpcStorageBackendBase):
-    """Test cases for GID lookup logic."""
+class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
+    """Test cases for GID lookup logic using HPC User API."""
 
-    @patch("waldur_cscs_hpc_storage.backend.projects_retrieve")
-    def test_get_project_unix_gid_from_waldur_api(self, mock_projects_retrieve):
-        """Test unixGid lookup from Waldur API backend_metadata."""
-        # Mock the Waldur API response
-        mock_project = Mock()
-        mock_project.backend_metadata = Mock()
-        mock_project.backend_metadata.additional_properties = {"unix_gid": 30001}
-
-        mock_response = Mock()
-        mock_response.parsed = mock_project
-        mock_projects_retrieve.sync_detailed.return_value = mock_response
-
-        mock_client = Mock()
-        project_uuid = str(uuid4())
-
-        result = self.backend._get_project_unix_gid(
-            project_uuid, "physics-project", mock_client
-        )
-
-        assert result == 30001
-        mock_projects_retrieve.sync_detailed.assert_called_once_with(
-            uuid=project_uuid, client=mock_client
-        )
-
-    @patch("waldur_cscs_hpc_storage.backend.projects_retrieve")
-    def test_get_project_unix_gid_fallback_to_mock(self, mock_projects_retrieve):
-        """Test unixGid lookup falls back to mock when Waldur API fails or returns no GID."""
-        # Enable development mode for fallback
-        self.backend.development_mode = True
-
-        # Mock the Waldur API to return project without unix_gid
-        mock_project = Mock()
-        mock_project.backend_metadata = Mock()
-        mock_project.backend_metadata.additional_properties = {}
-
-        mock_response = Mock()
-        mock_response.parsed = mock_project
-        mock_projects_retrieve.sync_detailed.return_value = mock_response
-
-        mock_client = Mock()
-        project_uuid = str(uuid4())
-        project_slug = "physics-project"
-
-        result = self.backend._get_project_unix_gid(
-            project_uuid, project_slug, mock_client
-        )
-
-        # Should fall back to mock value
-        expected_mock_gid = 30000 + hash(project_slug) % 10000
-        assert result == expected_mock_gid
-
-    @patch("waldur_cscs_hpc_storage.backend.projects_retrieve")
-    def test_get_project_unix_gid_exception_fallback(self, mock_projects_retrieve):
-        """Test unixGid lookup falls back to mock when Waldur API raises exception."""
-        # Enable development mode for fallback
-        self.backend.development_mode = True
-
-        # Mock the API to raise an exception
-        mock_projects_retrieve.sync_detailed.side_effect = Exception(
-            "API connection failed"
-        )
-
-        mock_client = Mock()
-        project_uuid = str(uuid4())
-        project_slug = "physics-project"
-
-        result = self.backend._get_project_unix_gid(
-            project_uuid, project_slug, mock_client
-        )
-
-        # Should fall back to mock value
-        expected_mock_gid = 30000 + hash(project_slug) % 10000
-        assert result == expected_mock_gid
-
-    @patch("waldur_cscs_hpc_storage.backend.projects_retrieve")
-    def test_target_item_uses_external_unix_gid(self, mock_projects_retrieve):
-        """Test that target items use unixGid from external service."""
-        # Mock the Waldur API response
-        mock_project = Mock()
-        mock_project.backend_metadata = Mock()
-        mock_project.backend_metadata.additional_properties = {"unix_gid": 30042}
-
-        mock_response = Mock()
-        mock_response.parsed = mock_project
-        mock_projects_retrieve.sync_detailed.return_value = mock_response
-
-        # Create a mock resource
-        mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid"
-        mock_resource.slug = "test-resource"
-        mock_resource.customer_slug = "university"
-        mock_resource.project_slug = "physics-project"
-        mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = "project-uuid"
-        mock_resource.state = "OK"
-
-        # Create mock limits and attributes for project target type
-        mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 50}
-        mock_resource.limits = mock_limits
-
-        mock_attributes = Mock()
-        mock_attributes.additional_properties = {
-            "storage_data_type": "store"
-        }  # maps to project
-        mock_resource.attributes = mock_attributes
-
-        mock_client = Mock()
-
-        result = self.backend._create_storage_resource_json(
-            mock_resource, "test-storage", mock_client
-        )
-
-        # Verify that target item uses external unixGid
-        target_item = result["target"]["targetItem"]
-        assert target_item["unixGid"] == 30042
-        mock_projects_retrieve.sync_detailed.assert_called_once_with(
-            uuid=str(mock_resource.project_uuid), client=mock_client
-        )
-
-    @patch("waldur_cscs_hpc_storage.backend.projects_retrieve")
-    def test_custom_unix_gid_field(self, mock_projects_retrieve):
-        """Test that unixGid is fetched from a custom field when configured."""
-        # Initialize backend with custom unix_gid_field
-        backend_settings = {
-            "storage_file_system": "lustre",
-            "unix_gid_field": "custom_gid_field",
+    def setup_method(self):
+        super().setup_method()
+        # Initialize backend with HPC User API settings
+        hpc_user_settings = {
+            "api_url": "https://api.example.com",
+            "client_id": "client",
+            "client_secret": "secret",
+            "oidc_token_url": "https://auth.example.com",
+            "oidc_scope": "scope",
         }
-        backend_components = {"storage": {"measured_unit": "TB"}}
-        backend = CscsHpcStorageBackend(backend_settings, backend_components)
-
-        # Mock the Waldur API response with custom field
-        mock_project = Mock()
-        mock_project.backend_metadata = Mock()
-        mock_project.backend_metadata.additional_properties = {
-            "custom_gid_field": 40000
-        }
-
-        mock_response = Mock()
-        mock_response.parsed = mock_project
-        mock_projects_retrieve.sync_detailed.return_value = mock_response
-
-        mock_client = Mock()
-        project_uuid = str(uuid4())
-        project_slug = "test-project"
-
-        # Call _get_project_unix_gid
-        result = backend._get_project_unix_gid(project_uuid, project_slug, mock_client)
-
-        # Verify result
-        assert result == 40000
-        mock_projects_retrieve.sync_detailed.assert_called_once_with(
-            uuid=project_uuid, client=mock_client
+        self.backend = CscsHpcStorageBackend(
+            self.backend_settings,
+            self.backend_components,
+            hpc_user_api_settings=hpc_user_settings,
         )
+        # Mock the hpc_user_client
+        self.backend.hpc_user_client = Mock()
+
+    def test_get_project_unix_gid_success(self):
+        """Test successful GID lookup."""
+        self.backend.hpc_user_client.get_project_unix_gid.return_value = 30042
+        gid = self.backend._get_project_unix_gid("test-project")
+        assert gid == 30042
+        self.backend.hpc_user_client.get_project_unix_gid.assert_called_once_with(
+            "test-project"
+        )
+
+    def test_get_project_unix_gid_cache(self):
+        """Test GID caching."""
+        self.backend.hpc_user_client.get_project_unix_gid.return_value = 30042
+
+        # First call
+        gid1 = self.backend._get_project_unix_gid("test-project")
+        assert gid1 == 30042
+
+        # Second call should use cache
+        gid2 = self.backend._get_project_unix_gid("test-project")
+        assert gid2 == 30042
+
+        # Client called only once
+        self.backend.hpc_user_client.get_project_unix_gid.assert_called_once()
+
+    def test_get_project_unix_gid_prod_failure(self):
+        """Test lookup failure in production mode returns None."""
+        self.backend.development_mode = False
+        self.backend.hpc_user_client.get_project_unix_gid.side_effect = Exception(
+            "API Error"
+        )
+
+        gid = self.backend._get_project_unix_gid("test-project")
+        assert gid is None

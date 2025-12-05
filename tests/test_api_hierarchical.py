@@ -1,6 +1,5 @@
 """Integration tests for hierarchical storage API endpoints."""
 
-import json
 import os
 from unittest.mock import Mock, patch
 from uuid import uuid4

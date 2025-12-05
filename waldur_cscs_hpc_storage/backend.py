@@ -1,3 +1,4 @@
+from fastapi.logger import logger
 from datetime import datetime
 from typing import Optional
 from uuid import NAMESPACE_OID, uuid5
@@ -7,12 +8,11 @@ from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
 from waldur_api_client.api.marketplace_resources import marketplace_resources_list
-from waldur_api_client.api.projects import projects_retrieve
 from waldur_api_client.models import ResourceState
 from waldur_api_client.models.resource import Resource as WaldurResource
 from waldur_api_client.types import Unset
 
-from waldur_cscs_hpc_storage import logger
+from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
 from waldur_cscs_hpc_storage.exceptions import BackendError
 
 
@@ -23,12 +23,14 @@ class CscsHpcStorageBackend:
         self,
         backend_settings: dict,
         backend_components: dict[str, dict],
+        hpc_user_api_settings: Optional[dict] = None,
     ) -> None:
         """Initialize CSCS storage backend.
 
         Args:
             backend_settings: Backend-specific configuration settings
             backend_components: Component configuration
+            hpc_user_api_settings: Optional HPC User API configuration
         """
         self.backend_type = "cscs-hpc-storage"
         self.backend_settings = backend_settings
@@ -48,13 +50,58 @@ class CscsHpcStorageBackend:
         self.use_mock_target_items = backend_settings.get(
             "use_mock_target_items", False
         )
-        self.use_mock_target_items = backend_settings.get(
-            "use_mock_target_items", False
-        )
         self.development_mode = backend_settings.get("development_mode", False)
-        self.unix_gid_field = backend_settings.get("unix_gid_field", "unix_gid")
 
-        # Initialize GID cache using project UUID as key (persists until server restart)
+        # HPC User service configuration
+        # Support both new separate section and legacy backend_settings location
+        if hpc_user_api_settings:
+            # Use new separate configuration section
+            self.hpc_user_api_url = hpc_user_api_settings.get("api_url")
+            self.hpc_user_client_id = hpc_user_api_settings.get("client_id")
+            self.hpc_user_client_secret = hpc_user_api_settings.get("client_secret")
+            self.hpc_user_oidc_token_url = hpc_user_api_settings.get("oidc_token_url")
+            self.hpc_user_oidc_scope = hpc_user_api_settings.get("oidc_scope")
+            self.hpc_user_socks_proxy = hpc_user_api_settings.get("socks_proxy")
+            if self.hpc_user_socks_proxy:
+                logger.info(
+                    "SOCKS proxy configured from hpc_user_api settings: %s",
+                    self.hpc_user_socks_proxy,
+                )
+        else:
+            # Fall back to legacy configuration in backend_settings
+            self.hpc_user_api_url = backend_settings.get("hpc_user_api_url")
+            self.hpc_user_client_id = backend_settings.get("hpc_user_client_id")
+            self.hpc_user_client_secret = backend_settings.get("hpc_user_client_secret")
+            self.hpc_user_oidc_token_url = backend_settings.get(
+                "hpc_user_oidc_token_url"
+            )
+            self.hpc_user_oidc_scope = backend_settings.get("hpc_user_oidc_scope")
+            self.hpc_user_socks_proxy = backend_settings.get("hpc_user_socks_proxy")
+
+        # Initialize HPC User client if configured
+        self.hpc_user_client: Optional[CSCSHpcUserClient] = None
+        if (
+            self.hpc_user_api_url
+            and self.hpc_user_client_id
+            and self.hpc_user_client_secret
+        ):
+            self.hpc_user_client = CSCSHpcUserClient(
+                api_url=self.hpc_user_api_url,
+                client_id=self.hpc_user_client_id,
+                client_secret=self.hpc_user_client_secret,
+                oidc_token_url=self.hpc_user_oidc_token_url,
+                oidc_scope=self.hpc_user_oidc_scope,
+                socks_proxy=self.hpc_user_socks_proxy,
+            )
+            logger.info(
+                "HPC User client initialized with URL: %s", self.hpc_user_api_url
+            )
+            if self.hpc_user_socks_proxy:
+                logger.info("Using SOCKS proxy: %s", self.hpc_user_socks_proxy)
+        else:
+            logger.info("HPC User client not configured - using mock unixGid values")
+
+        # Initialize GID cache (persists until server restart)
         self._gid_cache: dict[str, int] = {}
         logger.info("Project GID cache initialized (persists until server restart)")
 
@@ -261,125 +308,91 @@ class CscsHpcStorageBackend:
         hard_limit = int(base_inodes * self.inode_hard_coefficient)
         return soft_limit, hard_limit
 
-    def _fetch_project_unix_gid_from_waldur(
-        self, project_uuid: str, client: AuthenticatedClient
-    ) -> Optional[int]:
-        """Fetch unix_gid from Waldur project's backend_metadata.
+    def _get_project_unix_gid(self, project_slug: str) -> Optional[int]:
+        """Get unixGid for project from HPC User service with caching.
+
+        Cache persists until server restart. No TTL-based expiration.
+
+        In production mode: Returns None if service fails (resource should be skipped)
+        In development mode: Falls back to mock values if service fails
 
         Args:
-            project_uuid: UUID of the project to look up
-            client: Authenticated Waldur API client
+            project_slug: Project slug to look up
 
         Returns:
-            unix_gid value from project metadata, or None if not found
+            unixGid value from service, mock value (dev mode), or None (prod mode on failure)
         """
-        try:
-            response = projects_retrieve.sync_detailed(uuid=project_uuid, client=client)
-
-            if not response.parsed:
-                logger.warning("Project %s not found in Waldur API", project_uuid)
-                return None
-
-            project = response.parsed
-
-            # Check if project has backend_metadata with unix_gid
-            if (
-                hasattr(project, "backend_metadata")
-                and project.backend_metadata
-                and not isinstance(project.backend_metadata, Unset)
-            ):
-                # backend_metadata is a dict-like object
-                unix_gid_value = None
-                if hasattr(project.backend_metadata, "additional_properties"):
-                    unix_gid_value = project.backend_metadata.additional_properties.get(
-                        self.unix_gid_field
-                    )
-                elif isinstance(project.backend_metadata, dict):
-                    unix_gid_value = project.backend_metadata.get(self.unix_gid_field)
-
-                if unix_gid_value is not None:
-                    try:
-                        return int(unix_gid_value)
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            "Invalid unix_gid value in project %s backend_metadata: %s",
-                            project_uuid,
-                            unix_gid_value,
-                        )
-                        return None
-
+        # Check cache first
+        if project_slug in self._gid_cache:
+            cached_gid = self._gid_cache[project_slug]
             logger.debug(
-                "No unix_gid found in project %s backend_metadata", project_uuid
-            )
-            return None
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch project %s from Waldur API: %s", project_uuid, e
-            )
-            return None
-
-    def _get_project_unix_gid(
-        self, project_uuid: str, project_slug: str, client: AuthenticatedClient
-    ) -> Optional[int]:
-        """Get unixGid for project from Waldur API with caching.
-
-        Cache persists until server restart using project UUID as key.
-
-        In production mode: Returns None if not found (resource should be skipped)
-        In development mode: Falls back to mock values if not found
-
-        Args:
-            project_uuid: Project UUID to look up
-            project_slug: Project slug (used for mock value generation)
-            client: Authenticated Waldur API client
-
-        Returns:
-            unixGid value from Waldur API, mock value (dev mode), or None (prod mode on failure)
-        """
-        # Check cache first (use UUID as key for consistency)
-        if project_uuid in self._gid_cache:
-            cached_gid = self._gid_cache[project_uuid]
-            logger.debug(
-                "Found cached unixGid %d for project %s (%s)",
-                cached_gid,
-                project_slug,
-                project_uuid,
+                "Found cached unixGid %d for project %s", cached_gid, project_slug
             )
             return cached_gid
 
-        # Try to fetch from Waldur API project metadata
-        unix_gid = self._fetch_project_unix_gid_from_waldur(project_uuid, client)
+        # Try to fetch from HPC User service
+        if self.hpc_user_client:
+            try:
+                unix_gid = self.hpc_user_client.get_project_unix_gid(project_slug)
+                if unix_gid is not None:
+                    # Cache the successful result
+                    self._gid_cache[project_slug] = unix_gid
+                    logger.debug(
+                        "Found and cached unixGid %d for project %s from HPC User service",
+                        unix_gid,
+                        project_slug,
+                    )
+                    return unix_gid
 
-        if unix_gid is not None:
-            # Cache the successful result
-            self._gid_cache[project_uuid] = unix_gid
-            logger.info(
-                "Fetched and cached unixGid %d for project %s (%s) from Waldur API",
-                unix_gid,
-                project_slug,
-                project_uuid,
-            )
-            return unix_gid
+                # Project not found in service
+                if self.development_mode:
+                    logger.warning(
+                        "Project %s not found in HPC User service, using mock value (dev mode)",
+                        project_slug,
+                    )
+                else:
+                    logger.error(
+                        "Project %s not found in HPC User service, "
+                        "skipping resource (production mode)",
+                        project_slug,
+                    )
+                    return None
 
-        # Not found in Waldur API - handle based on mode
+            except Exception as e:
+                logger.error(
+                    "Failed to fetch unixGid for project %s from HPC User service: %s",
+                    project_slug,
+                    e,
+                )
+                if self.development_mode:
+                    logger.info(
+                        "Falling back to mock unixGid for project %s (dev mode)",
+                        project_slug,
+                    )
+                else:
+                    logger.error(
+                        "HPC User service unavailable for project %s, "
+                        "skipping resource (production mode)",
+                        project_slug,
+                    )
+                    return None
+
+        # No HPC User client configured - use development mode behavior
         if not self.development_mode:
             logger.error(
-                "unix_gid not found in Waldur API for project %s (%s), "
+                "HPC User service not configured for project %s, "
                 "skipping resource (production mode)",
                 project_slug,
-                project_uuid,
             )
             return None
 
-        # Development mode: use mock value and cache it
+        # Development mode or no HPC client: use mock value and cache it
         mock_gid = 30000 + hash(project_slug) % 10000
-        self._gid_cache[project_uuid] = mock_gid
-        logger.warning(
-            "unix_gid not found for project %s (%s), using mock value %d (dev mode)",
-            project_slug,
-            project_uuid,
+        self._gid_cache[project_slug] = mock_gid
+        logger.debug(
+            "Using and caching mock unixGid %d for project %s (dev mode)",
             mock_gid,
+            project_slug,
         )
         return mock_gid
 
@@ -447,7 +460,6 @@ class CscsHpcStorageBackend:
         self,
         waldur_resource: WaldurResource,
         target_type: str,
-        client: Optional[AuthenticatedClient] = None,
     ) -> Optional[dict]:
         """Get target item data from backend_metadata or generate mock data."""
         if not self.use_mock_target_items and waldur_resource.backend_metadata:
@@ -477,25 +489,13 @@ class CscsHpcStorageBackend:
             }
         if target_type == "project":
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
-            project_uuid = (
-                str(waldur_resource.project_uuid)
-                if not isinstance(waldur_resource.project_uuid, Unset)
-                else None
-            )
             project_slug = (
                 waldur_resource.project_slug
                 if not isinstance(waldur_resource.project_slug, Unset)
                 else "unknown"
             )
 
-            if not project_uuid or not client:
-                logger.error(
-                    "Cannot fetch unixGid: project_uuid or client not available for %s",
-                    waldur_resource.slug,
-                )
-                return None
-
-            unix_gid = self._get_project_unix_gid(project_uuid, project_slug, client)
+            unix_gid = self._get_project_unix_gid(project_slug)
             if unix_gid is None:
                 return None  # Skip resource when unixGid lookup fails in production
             return {
@@ -510,26 +510,15 @@ class CscsHpcStorageBackend:
             }
         if target_type == "user":
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
-            project_uuid = (
-                str(waldur_resource.project_uuid)
-                if not isinstance(waldur_resource.project_uuid, Unset)
-                else None
-            )
             project_slug = (
                 waldur_resource.project_slug
                 if not isinstance(waldur_resource.project_slug, Unset)
                 else "default-project"
             )
 
-            if not project_uuid or not client:
-                logger.error(
-                    "Cannot fetch unixGid: project_uuid or client not available for user %s",
-                    waldur_resource.slug,
-                )
-                return None
-
-            # TODO: Just a placeholder, for user a default gid would be needed
-            unix_gid = self._get_project_unix_gid(project_uuid, project_slug, client)
+            # TODO: Just a placeholder, for user a default gid would be needed, which could be
+            # looked up from https://api-user.hpc-user.tds.cscs.ch/api/v1/export/cscs/users/{username}
+            unix_gid = self._get_project_unix_gid(project_slug)
             if unix_gid is None:
                 return None  # Skip resource when unixGid lookup fails in production
             return {
@@ -555,7 +544,6 @@ class CscsHpcStorageBackend:
         self,
         waldur_resource: WaldurResource,
         storage_data_type: str,
-        client: Optional[AuthenticatedClient] = None,
     ) -> Optional[dict]:
         """Get target data based on storage data type mapping."""
         # Validate storage_data_type is a string
@@ -593,7 +581,7 @@ class CscsHpcStorageBackend:
             target_type,
         )
 
-        target_item = self._get_target_item_data(waldur_resource, target_type, client)
+        target_item = self._get_target_item_data(waldur_resource, target_type)
         if target_item is None:
             return None  # Skip resource when target item creation fails (e.g., unixGid lookup fails)
 
@@ -854,9 +842,7 @@ class CscsHpcStorageBackend:
 
         # Get target data - return None if target creation fails
         # (e.g., unixGid lookup fails in production)
-        target_data = self._get_target_data(
-            waldur_resource, storage_data_type.lower(), client
-        )
+        target_data = self._get_target_data(waldur_resource, storage_data_type.lower())
         if target_data is None:
             logger.warning(
                 "Skipping resource %s due to target data creation failure (production mode)",
@@ -1401,7 +1387,9 @@ class CscsHpcStorageBackend:
 
                 # Create project-level resource (the original resource)
                 storage_resource = self._create_storage_resource_json(
-                    resource, storage_system_name, client
+                    waldur_resource=resource,
+                    storage_system=storage_system_name,
+                    client=client,
                 )
                 if storage_resource is not None:
                     # Set parent reference if customer entry exists
@@ -1630,7 +1618,7 @@ class CscsHpcStorageBackend:
             response = marketplace_resources_list.sync_detailed(**filters)
 
             raw_resources = []
-            total_count = int(response.headers.get("x-total-count", "0"))
+            total_api_count = int(response.headers.get("x-total-count", "0"))
 
             if response.parsed:
                 for resource in response.parsed:
@@ -1655,7 +1643,7 @@ class CscsHpcStorageBackend:
                 if raw_resources
                 else 0,
                 "total": len(raw_resources),
-                "api_total": total_count,
+                "api_total": total_api_count,
             }
 
             return {
@@ -1805,6 +1793,17 @@ class CscsHpcStorageBackend:
         storage_system_filter: Optional[str] = None,
     ) -> tuple[list[dict], dict]:
         """Fetch and process resources filtered by multiple offering slugs."""
+        # HPC User client diagnostics
+        if self.hpc_user_client:
+            logger.info("HPC User API configured: %s", self.hpc_user_api_url)
+            hpc_user_available = self.hpc_user_client.ping()
+            logger.info("HPC User API accessible: %s", hpc_user_available)
+            if not hpc_user_available:
+                logger.warning(
+                    "HPC User API not accessible, falling back to mock unixGid values"
+                )
+        else:
+            logger.info("HPC User API: Not configured (using mock unixGid values)")
         logger.debug(
             "_get_resources_by_offering_slugs called with data_type=%s", data_type
         )
@@ -1953,7 +1952,9 @@ class CscsHpcStorageBackend:
 
                         # Create project-level resource (the original resource)
                         storage_resource = self._create_storage_resource_json(
-                            resource, resource.offering_slug, client
+                            waldur_resource=resource,
+                            storage_system=resource.offering_slug,
+                            client=client,
                         )
                         if storage_resource is not None:
                             # Set parent reference if customer entry exists

@@ -1,9 +1,8 @@
 """Tests for hierarchical storage resource generation."""
 
-import json
 from typing import Optional
-from unittest.mock import Mock, MagicMock, patch
-from uuid import UUID, uuid4
+from unittest.mock import Mock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -563,7 +562,7 @@ class TestEdgeCases:
             storage_resources = []
             tenant_entries = {}
 
-            tenant_key = f"cscs-capstor-store"
+            tenant_key = "cscs-capstor-store"
             tenant_resource = backend._create_tenant_storage_resource_json(
                 tenant_id="cscs",
                 tenant_name="CSCS",

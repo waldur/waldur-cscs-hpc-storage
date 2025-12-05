@@ -16,7 +16,7 @@ test_config_path = Path(__file__).parent / "test_config.yaml"
 os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
 os.environ["DISABLE_AUTH"] = "true"
 
-from waldur_cscs_hpc_storage.waldur_storage_proxy.main import app
+from waldur_cscs_hpc_storage.waldur_storage_proxy.main import app  # noqa: E402
 
 
 class TestStorageProxyAPI:
