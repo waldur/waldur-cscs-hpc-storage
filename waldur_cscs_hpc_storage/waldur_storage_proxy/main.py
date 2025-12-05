@@ -128,7 +128,7 @@ class User(BaseModel):
     preferred_username: str
 
 
-def user_mapper(userinfo: dict) -> User:
+async def user_mapper(userinfo: dict) -> User:
     """Maps user info to a custom user structure."""
     logger.info("Received userinfo in user_mapper: %s", userinfo)
     logger.info(
