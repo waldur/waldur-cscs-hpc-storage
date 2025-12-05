@@ -2,9 +2,9 @@
 # This configuration is used by the waldur_storage_proxy API service
 
 # Waldur API Connection Settings
-waldur_api_url: "https://portal.tds.cscs.ch/api/"  # URL of Waldur API
-waldur_api_token: "YOUR_API_TOKEN_HERE"  # Token to access the Waldur API
-waldur_verify_ssl: true  # Whether to verify SSL certificates for Waldur API
+waldur_api_url: "http://127.0.0.1:8000/api/"  # URL of Waldur API
+waldur_api_token: "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"  # Token to access the Waldur API
+waldur_verify_ssl: false  # Whether to verify SSL certificates for Waldur API
 
 # Storage Backend Settings
 backend_settings:

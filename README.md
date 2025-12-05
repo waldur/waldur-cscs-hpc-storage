@@ -199,7 +199,8 @@ sentry_traces_sample_rate: 0.1
 - **Logging integration**: ERROR level logs are sent as Sentry events
 - **Optional**: Sentry is only enabled when DSN is configured
 
-**Privacy Note:** When `send_default_pii` is enabled, user information (username, email) is included in Sentry reports. Disable this in production if needed by modifying `sentry_config.py`.
+**Privacy Note:** When `send_default_pii` is enabled, user information (username, email) is included in Sentry reports.
+Disable this in production if needed by modifying `sentry_config.py`.
 
 **Testing Sentry:**
 
