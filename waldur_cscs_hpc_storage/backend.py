@@ -50,6 +50,13 @@ from waldur_cscs_hpc_storage.target_ids import (
     generate_tenant_target_id,
     generate_user_target_id,
 )
+from waldur_cscs_hpc_storage.schemas import (
+    ParsedWaldurResource,
+    ResourceAttributes,
+    ResourceBackendMetadata,
+    ResourceLimits,
+    ResourceOptions,
+)
 
 from waldur_cscs_hpc_storage.serializers import JsonSerializer
 
@@ -191,6 +198,45 @@ class CscsHpcStorageBackend:
         )
 
         return filtered_resources
+
+    def _parse_resource_configuration(
+        self, waldur_resource: WaldurResource
+    ) -> ParsedWaldurResource:
+        """Helper to convert raw API objects into validated Pydantic models."""
+
+        # Extract raw dictionaries, handling Unset/None types from the API client
+        raw_limits: dict[str, Any] = getattr(
+            waldur_resource.limits, "additional_properties", {}
+        )
+        if not isinstance(raw_limits, dict):
+            raw_limits = {}
+
+        raw_attributes: dict[str, Any] = getattr(
+            waldur_resource.attributes, "additional_properties", {}
+        )
+        if not isinstance(raw_attributes, dict):
+            raw_attributes = {}
+
+        raw_options: dict[str, Any] = waldur_resource.options or {}
+        if not isinstance(raw_options, dict):
+            raw_options = {}
+
+        # safely handle backend_metadata
+        raw_metadata: dict[str, Any] = {}
+        if waldur_resource.backend_metadata:
+            metadata_props = getattr(
+                waldur_resource.backend_metadata, "additional_properties", {}
+            )
+            if isinstance(metadata_props, dict):
+                raw_metadata = metadata_props
+
+        # Validate and return
+        return ParsedWaldurResource(
+            limits=ResourceLimits(**raw_limits),
+            attributes=ResourceAttributes(**raw_attributes),
+            options=ResourceOptions(**raw_options),
+            backend_metadata=ResourceBackendMetadata(**raw_metadata),
+        )
 
     def _collect_resource_limits(
         self, waldur_resource: WaldurResource
@@ -408,121 +454,21 @@ class CscsHpcStorageBackend:
         Returns:
             Tuple of (storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard)
         """
-        # Extract storage size from resource limits (assuming in terabytes)
-        storage_quota_tb = 0.0
-        if waldur_resource.limits:
-            logger.debug(
-                "Processing limits: %s", waldur_resource.limits.additional_properties
-            )
-            # Only accept 'storage' limit - be strict about supported limits
-            storage_limit = waldur_resource.limits.additional_properties.get("storage")
-            if storage_limit is not None:
-                try:
-                    storage_quota_tb = float(storage_limit)  # Assume already in TB
-                    logger.debug("Found storage limit: %s TB", storage_quota_tb)
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "Invalid storage limit value for resource %s: %s (type: %s). Using 0 TB.",
-                        waldur_resource.uuid,
-                        storage_limit,
-                        type(storage_limit).__name__,
-                    )
-            else:
-                logger.debug("No 'storage' limit found in limits")
-        else:
-            logger.debug("No limits present")
+        # 1. Parse and Validate
+        config = self._parse_resource_configuration(waldur_resource)
 
-        # Calculate inode quotas
-        inode_soft, inode_hard = self._calculate_inode_quotas(storage_quota_tb)
+        # 2. Base Calculations
+        # storage is Optional[float] in schema, default 0.0
+        storage_limit = config.limits.storage or 0.0
+        base_soft_inode, base_hard_inode = self._calculate_inode_quotas(storage_limit)
 
-        # Initialize separate soft and hard storage quota variables
-        storage_quota_soft_tb = storage_quota_tb
-        storage_quota_hard_tb = storage_quota_tb
+        # 3. Apply Overrides (declarative logic in the model)
+        soft_tb, hard_tb = config.get_effective_storage_quotas()
+        soft_inode, hard_inode = config.get_effective_inode_quotas(
+            base_soft_inode, base_hard_inode
+        )
 
-        # Check for override values in the options field
-        if waldur_resource.options:
-            options_dict = waldur_resource.options
-            logger.debug("Processing options for overrides: %s", options_dict)
-
-            # Override storage quotas if provided in options
-            options_soft_quota = options_dict.get("soft_quota_space")
-            options_hard_quota = options_dict.get("hard_quota_space")
-
-            if options_soft_quota is not None:
-                try:
-                    storage_quota_soft_tb = float(options_soft_quota)
-                    logger.debug(
-                        "Override storage soft quota from options: %s TB",
-                        storage_quota_soft_tb,
-                    )
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "Invalid soft_quota_space type in options for resource %s: "
-                        "expected numeric, got %s. Ignoring override.",
-                        waldur_resource.uuid,
-                        type(options_soft_quota).__name__,
-                    )
-
-            if options_hard_quota is not None:
-                try:
-                    storage_quota_hard_tb = float(options_hard_quota)
-                    logger.debug(
-                        "Override storage hard quota from options: %s TB",
-                        storage_quota_hard_tb,
-                    )
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "Invalid hard_quota_space type in options for resource %s: "
-                        "expected numeric, got %s. Ignoring override.",
-                        waldur_resource.uuid,
-                        type(options_hard_quota).__name__,
-                    )
-
-            # Override inode quotas if provided in options
-            options_soft_inodes = options_dict.get("soft_quota_inodes")
-            options_hard_inodes = options_dict.get("hard_quota_inodes")
-
-            if options_soft_inodes is not None or options_hard_inodes is not None:
-                logger.debug(
-                    "Found inode quota overrides in options - soft: %s, hard: %s",
-                    options_soft_inodes,
-                    options_hard_inodes,
-                )
-
-                # Override calculated inode quotas
-                if options_soft_inodes is not None:
-                    try:
-                        inode_soft = int(float(options_soft_inodes))
-                        logger.debug(
-                            "Override inode soft quota from options: %d", inode_soft
-                        )
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            "Invalid soft_quota_inodes type in options for resource %s: "
-                            "expected numeric, got %s. Ignoring override.",
-                            waldur_resource.uuid,
-                            type(options_soft_inodes).__name__,
-                        )
-
-                if options_hard_inodes is not None:
-                    try:
-                        inode_hard = int(float(options_hard_inodes))
-                        logger.debug(
-                            "Override inode hard quota from options: %d", inode_hard
-                        )
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            "Invalid hard_quota_inodes type in options for resource %s: "
-                            "expected numeric, got %s. Ignoring override.",
-                            waldur_resource.uuid,
-                            type(options_hard_inodes).__name__,
-                        )
-        else:
-            logger.debug(
-                "No options present or no additional_properties, using calculated values"
-            )
-
-        return storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
+        return soft_tb, hard_tb, soft_inode, hard_inode
 
     def _extract_permissions(self, waldur_resource: WaldurResource) -> str:
         """Extract permissions from waldur resource attributes and options.
@@ -536,46 +482,8 @@ class CscsHpcStorageBackend:
         Returns:
             Permission string (e.g., "775")
         """
-        permissions = "775"  # default
-
-        # Get permissions from attributes
-        if waldur_resource.attributes:
-            perm_value = waldur_resource.attributes.additional_properties.get(
-                "permissions", permissions
-            )
-            logger.debug(
-                "Raw permissions value: %s (type: %s)", perm_value, type(perm_value)
-            )
-
-            # Validate permissions is a string
-            if perm_value is not None and not isinstance(perm_value, str):
-                error_msg = (
-                    f"Invalid permissions type for resource {waldur_resource.uuid}: "
-                    f"expected string or None, got {type(perm_value).__name__}. "
-                    f"Value: {perm_value!r}"
-                )
-                logger.error(error_msg)
-                raise TypeError(error_msg)
-
-            permissions = perm_value if perm_value else permissions
-            logger.debug("Final permissions from attributes: %s", permissions)
-
-        # Override permissions if provided in options
-        if waldur_resource.options:
-            options_permissions = waldur_resource.options.get("permissions")
-            if options_permissions is not None:
-                if not isinstance(options_permissions, str):
-                    logger.warning(
-                        "Invalid permissions type in options for resource %s: "
-                        "expected string, got %s. Ignoring override.",
-                        waldur_resource.uuid,
-                        type(options_permissions).__name__,
-                    )
-                else:
-                    permissions = options_permissions
-                    logger.debug("Override permissions from options: %s", permissions)
-
-        return permissions
+        config = self._parse_resource_configuration(waldur_resource)
+        return config.effective_permissions
 
     def _render_quotas(
         self,
@@ -631,14 +539,8 @@ class CscsHpcStorageBackend:
         self, waldur_resource: WaldurResource
     ) -> StorageDataType:
         """Get data type from resource attributes."""
-        try:
-            return StorageDataType(
-                waldur_resource.attributes.additional_properties.get(
-                    "storage_data_type"
-                )
-            )
-        except Exception:
-            return StorageDataType.STORE
+        config = self._parse_resource_configuration(waldur_resource)
+        return config.attributes.storage_data_type
 
     def _create_storage_resource_json(
         self,

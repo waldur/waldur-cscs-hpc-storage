@@ -103,6 +103,7 @@ def create_mock_resource(
 
     # Mock options
     resource.options = {}
+    resource.backend_metadata = None
 
     return resource
 

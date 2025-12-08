@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
+from pydantic import ValidationError
 from waldur_api_client.types import Unset
 from waldur_api_client.models.order_state import OrderState
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
@@ -509,13 +510,11 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {"permissions": ["775", "770"]}
         mock_resource.attributes = mock_attributes
 
-        with pytest.raises(TypeError) as exc_info:
+        with pytest.raises(ValidationError) as exc_info:
             backend._create_storage_resource_json(mock_resource, "test-storage")
 
         error_message = str(exc_info.value)
-        assert "Invalid permissions type" in error_message
-        assert "expected string or None, got list" in error_message
-        assert str(mock_resource.uuid) in error_message
+        assert "Input should be a valid string" in error_message
 
         # Test with dict storage_data_type (should raise TypeError)
         mock_attributes.additional_properties = {"storage_data_type": {"type": "store"}}
