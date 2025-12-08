@@ -41,6 +41,16 @@ from waldur_cscs_hpc_storage.models import (
 
 logger = logging.getLogger(__name__)
 
+# Mapping from Waldur resource state to target status
+TARGET_STATUS_MAPPING: dict[ResourceState, TargetStatus] = {
+    ResourceState.CREATING: TargetStatus.PENDING,
+    ResourceState.OK: TargetStatus.ACTIVE,
+    ResourceState.ERRED: TargetStatus.ERROR,
+    ResourceState.TERMINATING: TargetStatus.REMOVING,
+    ResourceState.TERMINATED: TargetStatus.REMOVED,
+    ResourceState.UPDATING: TargetStatus.PENDING,
+}
+
 
 class CscsHpcStorageBackend:
     """CSCS HPC Storage backend for JSON file generation."""
@@ -374,7 +384,7 @@ class CscsHpcStorageBackend:
             Dictionary mapping customer slugs to customer information
         """
         try:
-            response = marketplace_provider_offerings_customers_list.sync_detailed(
+            response = marketplace_provider_offerings_customers_list.sync_all(
                 uuid=offering_uuid, client=self._client
             )
 
@@ -406,27 +416,16 @@ class CscsHpcStorageBackend:
         self, waldur_resource: WaldurResource
     ) -> TargetStatus:
         """Map Waldur resource state to target item status (pending, active, removing)."""
-        # Map Waldur resource state to target item status
-        target_status_mapping = {
-            ResourceState.CREATING: TargetStatus.PENDING,
-            ResourceState.OK: TargetStatus.ACTIVE,
-            ResourceState.ERRED: TargetStatus.ERROR,
-            ResourceState.TERMINATING: TargetStatus.REMOVING,
-            ResourceState.TERMINATED: TargetStatus.REMOVED,
-            ResourceState.UPDATING: TargetStatus.PENDING,  # Treat updating as pending for target items
-        }
-
         # Get status from waldur resource state, default to "pending"
         waldur_state = getattr(waldur_resource, "state", None)
         if waldur_state and not isinstance(waldur_state, Unset):
-            # Check if state is in mapping
-            return target_status_mapping.get(waldur_state, TargetStatus.PENDING)
+            return TARGET_STATUS_MAPPING.get(waldur_state, TargetStatus.PENDING)
         return TargetStatus.PENDING
 
     def _get_target_item_data(  # noqa: PLR0911
         self,
         waldur_resource: WaldurResource,
-        target_type: str,
+        target_type: TargetType,
     ) -> Optional[TargetItem]:
         """Get target item data from backend_metadata or generate mock data."""
         if not self.use_mock_target_items and waldur_resource.backend_metadata:
@@ -435,14 +434,7 @@ class CscsHpcStorageBackend:
                 f"{target_type}_item"
             )
             if target_data:
-                # We need to map dict back to appropriate dataclass if possible,
-                # but for generalized support we might need more logic or just return the dict
-                # if we allow TargetItem to be flexible.
-                # However, our models.py defines strict classes.
-                # Let's assume for now we construct the appropriate class based on target_type.
-
-                # IMPORTANT: This assumes backend_metadata matches our model structure exactly.
-                pass  # Fallthrough to generation logic if this simple extraction is insufficient or implement deserialization
+                return TargetItem(**target_data)
 
         # Generate mock data for development/testing
         if target_type == TargetType.TENANT:
@@ -639,7 +631,7 @@ class CscsHpcStorageBackend:
 
         # Get permissions and data type from resource attributes first (needed for mount point)
         permissions = "775"  # default
-        storage_data_type: str = StorageDataType.STORE  # default
+        storage_data_type = StorageDataType.STORE.value  # default
 
         if waldur_resource.attributes:
             logger.debug(
@@ -890,8 +882,7 @@ class CscsHpcStorageBackend:
         )
 
         # Determine allowed transitions based on current order and resource states
-        # The original code passed storage_json.get("state") which was None, so we pass None here to preserve behavior
-        allowed_transitions = self._get_allowed_transitions(waldur_resource, None)
+        allowed_transitions = self._get_allowed_transitions(waldur_resource)
 
         # Add provider action URLs if order is available from order_in_progress
         if (
@@ -928,14 +919,11 @@ class CscsHpcStorageBackend:
 
         return storage_resource
 
-    def _get_allowed_transitions(
-        self, waldur_resource: WaldurResource, resource_state: Optional[ResourceState]
-    ) -> list[str]:
+    def _get_allowed_transitions(self, waldur_resource: WaldurResource) -> list[str]:
         """Determine allowed transitions based on current order and resource states.
 
         Args:
             waldur_resource: Waldur resource object
-            resource_state: Current resource state
 
         Returns:
             List of allowed action names
@@ -2245,15 +2233,7 @@ class CscsHpcStorageBackend:
 
         # Check status filter
         if status:
-            # Map resource state to status
-            state_to_status_map = {
-                ResourceState.CREATING: TargetStatus.PENDING,
-                ResourceState.OK: TargetStatus.ACTIVE,
-                ResourceState.ERRED: TargetStatus.ERROR,
-                ResourceState.TERMINATING: TargetStatus.REMOVING,
-                ResourceState.TERMINATED: TargetStatus.REMOVED,
-            }
-            resource_status = state_to_status_map.get(
+            resource_status = TARGET_STATUS_MAPPING.get(
                 resource.state, TargetStatus.UNKNOWN
             )
             if resource_status != status:
