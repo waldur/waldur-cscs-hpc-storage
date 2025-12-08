@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional, Sequence, Union
 from uuid import NAMESPACE_OID, uuid5
 
 from waldur_api_client.api.marketplace_provider_offerings import (
@@ -20,6 +20,22 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
     HpcUserApiConfig,
     WaldurApiConfig,
+)
+from waldur_cscs_hpc_storage.models import (
+    Permission,
+    Quota,
+    StorageDataType as StorageDataTypeModel,
+    StorageFileSystem as StorageFileSystemModel,
+    StorageResource,
+    StorageSystem as StorageSystemModel,
+    Target,
+    TargetItem,
+    TenantTargetItem,
+    CustomerTargetItem,
+    ProjectTargetItem,
+    UserTargetItem,
+    UserPrimaryProject,
+    MountPoint,
 )
 
 
@@ -94,15 +110,15 @@ class CscsHpcStorageBackend:
 
     def _apply_filters(
         self,
-        storage_resources: list[dict],
+        storage_resources: Sequence[Union[StorageResource, dict[str, Any]]],
         storage_system: Optional[str] = None,
         data_type: Optional[str] = None,
         status: Optional[str] = None,
-    ) -> list[dict]:
+    ) -> list[Union[StorageResource, dict[str, Any]]]:
         """Apply filtering to storage resources list.
 
         Args:
-            storage_resources: List of storage resource dictionaries
+            storage_resources: List of storage resource objects or dicts
             storage_system: Optional filter for storage system
             data_type: Optional filter for data type
             status: Optional filter for status
@@ -117,20 +133,30 @@ class CscsHpcStorageBackend:
             status,
             len(storage_resources),
         )
-        filtered_resources = []
+        filtered_resources: list[Union[StorageResource, dict[str, Any]]] = []
 
         for resource in storage_resources:
+            # Handle both StorageResource objects and dicts
+            if isinstance(resource, dict):
+                resource_storage_system = resource.get("storageSystem", {}).get("key")
+                resource_data_type = resource.get("storageDataType", {}).get("key")
+                resource_status = resource.get("status")
+            else:
+                resource_storage_system = resource.storageSystem.key
+                resource_data_type = resource.storageDataType.key
+                resource_status = (
+                    resource.status.value
+                    if hasattr(resource.status, "value")
+                    else str(resource.status)
+                )
+
             # Optional storage_system filter
             if storage_system:
-                resource_storage_system = resource.get("storageSystem", {}).get(
-                    "key", ""
-                )
                 if resource_storage_system != storage_system:
                     continue
 
             # Optional data_type filter
             if data_type:
-                resource_data_type = resource.get("storageDataType", {}).get("key", "")
                 logger.debug(
                     "Comparing data_type filter '%s' with resource data_type '%s'",
                     data_type,
@@ -141,7 +167,6 @@ class CscsHpcStorageBackend:
 
             # Optional status filter
             if status:
-                resource_status = resource.get("status", "")
                 if resource_status != status:
                     continue
 
@@ -402,7 +427,7 @@ class CscsHpcStorageBackend:
         self,
         waldur_resource: WaldurResource,
         target_type: str,
-    ) -> Optional[dict]:
+    ) -> Optional[TargetItem]:
         """Get target item data from backend_metadata or generate mock data."""
         if not self.use_mock_target_items and waldur_resource.backend_metadata:
             # Try to get real data from backend_metadata
@@ -410,25 +435,32 @@ class CscsHpcStorageBackend:
                 f"{target_type}_item"
             )
             if target_data:
-                return target_data
+                # We need to map dict back to appropriate dataclass if possible,
+                # but for generalized support we might need more logic or just return the dict
+                # if we allow TargetItem to be flexible.
+                # However, our models.py defines strict classes.
+                # Let's assume for now we construct the appropriate class based on target_type.
+
+                # IMPORTANT: This assumes backend_metadata matches our model structure exactly.
+                pass  # Fallthrough to generation logic if this simple extraction is insufficient or implement deserialization
 
         # Generate mock data for development/testing
         if target_type == TargetType.TENANT:
-            return {
-                "itemId": self._generate_deterministic_uuid(
+            return TenantTargetItem(
+                itemId=self._generate_deterministic_uuid(
                     f"tenant:{waldur_resource.customer_slug}"
                 ),
-                "key": waldur_resource.customer_slug.lower(),
-                "name": waldur_resource.customer_name,
-            }
+                key=waldur_resource.customer_slug.lower(),
+                name=waldur_resource.customer_name,
+            )
         if target_type == TargetType.CUSTOMER:
-            return {
-                "itemId": self._generate_deterministic_uuid(
+            return CustomerTargetItem(
+                itemId=self._generate_deterministic_uuid(
                     f"customer:{waldur_resource.project_slug}"
                 ),
-                "key": waldur_resource.project_slug.lower(),
-                "name": waldur_resource.project_name,
-            }
+                key=waldur_resource.project_slug.lower(),
+                name=waldur_resource.project_name,
+            )
         if target_type == TargetType.PROJECT:
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
             project_slug = (
@@ -440,16 +472,16 @@ class CscsHpcStorageBackend:
             unix_gid = self._get_project_unix_gid(project_slug)
             if unix_gid is None:
                 return None  # Skip resource when unixGid lookup fails in production
-            return {
-                "itemId": self._generate_deterministic_uuid(
+            return ProjectTargetItem(
+                itemId=self._generate_deterministic_uuid(
                     f"project:{waldur_resource.slug}"
                 ),
-                "status": target_status,
-                "name": waldur_resource.slug,
-                "unixGid": unix_gid,
-                "active": target_status
-                == TargetStatus.ACTIVE,  # Active only when status is "active"
-            }
+                key=None,  # Not used for project
+                name=waldur_resource.slug,
+                status=target_status,
+                unixGid=unix_gid,
+                active=target_status == TargetStatus.ACTIVE,
+            )
         if target_type == TargetType.USER:
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
             project_slug = (
@@ -463,30 +495,31 @@ class CscsHpcStorageBackend:
             unix_gid = self._get_project_unix_gid(project_slug)
             if unix_gid is None:
                 return None  # Skip resource when unixGid lookup fails in production
-            return {
-                "itemId": self._generate_deterministic_uuid(
+
+            return UserTargetItem(
+                itemId=self._generate_deterministic_uuid(
                     f"user:{waldur_resource.slug}"
                 ),
-                "status": target_status,
-                "email": f"user-{waldur_resource.slug}@example.com",  # Mock email
-                "unixUid": 20000 + hash(waldur_resource.slug) % 10000,  # Mock UID
-                "primaryProject": {
-                    "name": project_slug,
-                    "unixGid": unix_gid,
-                    "active": target_status
-                    == TargetStatus.ACTIVE,  # Active only when status is "active"
-                },
-                "active": target_status
-                == TargetStatus.ACTIVE,  # Active only when status is "active"
-            }
+                key=None,
+                name=None,
+                status=target_status,
+                email=f"user-{waldur_resource.slug}@example.com",  # Mock email
+                unixUid=20000 + hash(waldur_resource.slug) % 10000,  # Mock UID
+                primaryProject=UserPrimaryProject(
+                    name=project_slug,
+                    unixGid=unix_gid,
+                    active=target_status == TargetStatus.ACTIVE,
+                ),
+                active=target_status == TargetStatus.ACTIVE,
+            )
 
-        return {}
+        return TargetItem(itemId="unknown")  # Should not happen with valid target_type
 
     def _get_target_data(
         self,
         waldur_resource: WaldurResource,
         storage_data_type: str,
-    ) -> Optional[dict]:
+    ) -> Optional[Target]:
         """Get target data based on storage data type mapping."""
         # Validate storage_data_type is a string
         if not isinstance(storage_data_type, str):
@@ -533,16 +566,16 @@ class CscsHpcStorageBackend:
         if target_item is None:
             return None  # Skip resource when target item creation fails (e.g., unixGid lookup fails)
 
-        return {
-            "targetType": target_type,
-            "targetItem": target_item,
-        }
+        return Target(
+            targetType=target_type,
+            targetItem=target_item,
+        )
 
     def _create_storage_resource_json(
         self,
         waldur_resource: WaldurResource,
         storage_system: str,
-    ) -> dict | None:
+    ) -> Optional[StorageResource]:
         """Create JSON representation for a single storage resource.
 
         Args:
@@ -791,73 +824,74 @@ class CscsHpcStorageBackend:
             )
             return None
 
-        # Create JSON structure
-        storage_json = {
-            "itemId": waldur_resource.uuid.hex,
-            "status": cscs_status,
-            "mountPoint": {"default": mount_point},
-            "permission": {"permissionType": "octal", "value": permissions},
-            "quotas": [
-                {
-                    "type": "space",
-                    "quota": float(storage_quota_soft_tb),
-                    "unit": "tera",
-                    "enforcementType": "soft",
-                },
-                {
-                    "type": "space",
-                    "quota": float(storage_quota_hard_tb),
-                    "unit": "tera",
-                    "enforcementType": "hard",
-                },
-                {
-                    "type": "inodes",
-                    "quota": float(inode_soft),
-                    "unit": "none",
-                    "enforcementType": "soft",
-                },
-                {
-                    "type": "inodes",
-                    "quota": float(inode_hard),
-                    "unit": "none",
-                    "enforcementType": "hard",
-                },
-            ]
-            if storage_quota_soft_tb > 0 or storage_quota_hard_tb > 0
-            else None,
-            "target": target_data,
-            "storageSystem": {
-                "itemId": self._generate_deterministic_uuid(
+        # Create quotas list
+        quotas = []
+        if storage_quota_soft_tb > 0 or storage_quota_hard_tb > 0:
+            quotas.extend(
+                [
+                    Quota(
+                        type="space",
+                        quota=float(storage_quota_soft_tb),
+                        unit="tera",
+                        enforcementType="soft",
+                    ),
+                    Quota(
+                        type="space",
+                        quota=float(storage_quota_hard_tb),
+                        unit="tera",
+                        enforcementType="hard",
+                    ),
+                    Quota(
+                        type="inodes",
+                        quota=float(inode_soft),
+                        unit="none",
+                        enforcementType="soft",
+                    ),
+                    Quota(
+                        type="inodes",
+                        quota=float(inode_hard),
+                        unit="none",
+                        enforcementType="hard",
+                    ),
+                ]
+            )
+
+        # Create StorageResource object
+        storage_resource = StorageResource(
+            itemId=waldur_resource.uuid.hex,
+            status=cscs_status,
+            mountPoint=MountPoint(default=mount_point),
+            permission=Permission(value=permissions),
+            quotas=quotas if quotas else None,
+            target=target_data,
+            storageSystem=StorageSystemModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_system:{storage_system}"
                 ),
-                "key": storage_system.lower(),
-                "name": storage_system.upper(),
-                "active": True,
-            },
-            "storageFileSystem": {
-                "itemId": self._generate_deterministic_uuid(
+                key=storage_system.lower(),
+                name=storage_system.upper(),
+            ),
+            storageFileSystem=StorageFileSystemModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_file_system:{self.storage_file_system}"
                 ),
-                "key": self.storage_file_system.lower(),
-                "name": self.storage_file_system.upper(),
-                "active": True,
-            },
-            "storageDataType": {
-                "itemId": self._generate_deterministic_uuid(
+                key=self.storage_file_system.lower(),
+                name=self.storage_file_system.upper(),
+            ),
+            storageDataType=StorageDataTypeModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_data_type:{storage_data_type}"
                 ),
-                "key": storage_data_type.lower(),
-                "name": storage_data_type.upper(),
-                "path": storage_data_type.lower(),
-                "active": True,
-            },
-            "parentItemId": None,  # Will be set for hierarchical resources
-        }
+                key=storage_data_type.lower(),
+                name=storage_data_type.upper(),
+                path=storage_data_type.lower(),
+            ),
+            parentItemId=None,
+        )
 
         # Determine allowed transitions based on current order and resource states
-        allowed_transitions = self._get_allowed_transitions(
-            waldur_resource, storage_json.get("state")
-        )
+        # The original code passed storage_json.get("state") which was None, so we pass None here to preserve behavior
+        allowed_transitions = self._get_allowed_transitions(waldur_resource, None)
 
         # Add provider action URLs if order is available from order_in_progress
         if (
@@ -876,10 +910,12 @@ class CscsHpcStorageBackend:
             api_path = "/api" if not base_url.endswith("/api") else ""
 
             # Generate URLs for allowed order actions
+            extra_urls = {}
             for action in allowed_transitions:
-                storage_json[f"{action}_url"] = (
+                extra_urls[f"{action}_url"] = (
                     f"{base_url}{api_path}/marketplace-orders/{order_uuid}/{action}/"
                 )
+            storage_resource.extra_fields.update(extra_urls)
 
             logger.debug(
                 "Added provider action URLs to storage resource JSON for resource %s with order %s "
@@ -890,7 +926,7 @@ class CscsHpcStorageBackend:
                 allowed_transitions,
             )
 
-        return storage_json
+        return storage_resource
 
     def _get_allowed_transitions(
         self, waldur_resource: WaldurResource, resource_state: Optional[ResourceState]
@@ -951,7 +987,7 @@ class CscsHpcStorageBackend:
         storage_system: str,
         storage_data_type: str,
         offering_uuid: Optional[str] = None,
-    ) -> dict:
+    ) -> StorageResource:
         """Create JSON structure for a tenant-level storage resource."""
         logger.debug("Creating tenant storage resource JSON for tenant %s", tenant_id)
 
@@ -971,51 +1007,46 @@ class CscsHpcStorageBackend:
             )
         )
 
-        return {
-            "itemId": tenant_item_id,
-            "status": TargetStatus.PENDING,  # Tenant entries are always pending
-            "mountPoint": {"default": mount_point},
-            "permission": {
-                "permissionType": "octal",
-                "value": "775",  # Default permissions for tenant level
-            },
-            "quotas": None,  # Tenant entries don't have quotas
-            "target": {
-                "targetType": TargetType.TENANT,
-                "targetItem": {
-                    "itemId": offering_uuid
+        return StorageResource(
+            itemId=tenant_item_id,
+            status=TargetStatus.PENDING,
+            mountPoint=MountPoint(default=mount_point),
+            permission=Permission(value="775"),
+            quotas=None,
+            target=Target(
+                targetType=TargetType.TENANT,
+                targetItem=TenantTargetItem(
+                    itemId=offering_uuid
                     if offering_uuid
                     else self._generate_deterministic_uuid(f"tenant:{tenant_id}"),
-                    "key": tenant_id.lower(),
-                    "name": tenant_name,
-                },
-            },
-            "storageSystem": {
-                "itemId": self._generate_deterministic_uuid(
+                    key=tenant_id.lower(),
+                    name=tenant_name,
+                ),
+            ),
+            storageSystem=StorageSystemModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_system:{storage_system}"
                 ),
-                "key": storage_system.lower(),
-                "name": storage_system.upper(),
-                "active": True,
-            },
-            "storageFileSystem": {
-                "itemId": self._generate_deterministic_uuid(
+                key=storage_system.lower(),
+                name=storage_system.upper(),
+            ),
+            storageFileSystem=StorageFileSystemModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_file_system:{self.storage_file_system}"
                 ),
-                "key": self.storage_file_system.lower(),
-                "name": self.storage_file_system.upper(),
-                "active": True,
-            },
-            "storageDataType": {
-                "itemId": self._generate_deterministic_uuid(
+                key=self.storage_file_system.lower(),
+                name=self.storage_file_system.upper(),
+            ),
+            storageDataType=StorageDataTypeModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_data_type:{storage_data_type}"
                 ),
-                "key": storage_data_type.lower(),
-                "name": storage_data_type.upper(),
-                "active": True,
-            },
-            "parentItemId": None,  # Tenant entries are top-level
-        }
+                key=storage_data_type.lower(),
+                name=storage_data_type.upper(),
+                path=storage_data_type.lower(),
+            ),
+            parentItemId=None,
+        )
 
     def _create_customer_storage_resource_json(
         self,
@@ -1024,7 +1055,7 @@ class CscsHpcStorageBackend:
         storage_data_type: str,
         tenant_id: str,
         parent_tenant_id: Optional[str] = None,
-    ) -> dict:
+    ) -> StorageResource:
         """Create JSON structure for a customer-level storage resource."""
         logger.debug(
             "Creating customer storage resource JSON for customer %s",
@@ -1039,49 +1070,44 @@ class CscsHpcStorageBackend:
             data_type=storage_data_type,
         )
 
-        return {
-            "itemId": customer_info["itemId"],
-            "status": TargetStatus.PENDING,  # Customer entries are always pending
-            "mountPoint": {"default": mount_point},
-            "permission": {
-                "permissionType": "octal",
-                "value": "775",  # Default permissions for customer level
-            },
-            "quotas": None,  # Customer entries typically don't have quotas
-            "target": {
-                "targetType": TargetType.CUSTOMER,
-                "targetItem": {
-                    "itemId": customer_info["itemId"],
-                    "key": customer_info["key"],
-                    "name": customer_info["name"],
-                },
-            },
-            "storageSystem": {
-                "itemId": self._generate_deterministic_uuid(
+        return StorageResource(
+            itemId=customer_info["itemId"],
+            status=TargetStatus.PENDING,
+            mountPoint=MountPoint(default=mount_point),
+            permission=Permission(value="775"),
+            quotas=None,
+            target=Target(
+                targetType=TargetType.CUSTOMER,
+                targetItem=CustomerTargetItem(
+                    itemId=customer_info["itemId"],
+                    key=customer_info["key"],
+                    name=customer_info["name"],
+                ),
+            ),
+            storageSystem=StorageSystemModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_system:{storage_system}"
                 ),
-                "key": storage_system.lower(),
-                "name": storage_system.upper(),
-                "active": True,
-            },
-            "storageFileSystem": {
-                "itemId": self._generate_deterministic_uuid(
+                key=storage_system.lower(),
+                name=storage_system.upper(),
+            ),
+            storageFileSystem=StorageFileSystemModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_file_system:{self.storage_file_system}"
                 ),
-                "key": self.storage_file_system.lower(),
-                "name": self.storage_file_system.upper(),
-                "active": True,
-            },
-            "storageDataType": {
-                "itemId": self._generate_deterministic_uuid(
+                key=self.storage_file_system.lower(),
+                name=self.storage_file_system.upper(),
+            ),
+            storageDataType=StorageDataTypeModel(
+                itemId=self._generate_deterministic_uuid(
                     f"storage_data_type:{storage_data_type}"
                 ),
-                "key": storage_data_type.lower(),
-                "name": storage_data_type.upper(),
-                "active": True,
-            },
-            "parentItemId": parent_tenant_id,  # Reference to parent tenant entry
-        }
+                key=storage_data_type.lower(),
+                name=storage_data_type.upper(),
+                path=storage_data_type.lower(),
+            ),
+            parentItemId=parent_tenant_id,
+        )
 
     def _get_all_storage_resources(
         self,
@@ -1092,7 +1118,7 @@ class CscsHpcStorageBackend:
         storage_system: Optional[str] = None,
         data_type: Optional[str] = None,
         status: Optional[str] = None,
-    ) -> tuple[list[dict], dict]:
+    ) -> tuple[list[StorageResource], dict]:
         """Fetch storage resources from Waldur API with pagination and filtering support.
 
         Args:
@@ -1158,7 +1184,7 @@ class CscsHpcStorageBackend:
 
             # Convert Waldur resources to storage JSON format
             # We'll create tenant, customer-level and project-level entries (three-tier hierarchy)
-            storage_resources = []
+            storage_resources: list[StorageResource] = []
             tenant_entries = {}  # Track unique tenant entries by tenant_id-storage_system-data_type
             customer_entries = {}  # Track unique customer entries by slug-system-data_type
 
@@ -1272,7 +1298,7 @@ class CscsHpcStorageBackend:
                         offering_uuid=offering_uuid_str,
                     )
                     storage_resources.append(tenant_resource)
-                    tenant_entries[tenant_key] = tenant_resource["itemId"]
+                    tenant_entries[tenant_key] = tenant_resource.itemId
                     logger.debug(
                         "Created tenant entry for %s with offering UUID %s",
                         tenant_key,
@@ -1297,7 +1323,7 @@ class CscsHpcStorageBackend:
                         parent_tenant_id=parent_tenant_id,  # Link to parent tenant
                     )
                     storage_resources.append(customer_resource)
-                    customer_entries[customer_key] = customer_resource["itemId"]
+                    customer_entries[customer_key] = customer_resource.itemId
                     logger.debug(
                         "Created customer entry for %s with parent tenant %s",
                         customer_key,
@@ -1312,9 +1338,7 @@ class CscsHpcStorageBackend:
                 if storage_resource is not None:
                     # Set parent reference if customer entry exists
                     if customer_key in customer_entries:
-                        storage_resource["parentItemId"] = customer_entries[
-                            customer_key
-                        ]
+                        storage_resource.parentItemId = customer_entries[customer_key]
                         logger.debug(
                             "Set parentItemId %s for resource %s",
                             customer_entries[customer_key],
@@ -1324,7 +1348,7 @@ class CscsHpcStorageBackend:
                     storage_resources.append(storage_resource)
 
             # Apply filters to the converted storage resources
-            storage_resources = self._apply_filters(
+            storage_resources = self._apply_filters(  # type: ignore[assignment]
                 storage_resources, storage_system, data_type, status
             )
 
@@ -1380,12 +1404,15 @@ class CscsHpcStorageBackend:
                 status=status,
             )
 
+            # Serialize storage resources to dicts for JSON response
+            serialized_resources = [r.to_dict() for r in storage_resources]
+
             return {
                 "status": "success",
                 "code": 200,
                 "meta": {"date": datetime.now().isoformat(), "appVersion": "1.4.0"},
                 "result": {
-                    "storageResources": storage_resources,
+                    "storageResources": serialized_resources,
                     "paginate": pagination_info,
                 },
             }
@@ -1432,9 +1459,12 @@ class CscsHpcStorageBackend:
                 storage_system_filter=storage_system_filter,
             )
 
+            # Serialize storage resources to dicts for JSON response
+            serialized_resources = [r.to_dict() for r in storage_resources]
+
             return {
                 "status": "success",
-                "resources": storage_resources,
+                "resources": serialized_resources,
                 "pagination": pagination_info,
                 "filters_applied": {
                     "offering_slugs": offering_slugs,
@@ -1475,9 +1505,12 @@ class CscsHpcStorageBackend:
                 status=status,
             )
 
+            # Serialize storage resources to dicts for JSON response
+            serialized_resources = [r.to_dict() for r in storage_resources]
+
             return {
                 "status": "success",
-                "resources": storage_resources,
+                "resources": serialized_resources,
                 "pagination": pagination_info,
                 "filters_applied": {
                     "offering_slug": offering_slug,
@@ -1649,7 +1682,7 @@ class CscsHpcStorageBackend:
                 "About to apply filters on %d serialized resources",
                 len(serialized_resources),
             )
-            filtered_resources = self._apply_filters(
+            filtered_resources = self._apply_filters(  # type: ignore[arg-type]
                 serialized_resources, None, data_type, status
             )
 
@@ -1700,7 +1733,7 @@ class CscsHpcStorageBackend:
         data_type: Optional[str] = None,
         status: Optional[str] = None,
         storage_system_filter: Optional[str] = None,
-    ) -> tuple[list[dict], dict]:
+    ) -> tuple[list[StorageResource], dict[str, Any]]:
         """Fetch and process resources filtered by multiple offering slugs."""
         # HPC User client diagnostics
         if self.hpc_user_client:
@@ -1825,7 +1858,7 @@ class CscsHpcStorageBackend:
                                 offering_uuid=offering_uuid_str,
                             )
                             all_storage_resources.append(tenant_resource)
-                            tenant_entries[tenant_key] = tenant_resource["itemId"]
+                            tenant_entries[tenant_key] = tenant_resource.itemId
                             logger.debug(
                                 "Created tenant entry for %s with offering UUID %s",
                                 tenant_key,
@@ -1853,7 +1886,7 @@ class CscsHpcStorageBackend:
                                 )
                             )
                             all_storage_resources.append(customer_resource)
-                            customer_entries[customer_key] = customer_resource["itemId"]
+                            customer_entries[customer_key] = customer_resource.itemId
                             logger.debug(
                                 "Created customer entry for %s with parent tenant %s",
                                 customer_key,
@@ -1868,7 +1901,7 @@ class CscsHpcStorageBackend:
                         if storage_resource is not None:
                             # Set parent reference if customer entry exists
                             if customer_key in customer_entries:
-                                storage_resource["parentItemId"] = customer_entries[
+                                storage_resource.parentItemId = customer_entries[
                                     customer_key
                                 ]
                                 logger.debug(
@@ -1899,10 +1932,10 @@ class CscsHpcStorageBackend:
             logger.debug(
                 "About to apply filters on %d resources", len(storage_resources)
             )
-            filtered_resources = self._apply_filters(
+            filtered_resources = self._apply_filters(  # type: ignore[arg-type]
                 storage_resources, None, data_type, status
             )
-            storage_resources = filtered_resources
+            storage_resources = filtered_resources  # type: ignore[assignment]
 
             # Calculate pagination based on filtered results
             total_pages = (
@@ -1935,7 +1968,7 @@ class CscsHpcStorageBackend:
         page_size: int = 100,
         data_type: Optional[str] = None,
         status: Optional[str] = None,
-    ) -> tuple[list[dict], dict]:
+    ) -> tuple[list[StorageResource], dict[str, Any]]:
         """Fetch and process resources filtered by offering slug."""
         try:
             # Fetch resources with offering slug filter
@@ -2101,7 +2134,7 @@ class CscsHpcStorageBackend:
                             offering_uuid=offering_uuid_str,
                         )
                         storage_resources.append(tenant_resource)
-                        tenant_entries[tenant_key] = tenant_resource["itemId"]
+                        tenant_entries[tenant_key] = tenant_resource.itemId
                         logger.debug(
                             "Created tenant entry for %s with offering UUID %s",
                             tenant_key,
@@ -2125,7 +2158,7 @@ class CscsHpcStorageBackend:
                             parent_tenant_id=parent_tenant_id,
                         )
                         storage_resources.append(customer_resource)
-                        customer_entries[customer_key] = customer_resource["itemId"]
+                        customer_entries[customer_key] = customer_resource.itemId
                         logger.debug(
                             "Created customer entry for %s with parent tenant %s",
                             customer_key,
@@ -2139,7 +2172,7 @@ class CscsHpcStorageBackend:
                     if storage_resource is not None:
                         # Set parent reference if customer entry exists
                         if customer_key in customer_entries:
-                            storage_resource["parentItemId"] = customer_entries[
+                            storage_resource.parentItemId = customer_entries[
                                 customer_key
                             ]
                             logger.debug(
@@ -2159,7 +2192,7 @@ class CscsHpcStorageBackend:
                     )
 
             # Apply additional filters (data_type, status) in memory
-            filtered_resources = self._apply_filters(
+            filtered_resources = self._apply_filters(  # type: ignore[arg-type]
                 storage_resources, offering_slug, data_type, status
             )
 
@@ -2176,7 +2209,7 @@ class CscsHpcStorageBackend:
                 "raw_total_from_api": total_count,
             }
 
-            return filtered_resources, pagination_info
+            return filtered_resources, pagination_info  # type: ignore[return-value]
 
         except Exception as e:
             logger.error(

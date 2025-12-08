@@ -105,11 +105,11 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         target_data = self.backend._get_target_item_data(mock_resource, "project")
 
-        assert target_data["name"] == "climate-sim"
-        assert "itemId" in target_data
-        assert "unixGid" in target_data
-        assert target_data["status"] == "active"
-        assert target_data["active"] is True
+        assert target_data.name == "climate-sim"
+        assert target_data.itemId is not None
+        assert target_data.unixGid is not None
+        assert target_data.status == "active"
+        assert target_data.active is True
 
     def test_target_status_mapping_from_waldur_state(self):
         """Test that target item status correctly maps from Waldur resource states."""
@@ -136,11 +136,11 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
             target_data = self.backend._get_target_item_data(mock_resource, "project")
 
-            assert target_data["status"] == expected_status, (
-                f"Waldur state '{waldur_state}' should map to status '{expected_status}', got '{target_data['status']}'"
+            assert target_data.status == expected_status, (
+                f"Waldur state '{waldur_state}' should map to status '{expected_status}', got '{target_data.status}'"
             )
-            assert target_data["active"] == expected_active, (
-                f"Waldur state '{waldur_state}' should set active={expected_active}, got {target_data['active']}"
+            assert target_data.active == expected_active, (
+                f"Waldur state '{waldur_state}' should set active={expected_active}, got {target_data.active}"
             )
 
     def test_create_storage_resource_json(self):
@@ -173,17 +173,17 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json["itemId"] == mock_resource.uuid.hex
-        assert storage_json["status"] == "pending"
+        assert storage_json.itemId == mock_resource.uuid.hex
+        assert storage_json.status == "pending"
         assert (
-            storage_json["mountPoint"]["default"]
+            storage_json.mountPoint.default
             == "/lustre-fs/store/cscs/university/physics-dept"
         )
-        assert storage_json["permission"]["value"] == "2770"
-        assert len(storage_json["quotas"]) == 4  # 2 space + 2 inode quotas
-        assert storage_json["storageSystem"]["key"] == "lustre-fs"
-        assert storage_json["storageFileSystem"]["key"] == "lustre"
-        assert storage_json["target"]["targetItem"]["unixGid"] == 30000
+        assert storage_json.permission.value == "2770"
+        assert len(storage_json.quotas) == 4  # 2 space + 2 inode quotas
+        assert storage_json.storageSystem.key == "lustre-fs"
+        assert storage_json.storageFileSystem.key == "lustre"
+        assert storage_json.target.targetItem.unixGid == 30000
 
     def test_create_storage_resource_json_with_provider_action_urls(self):
         """Test storage resource JSON creation includes provider action URLs when available."""
@@ -230,13 +230,13 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json["itemId"] == mock_resource.uuid.hex
+        assert storage_json.itemId == mock_resource.uuid.hex
         assert (
-            storage_json["approve_by_provider_url"]
+            storage_json.extra_fields["approve_by_provider_url"]
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/"
         )
         assert (
-            storage_json["reject_by_provider_url"]
+            storage_json.extra_fields["reject_by_provider_url"]
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/reject_by_provider/"
         )
 
@@ -274,9 +274,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json["itemId"] == mock_resource.uuid.hex
-        assert "approve_by_provider_url" not in storage_json
-        assert "reject_by_provider_url" not in storage_json
+        assert storage_json.itemId == mock_resource.uuid.hex
+        assert "approve_by_provider_url" not in storage_json.extra_fields
+        assert "reject_by_provider_url" not in storage_json.extra_fields
 
     def test_create_storage_resource_json_with_order_but_no_uuid(self):
         """Test storage resource JSON creation when order exists but has no UUID."""
@@ -315,9 +315,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json["itemId"] == mock_resource.uuid.hex
-        assert "approve_by_provider_url" not in storage_json
-        assert "reject_by_provider_url" not in storage_json
+        assert storage_json.itemId == mock_resource.uuid.hex
+        assert "approve_by_provider_url" not in storage_json.extra_fields
+        assert "reject_by_provider_url" not in storage_json.extra_fields
 
     @patch("waldur_cscs_hpc_storage.backend.marketplace_resources_list")
     def test_get_all_storage_resources_with_pagination(self, mock_list):
@@ -624,7 +624,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
                 mock_resource, "test-storage"
             )
 
-            assert result["status"] == expected_status, (
+            assert result.status == expected_status, (
                 f"State '{waldur_state}' should map to '{expected_status}'"
             )
 
@@ -633,12 +633,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         mock_resource.state = Unset()
         result = backend._create_storage_resource_json(mock_resource, "test-storage")
-        assert result["status"] == "pending"
+        assert result.status == "pending"
 
         # Test with no state attribute
         delattr(mock_resource, "state")
         result = backend._create_storage_resource_json(mock_resource, "test-storage")
-        assert result["status"] == "pending"
+        assert result.status == "pending"
 
     def test_error_handling_returns_error_status(self):
         """Test that errors return proper error status and code 500."""
@@ -705,24 +705,24 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
                 mock_resource, "test-storage"
             )
 
-            actual_target_type = result["target"]["targetType"]
+            actual_target_type = result.target.targetType
             assert actual_target_type == expected_target_type, (
                 f"Storage data type '{storage_data_type}' should map to target type '{expected_target_type}', got '{actual_target_type}'"
             )
 
             # Verify target item structure based on type
-            target_item = result["target"]["targetItem"]
+            target_item = result.target.targetItem
             if expected_target_type == "project":
-                assert "status" in target_item
-                assert "unixGid" in target_item
-                assert target_item["status"] == "active"
+                assert target_item.status is not None
+                assert target_item.unixGid is not None
+                assert target_item.status == "active"
             elif expected_target_type == "user":
-                assert "email" in target_item
-                assert "unixUid" in target_item
-                assert "primaryProject" in target_item
-                assert target_item["status"] == "active"
-                assert "name" in target_item["primaryProject"]
-                assert "unixGid" in target_item["primaryProject"]
+                assert target_item.email is not None
+                assert target_item.unixUid is not None
+                assert target_item.primaryProject is not None
+                assert target_item.status == "active"
+                assert target_item.primaryProject.name is not None
+                assert target_item.primaryProject.unixGid is not None
 
     def test_quota_float_consistency(self):
         """Test that quotas use float data type for consistency."""
@@ -749,11 +749,11 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         result = backend._create_storage_resource_json(mock_resource, "test-storage")
 
         # Verify all quotas are floats
-        quotas = result["quotas"]
+        quotas = result.quotas
         assert quotas is not None, "Quotas should not be None for non-zero storage"
 
         for quota in quotas:
-            quota_value = quota["quota"]
+            quota_value = quota.quota
             assert isinstance(quota_value, float), (
                 f"Quota value {quota_value} should be float, got {type(quota_value)}"
             )
@@ -788,7 +788,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Mock _get_project_unix_gid
         with patch.object(self.backend, "_get_project_unix_gid", return_value=30000):
             result = backend._get_target_data(mock_resource, "unknown_type")
-            assert result["targetType"] == "project"  # Should fallback to default
+            assert result.targetType == "project"  # Should fallback to default
 
     def test_system_identifiers_use_deterministic_uuids(self):
         """Test that system identifiers use deterministic UUIDs generated from their names."""
@@ -821,70 +821,64 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
-        storage_system = result["storageSystem"]
-        assert re.match(uuid_pattern, storage_system["itemId"])
-        assert storage_system["key"] == "test-storage-system"
+        storage_system = result.storageSystem
+        assert re.match(uuid_pattern, storage_system.itemId)
+        assert storage_system.key == "test-storage-system"
 
-        storage_file_system = result["storageFileSystem"]
-        assert re.match(uuid_pattern, storage_file_system["itemId"])
-        assert storage_file_system["key"] == "lustre"
+        storage_file_system = result.storageFileSystem
+        assert re.match(uuid_pattern, storage_file_system.itemId)
+        assert storage_file_system.key == "lustre"
 
-        storage_data_type = result["storageDataType"]
-        assert re.match(uuid_pattern, storage_data_type["itemId"])
-        assert storage_data_type["key"] == "store"
+        storage_data_type = result.storageDataType
+        assert re.match(uuid_pattern, storage_data_type.itemId)
+        assert storage_data_type.key == "store"
 
         result2 = self.backend._create_storage_resource_json(
             mock_resource, "test-storage-system"
         )
 
-        assert result["storageSystem"]["itemId"] == result2["storageSystem"]["itemId"]
-        assert (
-            result["storageFileSystem"]["itemId"]
-            == result2["storageFileSystem"]["itemId"]
-        )
-        assert (
-            result["storageDataType"]["itemId"] == result2["storageDataType"]["itemId"]
-        )
+        assert result.storageSystem.itemId == result2.storageSystem.itemId
+        assert result.storageFileSystem.itemId == result2.storageFileSystem.itemId
+        assert result.storageDataType.itemId == result2.storageDataType.itemId
 
         # Test target item UUIDs are also deterministic UUIDs
-        target_item = result["target"]["targetItem"]
-        assert re.match(uuid_pattern, target_item["itemId"])
+        target_item = result.target.targetItem
+        assert re.match(uuid_pattern, target_item.itemId)
 
         # Verify determinism for target items too
-        target_item2 = result2["target"]["targetItem"]
-        assert target_item["itemId"] == target_item2["itemId"]
+        target_item2 = result2.target.targetItem
+        assert target_item.itemId == target_item2.itemId
 
     def test_filtering_by_storage_system(self):
         """Test filtering storage resources by storage system."""
         backend = self._create_backend()
 
         # Create mock storage resources with different storage systems
-        mock_resources = [
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "active",
-            },
-            {
-                "storageSystem": {"key": "vast", "name": "VAST"},
-                "storageDataType": {"key": "users", "name": "USERS"},
-                "status": "pending",
-            },
-            {
-                "storageSystem": {"key": "iopsstor", "name": "IOPSSTOR"},
-                "storageDataType": {"key": "archive", "name": "ARCHIVE"},
-                "status": "active",
-            },
-        ]
+        r1 = Mock()
+        r1.storageSystem.key = "capstor"
+        r1.storageDataType.key = "store"
+        r1.status = "active"
+
+        r2 = Mock()
+        r2.storageSystem.key = "vast"
+        r2.storageDataType.key = "users"
+        r2.status = "pending"
+
+        r3 = Mock()
+        r3.storageSystem.key = "iopsstor"
+        r3.storageDataType.key = "archive"
+        r3.status = "active"
+
+        mock_resources = [r1, r2, r3]
 
         # Test filtering by storage_system
         filtered = backend._apply_filters(mock_resources, storage_system="capstor")
         assert len(filtered) == 1
-        assert filtered[0]["storageSystem"]["key"] == "capstor"
+        assert filtered[0].storageSystem.key == "capstor"
 
         filtered = backend._apply_filters(mock_resources, storage_system="vast")
         assert len(filtered) == 1
-        assert filtered[0]["storageSystem"]["key"] == "vast"
+        assert filtered[0].storageSystem.key == "vast"
 
         # Test with non-existent storage system
         filtered = backend._apply_filters(mock_resources, storage_system="nonexistent")
@@ -895,32 +889,31 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         backend = self._create_backend()
 
         # Create mock storage resources with different data types
-        mock_resources = [
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "active",
-            },
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "users", "name": "USERS"},
-                "status": "pending",
-            },
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "scratch", "name": "SCRATCH"},
-                "status": "active",
-            },
-        ]
+        r1 = Mock()
+        r1.storageSystem.key = "capstor"
+        r1.storageDataType.key = "store"
+        r1.status = "active"
+
+        r2 = Mock()
+        r2.storageSystem.key = "capstor"
+        r2.storageDataType.key = "users"
+        r2.status = "pending"
+
+        r3 = Mock()
+        r3.storageSystem.key = "capstor"
+        r3.storageDataType.key = "scratch"
+        r3.status = "active"
+
+        mock_resources = [r1, r2, r3]
 
         # Test filtering by data_type
         filtered = backend._apply_filters(mock_resources, data_type="store")
         assert len(filtered) == 1
-        assert filtered[0]["storageDataType"]["key"] == "store"
+        assert filtered[0].storageDataType.key == "store"
 
         filtered = backend._apply_filters(mock_resources, data_type="users")
         assert len(filtered) == 1
-        assert filtered[0]["storageDataType"]["key"] == "users"
+        assert filtered[0].storageDataType.key == "users"
 
         # Test with non-existent data type
         filtered = backend._apply_filters(mock_resources, data_type="nonexistent")
@@ -931,36 +924,35 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         backend = self._create_backend()
 
         # Create mock storage resources with different statuses
-        mock_resources = [
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "active",
-            },
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "users", "name": "USERS"},
-                "status": "pending",
-            },
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "scratch", "name": "SCRATCH"},
-                "status": "removing",
-            },
-        ]
+        r1 = Mock()
+        r1.storageSystem.key = "capstor"
+        r1.storageDataType.key = "store"
+        r1.status = "active"
+
+        r2 = Mock()
+        r2.storageSystem.key = "capstor"
+        r2.storageDataType.key = "users"
+        r2.status = "pending"
+
+        r3 = Mock()
+        r3.storageSystem.key = "capstor"
+        r3.storageDataType.key = "scratch"
+        r3.status = "removing"
+
+        mock_resources = [r1, r2, r3]
 
         # Test filtering by status
         filtered = backend._apply_filters(mock_resources, status="active")
         assert len(filtered) == 1
-        assert filtered[0]["status"] == "active"
+        assert filtered[0].status == "active"
 
         filtered = backend._apply_filters(mock_resources, status="pending")
         assert len(filtered) == 1
-        assert filtered[0]["status"] == "pending"
+        assert filtered[0].status == "pending"
 
         filtered = backend._apply_filters(mock_resources, status="removing")
         assert len(filtered) == 1
-        assert filtered[0]["status"] == "removing"
+        assert filtered[0].status == "removing"
 
         # Test with non-existent status
         filtered = backend._apply_filters(mock_resources, status="nonexistent")
@@ -971,45 +963,44 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         backend = self._create_backend()
 
         # Create mock storage resources
-        mock_resources = [
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "active",
-            },
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "pending",
-            },
-            {
-                "storageSystem": {"key": "vast", "name": "VAST"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "active",
-            },
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "users", "name": "USERS"},
-                "status": "active",
-            },
-        ]
+        r1 = Mock()
+        r1.storageSystem.key = "capstor"
+        r1.storageDataType.key = "store"
+        r1.status = "active"
+
+        r2 = Mock()
+        r2.storageSystem.key = "capstor"
+        r2.storageDataType.key = "store"
+        r2.status = "pending"
+
+        r3 = Mock()
+        r3.storageSystem.key = "vast"
+        r3.storageDataType.key = "store"
+        r3.status = "active"
+
+        r4 = Mock()
+        r4.storageSystem.key = "capstor"
+        r4.storageDataType.key = "users"
+        r4.status = "active"
+
+        mock_resources = [r1, r2, r3, r4]
 
         # Test combined filtering: capstor + store + active
         filtered = backend._apply_filters(
             mock_resources, storage_system="capstor", data_type="store", status="active"
         )
         assert len(filtered) == 1
-        assert filtered[0]["storageSystem"]["key"] == "capstor"
-        assert filtered[0]["storageDataType"]["key"] == "store"
-        assert filtered[0]["status"] == "active"
+        assert filtered[0].storageSystem.key == "capstor"
+        assert filtered[0].storageDataType.key == "store"
+        assert filtered[0].status == "active"
 
         # Test combined filtering: capstor + store (should return 2)
         filtered = backend._apply_filters(
             mock_resources, storage_system="capstor", data_type="store"
         )
         assert len(filtered) == 2
-        assert all(r["storageSystem"]["key"] == "capstor" for r in filtered)
-        assert all(r["storageDataType"]["key"] == "store" for r in filtered)
+        assert all(r.storageSystem.key == "capstor" for r in filtered)
+        assert all(r.storageDataType.key == "store" for r in filtered)
 
         # Test combined filtering that returns no results
         filtered = backend._apply_filters(
@@ -1022,18 +1013,17 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         backend = self._create_backend()
 
         # Create mock storage resources
-        mock_resources = [
-            {
-                "storageSystem": {"key": "capstor", "name": "CAPSTOR"},
-                "storageDataType": {"key": "store", "name": "STORE"},
-                "status": "active",
-            },
-            {
-                "storageSystem": {"key": "vast", "name": "VAST"},
-                "storageDataType": {"key": "users", "name": "USERS"},
-                "status": "pending",
-            },
-        ]
+        r1 = Mock()
+        r1.storageSystem.key = "capstor"
+        r1.storageDataType.key = "store"
+        r1.status = "active"
+
+        r2 = Mock()
+        r2.storageSystem.key = "vast"
+        r2.storageDataType.key = "users"
+        r2.status = "pending"
+
+        mock_resources = [r1, r2]
 
         # Test no filtering (should return all resources)
         filtered = backend._apply_filters(mock_resources)
@@ -1095,7 +1085,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert len(resources) >= 1
         # All returned resources should be from capstor storage system
         for resource in resources:
-            assert resource["storageSystem"]["key"] == "capstor"
+            assert resource.storageSystem.key == "capstor"
 
         # Pagination info should reflect filtered results, not original API results
         assert pagination_info["total"] >= 1  # At least 1 filtered resource
@@ -1194,15 +1184,15 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert len(resources) >= 1
 
         # Find the project-level resource (with itemId matching our resource UUID)
-        project_resources = [r for r in resources if r.get("itemId") == "test-uuid-1"]
+        project_resources = [r for r in resources if r.itemId == "test-uuid-1"]
         assert len(project_resources) >= 1
         project_resource = project_resources[0]
         assert (
-            project_resource["approve_by_provider_url"]
+            project_resource.extra_fields["approve_by_provider_url"]
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/"
         )
         assert (
-            project_resource["reject_by_provider_url"]
+            project_resource.extra_fields["reject_by_provider_url"]
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/reject_by_provider/"
         )
 

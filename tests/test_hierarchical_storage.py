@@ -122,31 +122,31 @@ class TestTenantLevelGeneration:
         )
 
         # Verify structure
-        assert result["target"]["targetType"] == "tenant"
-        assert result["target"]["targetItem"]["key"] == tenant_id.lower()
-        assert result["target"]["targetItem"]["name"] == tenant_name
+        assert result.target.targetType == "tenant"
+        assert result.target.targetItem.key == tenant_id.lower()
+        assert result.target.targetItem.name == tenant_name
 
         # Verify mount point
         assert (
-            result["mountPoint"]["default"]
+            result.mountPoint.default
             == f"/{storage_system}/{storage_data_type}/{tenant_id}"
         )
 
         # Verify no parent (top-level)
-        assert result["parentItemId"] is None
+        assert result.parentItemId is None
 
         # Verify permissions
-        assert result["permission"]["permissionType"] == "octal"
-        assert result["permission"]["value"] == "775"
+        assert result.permission.permissionType == "octal"
+        assert result.permission.value == "775"
 
         # Verify no quotas
-        assert result["quotas"] is None
+        assert result.quotas is None
 
         # Verify storage system info
-        assert result["storageSystem"]["key"] == storage_system.lower()
-        assert result["storageSystem"]["name"] == storage_system.upper()
-        assert result["storageDataType"]["key"] == storage_data_type.lower()
-        assert result["storageDataType"]["name"] == storage_data_type.upper()
+        assert result.storageSystem.key == storage_system.lower()
+        assert result.storageSystem.name == storage_system.upper()
+        assert result.storageDataType.key == storage_data_type.lower()
+        assert result.storageDataType.name == storage_data_type.upper()
 
     def test_tenant_different_data_types(self, backend):
         """Test tenant entries for different storage data types."""
@@ -167,13 +167,13 @@ class TestTenantLevelGeneration:
             results.append(result)
 
         # Verify unique mount points
-        mount_points = [r["mountPoint"]["default"] for r in results]
+        mount_points = [r.mountPoint.default for r in results]
         assert len(mount_points) == len(set(mount_points))
 
         # Verify correct paths
         for data_type, result in zip(data_types, results):
             expected_path = f"/{storage_system}/{data_type}/{tenant_id}"
-            assert result["mountPoint"]["default"] == expected_path
+            assert result.mountPoint.default == expected_path
 
 
 class TestCustomerLevelGeneration:
@@ -201,24 +201,24 @@ class TestCustomerLevelGeneration:
         )
 
         # Verify structure
-        assert result["target"]["targetType"] == "customer"
-        assert result["target"]["targetItem"]["key"] == customer_info["key"]
-        assert result["target"]["targetItem"]["name"] == customer_info["name"]
+        assert result.target.targetType == "customer"
+        assert result.target.targetItem.key == customer_info["key"]
+        assert result.target.targetItem.name == customer_info["name"]
 
         # Verify mount point
         expected_path = (
             f"/{storage_system}/{storage_data_type}/{tenant_id}/{customer_info['key']}"
         )
-        assert result["mountPoint"]["default"] == expected_path
+        assert result.mountPoint.default == expected_path
 
         # Verify parent reference
-        assert result["parentItemId"] == parent_tenant_id
+        assert result.parentItemId == parent_tenant_id
 
         # Verify permissions
-        assert result["permission"]["value"] == "775"
+        assert result.permission.value == "775"
 
         # Verify no quotas
-        assert result["quotas"] is None
+        assert result.quotas is None
 
     def test_customer_without_parent_tenant(self, backend):
         """Test creating a customer-level resource without parent (legacy mode)."""
@@ -238,11 +238,11 @@ class TestCustomerLevelGeneration:
         )
 
         # Verify no parent
-        assert result["parentItemId"] is None
+        assert result.parentItemId is None
 
         # Verify rest of structure is intact
-        assert result["target"]["targetType"] == "customer"
-        assert result["mountPoint"]["default"] == "/vast/scratch/cscs/eth"
+        assert result.target.targetType == "customer"
+        assert result.mountPoint.default == "/vast/scratch/cscs/eth"
 
 
 class TestProjectLevelGeneration:
@@ -261,25 +261,25 @@ class TestProjectLevelGeneration:
         result = backend._create_storage_resource_json(resource, "capstor")
 
         # Verify structure
-        assert result["target"]["targetType"] == "project"
-        assert result["target"]["targetItem"]["name"] == "msclim"
+        assert result.target.targetType == "project"
+        assert result.target.targetItem.name == "msclim"
 
         # Verify mount point
-        assert "/capstor/" in result["mountPoint"]["default"]
-        assert "/cscs/" in result["mountPoint"]["default"]
-        assert "/mch/" in result["mountPoint"]["default"]
-        assert "/msclim" in result["mountPoint"]["default"]
+        assert "/capstor/" in result.mountPoint.default
+        assert "/cscs/" in result.mountPoint.default
+        assert "/mch/" in result.mountPoint.default
+        assert "/msclim" in result.mountPoint.default
 
         # Verify quotas are present
-        assert result["quotas"] is not None
-        assert len(result["quotas"]) == 4  # 2 space + 2 inode quotas
+        assert result.quotas is not None
+        assert len(result.quotas) == 4  # 2 space + 2 inode quotas
 
         # Verify space quotas
-        space_quotas = [q for q in result["quotas"] if q["type"] == "space"]
+        space_quotas = [q for q in result.quotas if q.type == "space"]
         assert len(space_quotas) == 2
-        hard_quota = next(q for q in space_quotas if q["enforcementType"] == "hard")
-        assert hard_quota["quota"] == 150.0
-        assert hard_quota["unit"] == "tera"
+        hard_quota = next(q for q in space_quotas if q.enforcementType == "hard")
+        assert hard_quota.quota == 150.0
+        assert hard_quota.unit == "tera"
 
     def test_project_with_custom_permissions(self, backend):
         """Test project with custom permissions from attributes."""
@@ -290,7 +290,7 @@ class TestProjectLevelGeneration:
 
         result = backend._create_storage_resource_json(resource, "capstor")
 
-        assert result["permission"]["value"] == "0755"
+        assert result.permission.value == "0755"
 
 
 class TestThreeTierHierarchyGeneration:
@@ -366,7 +366,7 @@ class TestThreeTierHierarchyGeneration:
                     storage_data_type=storage_data_type,
                 )
                 storage_resources.append(tenant_resource)
-                tenant_entries[tenant_key] = tenant_resource["itemId"]
+                tenant_entries[tenant_key] = tenant_resource.itemId
 
             # Create customer entry
             customer_key = (
@@ -386,26 +386,20 @@ class TestThreeTierHierarchyGeneration:
                         parent_tenant_id=parent_tenant_id,
                     )
                     storage_resources.append(customer_resource)
-                    customer_entries[customer_key] = customer_resource["itemId"]
+                    customer_entries[customer_key] = customer_resource.itemId
 
             # Create project entry
             project_resource = backend._create_storage_resource_json(
                 resource, storage_system_name
             )
             if project_resource and customer_key in customer_entries:
-                project_resource["parentItemId"] = customer_entries[customer_key]
+                project_resource.parentItemId = customer_entries[customer_key]
             storage_resources.append(project_resource)
 
         # Verify results
-        tenants = [
-            r for r in storage_resources if r["target"]["targetType"] == "tenant"
-        ]
-        customers = [
-            r for r in storage_resources if r["target"]["targetType"] == "customer"
-        ]
-        projects = [
-            r for r in storage_resources if r["target"]["targetType"] == "project"
-        ]
+        tenants = [r for r in storage_resources if r.target.targetType == "tenant"]
+        customers = [r for r in storage_resources if r.target.targetType == "customer"]
+        projects = [r for r in storage_resources if r.target.targetType == "project"]
 
         # Should have unique tenants for each storage_system-data_type combo
         assert len(tenants) == 2  # cscs-capstor-store, cscs-capstor-users
@@ -421,17 +415,17 @@ class TestThreeTierHierarchyGeneration:
         # Verify hierarchy relationships
         # All tenants should have no parent
         for tenant in tenants:
-            assert tenant["parentItemId"] is None
+            assert tenant.parentItemId is None
 
         # All customers should have parent tenant
         for customer in customers:
-            assert customer["parentItemId"] is not None
-            assert customer["parentItemId"] in tenant_entries.values()
+            assert customer.parentItemId is not None
+            assert customer.parentItemId in tenant_entries.values()
 
         # All projects should have parent customer
         for project in projects:
-            assert project["parentItemId"] is not None
-            assert project["parentItemId"] in customer_entries.values()
+            assert project.parentItemId is not None
+            assert project.parentItemId in customer_entries.values()
 
     def test_mount_path_hierarchy(self, backend):
         """Test that mount paths follow the correct hierarchy."""
@@ -506,7 +500,7 @@ class TestHierarchyFiltering:
             storage_system="capstor",
             storage_data_type="store",
             tenant_id="cscs",
-            parent_tenant_id=tenant_capstor["itemId"],
+            parent_tenant_id=tenant_capstor.itemId,
         )
         resources.append(customer_capstor)
 
@@ -529,7 +523,7 @@ class TestHierarchyFiltering:
             storage_system="vast",
             storage_data_type="scratch",
             tenant_id="cscs",
-            parent_tenant_id=tenant_vast["itemId"],
+            parent_tenant_id=tenant_vast.itemId,
         )
         resources.append(customer_vast)
 
@@ -541,19 +535,19 @@ class TestHierarchyFiltering:
         # Verify only capstor resources returned
         assert len(capstor_resources) == 2
         for resource in capstor_resources:
-            assert resource["storageSystem"]["key"] == "capstor"
+            assert resource.storageSystem.key == "capstor"
 
         # Verify hierarchy is maintained
         capstor_tenants = [
-            r for r in capstor_resources if r["target"]["targetType"] == "tenant"
+            r for r in capstor_resources if r.target.targetType == "tenant"
         ]
         capstor_customers = [
-            r for r in capstor_resources if r["target"]["targetType"] == "customer"
+            r for r in capstor_resources if r.target.targetType == "customer"
         ]
 
         assert len(capstor_tenants) == 1
         assert len(capstor_customers) == 1
-        assert capstor_customers[0]["parentItemId"] == capstor_tenants[0]["itemId"]
+        assert capstor_customers[0].parentItemId == capstor_tenants[0].itemId
 
 
 class TestEdgeCases:
@@ -576,7 +570,7 @@ class TestEdgeCases:
                 storage_data_type="store",
             )
             storage_resources.append(tenant_resource)
-            tenant_entries[tenant_key] = tenant_resource["itemId"]
+            tenant_entries[tenant_key] = tenant_resource.itemId
 
             # Project should still be created but without parent
             project_resource = backend._create_storage_resource_json(
@@ -584,21 +578,19 @@ class TestEdgeCases:
             )
             if project_resource:
                 # No parent since customer doesn't exist
-                project_resource["parentItemId"] = None
+                project_resource.parentItemId = None
                 storage_resources.append(project_resource)
 
             # Verify results
             assert len(storage_resources) == 2  # Only tenant and project
-            tenants = [
-                r for r in storage_resources if r["target"]["targetType"] == "tenant"
-            ]
+            tenants = [r for r in storage_resources if r.target.targetType == "tenant"]
             projects = [
-                r for r in storage_resources if r["target"]["targetType"] == "project"
+                r for r in storage_resources if r.target.targetType == "project"
             ]
 
             assert len(tenants) == 1
             assert len(projects) == 1
-            assert projects[0]["parentItemId"] is None
+            assert projects[0].parentItemId is None
 
     def test_duplicate_prevention(self, backend):
         """Test that duplicate entries are not created."""
@@ -614,7 +606,7 @@ class TestEdgeCases:
             tenant_results.append(result)
 
         # All should have the same itemId (deterministic UUID)
-        item_ids = [r["itemId"] for r in tenant_results]
+        item_ids = [r.itemId for r in tenant_results]
         assert len(set(item_ids)) == 1
 
         # Same for customers
@@ -635,7 +627,7 @@ class TestEdgeCases:
             customer_results.append(result)
 
         # All should have the same itemId
-        customer_ids = [r["itemId"] for r in customer_results]
+        customer_ids = [r.itemId for r in customer_results]
         assert len(set(customer_ids)) == 1
 
 
@@ -695,7 +687,7 @@ class TestIntegrationScenarios:
                     storage_data_type=data_type,
                 )
                 all_resources.append(tenant)
-                tenant_entries[tenant_key] = tenant["itemId"]
+                tenant_entries[tenant_key] = tenant.itemId
 
             # Create customer
             customer_key = f"{resource.customer_slug}-{storage_system}-{data_type}"
@@ -708,20 +700,18 @@ class TestIntegrationScenarios:
                     parent_tenant_id=tenant_entries[tenant_key],
                 )
                 all_resources.append(customer)
-                customer_entries[customer_key] = customer["itemId"]
+                customer_entries[customer_key] = customer.itemId
 
             # Create project
             project = backend._create_storage_resource_json(resource, storage_system)
             if project is not None:  # Check if project creation was successful
-                project["parentItemId"] = customer_entries[customer_key]
+                project.parentItemId = customer_entries[customer_key]
                 all_resources.append(project)
 
         # Verify we have 3 separate hierarchies
-        tenants = [r for r in all_resources if r["target"]["targetType"] == "tenant"]
-        customers = [
-            r for r in all_resources if r["target"]["targetType"] == "customer"
-        ]
-        projects = [r for r in all_resources if r["target"]["targetType"] == "project"]
+        tenants = [r for r in all_resources if r.target.targetType == "tenant"]
+        customers = [r for r in all_resources if r.target.targetType == "customer"]
+        projects = [r for r in all_resources if r.target.targetType == "project"]
 
         assert len(tenants) == 3  # One per storage system
         assert len(customers) == 3  # One per storage system
@@ -730,5 +720,5 @@ class TestIntegrationScenarios:
         )  # At least some projects should be created successfully
 
         # Verify each hierarchy is independent
-        storage_systems = set(t["storageSystem"]["key"] for t in tenants)
+        storage_systems = set(t.storageSystem.key for t in tenants)
         assert storage_systems == {"capstor", "vast", "iopsstor"}
