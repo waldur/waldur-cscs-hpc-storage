@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import yaml
 
@@ -47,12 +47,24 @@ class WaldurApiConfig:
 
 
 @dataclass
+class BackendConfig:
+    """Backend configuration settings."""
+
+    storage_file_system: str = "lustre"
+    inode_soft_coefficient: float = 1.33
+    inode_hard_coefficient: float = 2.0
+    inode_base_multiplier: float = 1_000_000
+    use_mock_target_items: bool = False
+    development_mode: bool = False
+
+
+@dataclass
 class StorageProxyConfig:
     """Configuration for the CSCS Storage Proxy."""
 
     # Waldur API settings
     waldur_api: Optional[WaldurApiConfig]
-    backend_settings: dict[str, Any]
+    backend_settings: BackendConfig
     backend_components: list[str]
     storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = None
@@ -109,9 +121,30 @@ class StorageProxyConfig:
                 socks_proxy=hpc_api_data.get("socks_proxy"),
             )
 
+        # Parse backend settings
+        backend_settings_data = data.get("backend_settings", {})
+        backend_config = BackendConfig(
+            storage_file_system=backend_settings_data.get(
+                "storage_file_system", "lustre"
+            ),
+            inode_soft_coefficient=backend_settings_data.get(
+                "inode_soft_coefficient", 1.33
+            ),
+            inode_hard_coefficient=backend_settings_data.get(
+                "inode_hard_coefficient", 2.0
+            ),
+            inode_base_multiplier=backend_settings_data.get(
+                "inode_base_multiplier", 1_000_000
+            ),
+            use_mock_target_items=backend_settings_data.get(
+                "use_mock_target_items", False
+            ),
+            development_mode=backend_settings_data.get("development_mode", False),
+        )
+
         return cls(
             waldur_api=waldur_api_config,
-            backend_settings=data.get("backend_settings", {}),
+            backend_settings=backend_config,
             backend_components=data.get("backend_components", []),
             storage_systems=data.get("storage_systems", {}),
             auth=auth_config,

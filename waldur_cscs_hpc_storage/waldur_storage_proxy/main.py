@@ -1,6 +1,7 @@
 """API server used as proxy to Waldur storage resources."""
 
 from typing import Annotated, Optional
+import dataclasses
 import logging
 import os
 import sys
@@ -358,7 +359,7 @@ def storage_resources(
         # Prepare agent's configuration info
         agent_config_info = {
             "waldur_api_url": config.waldur_api.api_url if config.waldur_api else None,
-            "backend_settings": config.backend_settings,
+            "backend_settings": dataclasses.asdict(config.backend_settings),
             "backend_components": config.backend_components,
             "configured_storage_systems": config.storage_systems,
             "requested_storage_system": storage_system.value

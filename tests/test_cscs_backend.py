@@ -7,6 +7,7 @@ import pytest
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    BackendConfig,
     HpcUserApiConfig,
     WaldurApiConfig,
 )
@@ -18,13 +19,13 @@ class TestCscsHpcStorageBackendBase:
 
     def setup_method(self):
         """Set up test environment."""
-        self.backend_settings = {
-            "storage_file_system": "lustre",
-            "inode_soft_coefficient": 1.5,
-            "inode_hard_coefficient": 2.0,
-            "use_mock_target_items": True,
-            "development_mode": True,  # Enable development mode for tests
-        }
+        self.backend_settings = BackendConfig(
+            storage_file_system="lustre",
+            inode_soft_coefficient=1.5,
+            inode_hard_coefficient=2.0,
+            use_mock_target_items=True,
+            development_mode=True,  # Enable development mode for tests
+        )
         self.backend_components = ["storage"]
 
         self.waldur_api_settings = WaldurApiConfig(

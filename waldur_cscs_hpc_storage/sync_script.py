@@ -14,6 +14,7 @@ from pathlib import Path
 from waldur_cscs_hpc_storage.utils import load_configuration
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    BackendConfig,
     HpcUserApiConfig,
     WaldurApiConfig,
 )
@@ -80,8 +81,20 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
                 socks_proxy=backend_settings.get("hpc_user_socks_proxy"),
             )
 
+        # Prepare backend configuration
+        backend_config = BackendConfig(
+            storage_file_system=backend_settings.get("storage_file_system", "lustre"),
+            inode_soft_coefficient=backend_settings.get("inode_soft_coefficient", 1.33),
+            inode_hard_coefficient=backend_settings.get("inode_hard_coefficient", 2.0),
+            inode_base_multiplier=backend_settings.get(
+                "inode_base_multiplier", 1_000_000
+            ),
+            use_mock_target_items=backend_settings.get("use_mock_target_items", False),
+            development_mode=backend_settings.get("development_mode", False),
+        )
+
         backend = CscsHpcStorageBackend(
-            backend_settings,
+            backend_config,
             backend_components,
             hpc_user_api_settings=hpc_user_api_settings,
             waldur_api_settings=waldur_api_settings,

@@ -18,6 +18,7 @@ from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.enums import StorageDataType, TargetStatus, TargetType
 from waldur_cscs_hpc_storage.exceptions import BackendError
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    BackendConfig,
     HpcUserApiConfig,
     WaldurApiConfig,
 )
@@ -31,7 +32,7 @@ class CscsHpcStorageBackend:
 
     def __init__(
         self,
-        backend_settings: dict,
+        backend_settings: BackendConfig,
         backend_components: list[str],
         waldur_api_settings: WaldurApiConfig,
         hpc_user_api_settings: Optional[HpcUserApiConfig] = None,
@@ -39,29 +40,21 @@ class CscsHpcStorageBackend:
         """Initialize CSCS storage backend.
 
         Args:
-            backend_settings: Backend-specific configuration settings
+            backend_settings: Backend configuration (BackendConfig object)
             backend_components: List of enabled backend components
             waldur_api_settings: Waldur API configuration (WaldurApiConfig object)
             hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
         """
-        self.backend_settings = backend_settings
         self.backend_components = backend_components
+        self.backend_settings = backend_settings
 
-        # Configuration with defaults
-        self.storage_file_system = backend_settings.get("storage_file_system", "lustre")
-        self.inode_soft_coefficient = backend_settings.get(
-            "inode_soft_coefficient", 1.33
-        )
-        self.inode_hard_coefficient = backend_settings.get(
-            "inode_hard_coefficient", 2.0
-        )
-        self.inode_base_multiplier = backend_settings.get(
-            "inode_base_multiplier", 1_000_000
-        )
-        self.use_mock_target_items = backend_settings.get(
-            "use_mock_target_items", False
-        )
-        self.development_mode = backend_settings.get("development_mode", False)
+        # Configuration
+        self.storage_file_system = backend_settings.storage_file_system
+        self.inode_soft_coefficient = backend_settings.inode_soft_coefficient
+        self.inode_hard_coefficient = backend_settings.inode_hard_coefficient
+        self.inode_base_multiplier = backend_settings.inode_base_multiplier
+        self.use_mock_target_items = backend_settings.use_mock_target_items
+        self.development_mode = backend_settings.development_mode
 
         # HPC User service configuration
         self.hpc_user_client: Optional[CSCSHpcUserClient] = None

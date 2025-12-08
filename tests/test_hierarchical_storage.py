@@ -7,20 +7,23 @@ from uuid import uuid4
 import pytest
 
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    BackendConfig,
+    WaldurApiConfig,
+)
 
 
 @pytest.fixture
 def backend():
     """Create a backend instance for testing."""
-    backend_settings = {
-        "storage_file_system": "lustre",
-        "inode_soft_coefficient": 1.33,
-        "inode_hard_coefficient": 2.0,
-        "inode_base_multiplier": 1_000_000,
-        "use_mock_target_items": True,
-        "development_mode": True,
-    }
+    backend_settings = BackendConfig(
+        storage_file_system="lustre",
+        inode_soft_coefficient=1.33,
+        inode_hard_coefficient=2.0,
+        inode_base_multiplier=1_000_000,
+        use_mock_target_items=True,
+        development_mode=True,
+    )
 
     backend_components = ["storage"]
 
