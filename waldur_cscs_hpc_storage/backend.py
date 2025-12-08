@@ -56,6 +56,8 @@ from waldur_cscs_hpc_storage.target_ids import (
     generate_user_target_id,
 )
 
+from waldur_cscs_hpc_storage.serializers import JsonSerializer
+
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +100,7 @@ class CscsHpcStorageBackend:
         """
         self.backend_components = backend_components
         self.backend_config = backend_config
+        self.serializer = JsonSerializer()
         self.waldur_api_config = waldur_api_config
 
         # Configuration
@@ -1440,7 +1443,7 @@ class CscsHpcStorageBackend:
                     if not self._resource_matches_filters(resource, data_type, status):
                         continue
 
-                    raw_resources.append(self._serialize_resource(resource))
+                    raw_resources.append(self.serializer.serialize(resource))
 
             pagination_info = {
                 "current": page,
@@ -1532,7 +1535,7 @@ class CscsHpcStorageBackend:
             serialized_resources = []
             for resource in resources:
                 try:
-                    serialized_resource = self._serialize_resource(resource)
+                    serialized_resource = self.serializer.serialize(resource)
                     serialized_resources.append(serialized_resource)
                 except Exception as e:
                     resource_id = getattr(resource, "uuid", "unknown")
@@ -2079,22 +2082,6 @@ class CscsHpcStorageBackend:
                 "Failed to fetch storage resources by slug: %s", e, exc_info=True
             )
             raise
-
-    def _serialize_resource(self, resource: object) -> dict:
-        """Serialize a Waldur resource object for JSON output."""
-
-        def serialize_value(value: object) -> object:
-            """Convert various types to JSON-serializable format."""
-            if hasattr(value, "__dict__"):
-                return {k: serialize_value(v) for k, v in value.__dict__.items()}
-            if isinstance(value, (list, tuple)):
-                return [serialize_value(item) for item in value]
-            if isinstance(value, dict):
-                return {k: serialize_value(v) for k, v in value.items()}
-            return str(value) if value is not None else None
-
-        result = serialize_value(resource)
-        return result if isinstance(result, dict) else {"serialized": result}
 
     def _resource_matches_filters(
         self,
