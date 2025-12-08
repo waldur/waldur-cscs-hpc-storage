@@ -8,7 +8,7 @@ from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
 from waldur_api_client.api.marketplace_resources import marketplace_resources_list
-from waldur_api_client.models import ResourceState
+from waldur_api_client.models import OrderState, ResourceState
 from waldur_api_client.models.resource import Resource as WaldurResource
 from waldur_api_client.types import Unset
 
@@ -1046,19 +1046,24 @@ class CscsHpcStorageBackend:
         # Order state transitions (based on OrderStates enum and transition rules)
         if order_state:
             # Provider review actions - available for PENDING_PROVIDER state
-            if order_state == "pending-provider":
+            if order_state == OrderState.PENDING_PROVIDER:
                 allowed_actions.extend(["approve_by_provider", "reject_by_provider"])
 
             # Provider can set executing state from pending-provider state
-            if order_state == "pending-provider":
+            if order_state == OrderState.PENDING_PROVIDER:
                 allowed_actions.append("set_state_executing")
 
             # Provider can set done/erred from executing state
-            if order_state == "executing":
+            if order_state == OrderState.EXECUTING:
                 allowed_actions.extend(["set_state_done", "set_state_erred"])
 
             # Backend ID can be set for any non-terminal order
-            terminal_states = {"done", "erred", "canceled", "rejected"}
+            terminal_states = {
+                OrderState.DONE,
+                OrderState.ERRED,
+                OrderState.CANCELED,
+                OrderState.REJECTED,
+            }
             if order_state not in terminal_states:
                 allowed_actions.append("set_backend_id")
 
