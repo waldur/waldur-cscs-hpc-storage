@@ -17,7 +17,10 @@ from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
 from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.enums import StorageDataType, TargetStatus, TargetType
 from waldur_cscs_hpc_storage.exceptions import BackendError
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    HpcUserApiConfig,
+    WaldurApiConfig,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +34,7 @@ class CscsHpcStorageBackend:
         backend_settings: dict,
         backend_components: dict[str, dict],
         hpc_user_api_settings: Optional[HpcUserApiConfig] = None,
-        waldur_api_settings: Optional[dict] = None,
+        waldur_api_settings: Optional[WaldurApiConfig] = None,
     ) -> None:
         """Initialize CSCS storage backend.
 
@@ -39,7 +42,7 @@ class CscsHpcStorageBackend:
             backend_settings: Backend-specific configuration settings
             backend_components: Component configuration
             hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
-            waldur_api_settings: Optional Waldur API configuration for internal client
+            waldur_api_settings: Optional Waldur API configuration (WaldurApiConfig object)
         """
         self.backend_settings = backend_settings
         self.backend_components = backend_components
@@ -84,28 +87,13 @@ class CscsHpcStorageBackend:
         # Initialize Waldur API client if settings provided
         self._client = None
         if waldur_api_settings:
-            # Check for required fields in settings
-            if (
-                "api_url" in waldur_api_settings
-                and "access_token" in waldur_api_settings
-            ):
-                # Use a default user agent slightly different from the caller if needed,
-                # or just reuse the logic from utils.
-                self._client = get_client(
-                    api_url=waldur_api_settings["api_url"],
-                    access_token=waldur_api_settings["access_token"],
-                    agent_header=waldur_api_settings.get("agent_header"),
-                    verify_ssl=waldur_api_settings.get("verify_ssl", True),
-                    proxy=waldur_api_settings.get("proxy"),
-                )
-                logger.debug(
-                    "Waldur API client initialized for URL: %s",
-                    waldur_api_settings["api_url"],
-                )
-            else:
-                logger.warning(
-                    "Waldur API settings provided but missing required 'api_url' or 'access_token'"
-                )
+            # Use a default user agent slightly different from the caller if needed,
+            # or just reuse the logic from utils.
+            self._client = get_client(waldur_api_settings)
+            logger.debug(
+                "Waldur API client initialized for URL: %s",
+                waldur_api_settings.api_url,
+            )
 
         # Validate configuration
         self._validate_configuration()

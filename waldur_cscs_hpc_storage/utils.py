@@ -1,45 +1,41 @@
 """Utility functions for CSCS HPC Storage backend."""
 
 from pathlib import Path
-from typing import Optional
 
 import yaml
 from waldur_api_client import AuthenticatedClient
 
 
-def get_client(
-    api_url: str,
-    access_token: str,
-    agent_header: Optional[str] = None,
-    verify_ssl: bool = True,
-    proxy: Optional[str] = None,
-) -> AuthenticatedClient:
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
+
+
+def get_client(waldur_api_config: WaldurApiConfig) -> AuthenticatedClient:
     """Create an authenticated Waldur API client.
 
     Args:
-        api_url: Base URL for the Waldur API (e.g., 'https://waldur.example.com/api/')
-        access_token: Authentication token for API access
-        agent_header: Optional User-Agent string for HTTP requests
-        verify_ssl: Whether or not to verify SSL certificates
-        proxy: Optional proxy URL (e.g., 'socks5://localhost:12345')
+        waldur_api_config: Waldur API configuration object
 
     Returns:
         Configured AuthenticatedClient instance ready for API calls
     """
-    headers = {"User-Agent": agent_header} if agent_header else {}
-    url = api_url.rstrip("/api")
+    headers = (
+        {"User-Agent": waldur_api_config.agent_header}
+        if waldur_api_config.agent_header
+        else {}
+    )
+    url = waldur_api_config.api_url.rstrip("/api")
 
     # Configure httpx args with proxy if specified
     httpx_args = {}
-    if proxy:
-        httpx_args["proxy"] = proxy
+    if waldur_api_config.socks_proxy:
+        httpx_args["proxy"] = waldur_api_config.socks_proxy
 
     return AuthenticatedClient(
         base_url=url,
-        token=access_token,
+        token=waldur_api_config.access_token,
         timeout=600,
         headers=headers,
-        verify_ssl=verify_ssl,
+        verify_ssl=waldur_api_config.verify_ssl,
         httpx_args=httpx_args,
     )
 

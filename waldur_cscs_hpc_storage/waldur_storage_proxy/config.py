@@ -36,19 +36,25 @@ class HpcUserApiConfig:
 
 
 @dataclass
+class WaldurApiConfig:
+    """Waldur API configuration."""
+
+    api_url: str
+    access_token: str
+    verify_ssl: bool = True
+    socks_proxy: Optional[str] = None
+    agent_header: Optional[str] = None
+
+
+@dataclass
 class StorageProxyConfig:
     """Configuration for the CSCS Storage Proxy."""
 
     # Waldur API settings
-    waldur_api_url: str
-    waldur_api_token: str
+    waldur_api: Optional[WaldurApiConfig]
     backend_settings: dict[str, Any]
     backend_components: dict[str, dict[str, Any]]
     storage_systems: dict[str, str]
-    waldur_verify_ssl: bool = True
-    waldur_socks_proxy: Optional[str] = (
-        None  # SOCKS proxy URL for Waldur API connections
-    )
     auth: Optional[AuthConfig] = None
     hpc_user_api: Optional[HpcUserApiConfig] = None
     # Sentry settings
@@ -65,6 +71,16 @@ class StorageProxyConfig:
 
         with config_path.open() as f:
             data = yaml.safe_load(f)
+
+        # Parse waldur api config if present
+        waldur_api_config = None
+        if "waldur_api_url" in data and "waldur_api_token" in data:
+            waldur_api_config = WaldurApiConfig(
+                api_url=data["waldur_api_url"],
+                access_token=data["waldur_api_token"],
+                verify_ssl=data.get("waldur_verify_ssl", True),
+                socks_proxy=data.get("waldur_socks_proxy"),
+            )
 
         # Parse auth config if present
         auth_config = None
@@ -94,10 +110,7 @@ class StorageProxyConfig:
             )
 
         return cls(
-            waldur_api_url=data["waldur_api_url"],
-            waldur_api_token=data["waldur_api_token"],
-            waldur_verify_ssl=data.get("waldur_verify_ssl", True),
-            waldur_socks_proxy=data.get("waldur_socks_proxy"),
+            waldur_api=waldur_api_config,
             backend_settings=data.get("backend_settings", {}),
             backend_components=data.get("backend_components", {}),
             storage_systems=data.get("storage_systems", {}),
@@ -110,8 +123,8 @@ class StorageProxyConfig:
 
     def validate(self) -> None:
         """Validate the configuration."""
-        if not self.waldur_api_url:
-            msg = "waldur_api_url is required"
+        if not self.waldur_api:
+            msg = "waldur_api configuration is required (waldur_api_url and waldur_api_token)"
             raise ValueError(msg)
         if not self.storage_systems:
             msg = "At least one storage_system mapping is required"
@@ -126,6 +139,6 @@ class StorageProxyConfig:
             raise ValueError(msg)
 
         logger.info("Configuration validated successfully")
-        logger.info("  Waldur API URL: %s", self.waldur_api_url)
+        logger.info("  Waldur API URL: %s", self.waldur_api.api_url)
         logger.info("  Storage systems: %s", self.storage_systems)
         logger.info("  Backend components: %s", list(self.backend_components.keys()))

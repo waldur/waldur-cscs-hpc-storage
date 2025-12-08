@@ -23,6 +23,7 @@ from waldur_cscs_hpc_storage.sync_script import setup_logging
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     HpcUserApiConfig,
     StorageProxyConfig,
+    WaldurApiConfig,
 )
 from waldur_cscs_hpc_storage.sentry_config import initialize_sentry, set_user_context
 
@@ -47,7 +48,6 @@ if not config_file_path:
 # Load simplified proxy configuration
 try:
     config = StorageProxyConfig.from_yaml(config_file_path)
-    config.validate()
 except (FileNotFoundError, ValueError, yaml.YAMLError):
     logger.exception("Failed to load configuration")
     sys.exit(1)
@@ -67,35 +67,51 @@ except Exception as e:
     # Continue without Sentry - don't fail the application startup
 
 
-# Override verify SSL from environment if set
-waldur_verify_ssl = os.getenv("WALDUR_VERIFY_SSL")
-if waldur_verify_ssl is not None:
-    config.waldur_verify_ssl = waldur_verify_ssl.lower() in ("true", "yes", "1")
-
-# Override proxy from environment if set
-waldur_socks_proxy = os.getenv("WALDUR_SOCKS_PROXY")
-if waldur_socks_proxy is not None:
-    config.waldur_socks_proxy = waldur_socks_proxy
-
-# Log proxy configuration
-if config.waldur_socks_proxy:
-    logger.info(
-        "Using SOCKS proxy for Waldur API connections: %s", config.waldur_socks_proxy
-    )
-else:
-    logger.info("No SOCKS proxy configured for Waldur API connections")
-
 # Helper: Prepare Waldur API settings
+# Fetch potential environment variable overrides
 WALDUR_API_TOKEN = os.getenv("WALDUR_API_TOKEN", "")
-if not WALDUR_API_TOKEN and config.waldur_api_token:
-    WALDUR_API_TOKEN = config.waldur_api_token
+WALDUR_API_URL = os.getenv("WALDUR_API_URL")
+WALDUR_VERIFY_SSL = os.getenv("WALDUR_VERIFY_SSL")
+WALDUR_SOCKS_PROXY = os.getenv("WALDUR_SOCKS_PROXY")
 
-waldur_api_settings = {
-    "api_url": config.waldur_api_url,
-    "access_token": WALDUR_API_TOKEN,
-    "verify_ssl": config.waldur_verify_ssl,
-    "proxy": config.waldur_socks_proxy,
-}
+# Initialize waldur_api if missing but essential env vars are present
+if not config.waldur_api and WALDUR_API_URL and WALDUR_API_TOKEN:
+    config.waldur_api = WaldurApiConfig(
+        api_url=WALDUR_API_URL, access_token=WALDUR_API_TOKEN
+    )
+
+if config.waldur_api:
+    # Apply env var overrides if present
+    if WALDUR_API_URL:
+        config.waldur_api.api_url = WALDUR_API_URL
+    if WALDUR_API_TOKEN:
+        config.waldur_api.access_token = WALDUR_API_TOKEN
+
+    if WALDUR_VERIFY_SSL is not None:
+        config.waldur_api.verify_ssl = WALDUR_VERIFY_SSL.lower() in ("true", "yes", "1")
+
+    if WALDUR_SOCKS_PROXY is not None:
+        config.waldur_api.socks_proxy = WALDUR_SOCKS_PROXY
+
+    # Log proxy configuration
+    if config.waldur_api.socks_proxy:
+        logger.info(
+            "Using SOCKS proxy for Waldur API connections: %s",
+            config.waldur_api.socks_proxy,
+        )
+    else:
+        logger.info("No SOCKS proxy configured for Waldur API connections")
+else:
+    logger.warning("Waldur API configuration is missing")
+
+# Validate configuration after overrides
+try:
+    config.validate()
+except ValueError:
+    logger.exception("Configuration validation failed")
+    sys.exit(1)
+
+waldur_api_settings = config.waldur_api
 
 
 # HPC User API settings with environment variable support
@@ -337,7 +353,7 @@ def storage_resources(
 
         # Prepare agent's configuration info
         agent_config_info = {
-            "waldur_api_url": config.waldur_api_url,
+            "waldur_api_url": config.waldur_api.api_url if config.waldur_api else None,
             "backend_settings": config.backend_settings,
             "backend_components": config.backend_components,
             "configured_storage_systems": config.storage_systems,
