@@ -24,7 +24,7 @@ class TestSyncScript:
             "waldur_api_token": "test-token",
             "waldur_offering_uuid": str(uuid4()),
             "backend_type": "cscs-hpc-storage",
-            "backend_settings": {
+            "backend_config": {
                 "output_directory": self.temp_dir,
                 "storage_file_system": "lustre",
             },
@@ -122,7 +122,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": str(uuid4()),
             "backend_type": self.offering_config["backend_type"],
-            "backend_settings": self.offering_config["backend_settings"],
+            "backend_config": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -169,7 +169,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": specific_uuid,
             "backend_type": self.offering_config["backend_type"],
-            "backend_settings": self.offering_config["backend_settings"],
+            "backend_config": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -179,7 +179,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": "other-uuid",
             "backend_type": self.offering_config["backend_type"],
-            "backend_settings": self.offering_config["backend_settings"],
+            "backend_config": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -214,7 +214,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": offering_uuid,
             "backend_type": self.offering_config["backend_type"],
-            "backend_settings": self.offering_config["backend_settings"],
+            "backend_config": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -232,7 +232,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": offering_uuid,
             "backend_type": self.offering_config["backend_type"],
-            "backend_settings": self.offering_config["backend_settings"],
+            "backend_config": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
         mock_sync_offering.assert_called_once_with(expected_offering_dict, True)
@@ -240,9 +240,9 @@ class TestSyncScript:
     @patch("waldur_cscs_hpc_storage.sync_script.CscsHpcStorageBackend")
     def test_sync_offering_resources_with_hpc_settings(self, mock_backend_class):
         """Test that HPC User API settings are correctly extracted and passed to backend."""
-        # Setup config with HPC settings in backend_settings
+        # Setup config with HPC settings in backend_config
         config = self.offering_config.copy()
-        config["backend_settings"] = {
+        config["backend_config"] = {
             "output_directory": self.temp_dir,
             "storage_file_system": "lustre",
             "hpc_user_api_url": "https://hpc-user.example.com",
@@ -265,8 +265,8 @@ class TestSyncScript:
 
         # Verify backend was initialized with HpcUserApiConfig
         args, kwargs = mock_backend_class.call_args
-        assert "hpc_user_api_settings" in kwargs
-        hpc_config = kwargs["hpc_user_api_settings"]
+        assert "hpc_user_api_config" in kwargs
+        hpc_config = kwargs["hpc_user_api_config"]
 
         from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
 

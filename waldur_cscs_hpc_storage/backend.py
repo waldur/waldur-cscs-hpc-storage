@@ -32,45 +32,45 @@ class CscsHpcStorageBackend:
 
     def __init__(
         self,
-        backend_settings: BackendConfig,
+        backend_config: BackendConfig,
         backend_components: list[str],
-        waldur_api_settings: WaldurApiConfig,
-        hpc_user_api_settings: Optional[HpcUserApiConfig] = None,
+        waldur_api_config: WaldurApiConfig,
+        hpc_user_api_config: Optional[HpcUserApiConfig] = None,
     ) -> None:
         """Initialize CSCS storage backend.
 
         Args:
-            backend_settings: Backend configuration (BackendConfig object)
+            backend_config: Backend configuration (BackendConfig object)
             backend_components: List of enabled backend components
-            waldur_api_settings: Waldur API configuration (WaldurApiConfig object)
-            hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
+            waldur_api_config: Waldur API configuration (WaldurApiConfig object)
+            hpc_user_api_config: Optional HPC User API configuration (HpcUserApiConfig object)
         """
         self.backend_components = backend_components
         self.backend_components = backend_components
-        self.backend_settings = backend_settings
-        self.waldur_api_settings = waldur_api_settings
+        self.backend_config = backend_config
+        self.waldur_api_config = waldur_api_config
 
         # Configuration
-        self.storage_file_system = backend_settings.storage_file_system
-        self.inode_soft_coefficient = backend_settings.inode_soft_coefficient
-        self.inode_hard_coefficient = backend_settings.inode_hard_coefficient
-        self.inode_base_multiplier = backend_settings.inode_base_multiplier
-        self.use_mock_target_items = backend_settings.use_mock_target_items
-        self.development_mode = backend_settings.development_mode
+        self.storage_file_system = backend_config.storage_file_system
+        self.inode_soft_coefficient = backend_config.inode_soft_coefficient
+        self.inode_hard_coefficient = backend_config.inode_hard_coefficient
+        self.inode_base_multiplier = backend_config.inode_base_multiplier
+        self.use_mock_target_items = backend_config.use_mock_target_items
+        self.development_mode = backend_config.development_mode
 
         # HPC User service configuration
         self.hpc_user_client: Optional[CSCSHpcUserClient] = None
-        if hpc_user_api_settings:
-            self.hpc_user_client = CSCSHpcUserClient(hpc_user_api_settings)
+        if hpc_user_api_config:
+            self.hpc_user_client = CSCSHpcUserClient(hpc_user_api_config)
 
-            if hpc_user_api_settings.socks_proxy:
+            if hpc_user_api_config.socks_proxy:
                 logger.info(
                     "SOCKS proxy configured from hpc_user_api settings: %s",
-                    hpc_user_api_settings.socks_proxy,
+                    hpc_user_api_config.socks_proxy,
                 )
             logger.info(
                 "HPC User client initialized with URL: %s",
-                hpc_user_api_settings.api_url,
+                hpc_user_api_config.api_url,
             )
         else:
             logger.info("HPC User client not configured - using mock unixGid values")
@@ -80,14 +80,14 @@ class CscsHpcStorageBackend:
         logger.info("Project GID cache initialized (persists until server restart)")
 
         # Initialize Waldur API client
-        self._client = get_client(waldur_api_settings)
+        self._client = get_client(waldur_api_config)
         logger.debug(
             "Waldur API client initialized for URL: %s",
-            waldur_api_settings.api_url,
+            waldur_api_config.api_url,
         )
 
         # Validate configuration
-        self.backend_settings.validate()
+        self.backend_config.validate()
 
     def _generate_deterministic_uuid(self, name: str) -> str:
         """Generate a deterministic UUID from a string name."""
@@ -879,7 +879,7 @@ class CscsHpcStorageBackend:
             order_uuid = waldur_resource.order_in_progress.uuid
 
             # Get base URL from settings
-            base_url = self.waldur_api_settings.api_url.rstrip("/")
+            base_url = self.waldur_api_config.api_url.rstrip("/")
 
             # Ensure /api/ is in the URL but don't duplicate it
             api_path = "/api" if not base_url.endswith("/api") else ""

@@ -99,9 +99,8 @@ class BackendConfig:
 class StorageProxyConfig:
     """Configuration for the CSCS Storage Proxy."""
 
-    # Waldur API settings
     waldur_api: Optional[WaldurApiConfig]
-    backend_settings: BackendConfig
+    backend_config: BackendConfig
     backend_components: list[str]
     storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = None
@@ -159,7 +158,7 @@ class StorageProxyConfig:
             )
 
         # Parse backend settings
-        backend_settings_data = data.get("backend_settings", {})
+        backend_settings_data = data.get("backend_config", {})
         backend_config = BackendConfig(
             storage_file_system=backend_settings_data.get(
                 "storage_file_system", "lustre"
@@ -181,7 +180,7 @@ class StorageProxyConfig:
 
         return cls(
             waldur_api=waldur_api_config,
-            backend_settings=backend_config,
+            backend_config=backend_config,
             backend_components=data.get("backend_components", []),
             storage_systems=data.get("storage_systems", {}),
             auth=auth_config,

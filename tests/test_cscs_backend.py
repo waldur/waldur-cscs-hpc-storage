@@ -19,7 +19,7 @@ class TestCscsHpcStorageBackendBase:
 
     def setup_method(self):
         """Set up test environment."""
-        self.backend_settings = BackendConfig(
+        self.backend_config = BackendConfig(
             storage_file_system="lustre",
             inode_soft_coefficient=1.5,
             inode_hard_coefficient=2.0,
@@ -28,20 +28,20 @@ class TestCscsHpcStorageBackendBase:
         )
         self.backend_components = ["storage"]
 
-        self.waldur_api_settings = WaldurApiConfig(
+        self.waldur_api_config = WaldurApiConfig(
             api_url="https://example.com", access_token="token"
         )
         self.backend = self._create_backend()
 
-    def _create_backend(self, hpc_user_api_settings=None):
+    def _create_backend(self, hpc_user_api_config=None):
         """Helper to create backend instance with mocks."""
         with patch("waldur_cscs_hpc_storage.backend.get_client") as mock_get_client:
             mock_get_client.return_value = Mock()
             backend = CscsHpcStorageBackend(
-                self.backend_settings,
+                self.backend_config,
                 self.backend_components,
-                waldur_api_settings=self.waldur_api_settings,
-                hpc_user_api_settings=hpc_user_api_settings,
+                waldur_api_config=self.waldur_api_config,
+                hpc_user_api_config=hpc_user_api_config,
             )
         # Inject mock client for testing
         backend._client = Mock()
@@ -222,7 +222,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Configure backend client with base URL
         mock_httpx_client = Mock()
         mock_httpx_client.base_url = "https://waldur.example.com/api"
-        self.backend.waldur_api_settings.api_url = "https://waldur.example.com/api"
+        self.backend.waldur_api_config.api_url = "https://waldur.example.com/api"
         self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         storage_json = self.backend._create_storage_resource_json(
@@ -1180,7 +1180,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Configure backend client with base URL
         mock_httpx_client = Mock()
         mock_httpx_client.base_url = "https://waldur.example.com/api"
-        self.backend.waldur_api_settings.api_url = "https://waldur.example.com/api"
+        self.backend.waldur_api_config.api_url = "https://waldur.example.com/api"
         self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         # Test the method
@@ -1216,7 +1216,7 @@ class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
             oidc_token_url="https://auth.example.com",
             oidc_scope="scope",
         )
-        self.backend = self._create_backend(hpc_user_api_settings=hpc_user_settings)
+        self.backend = self._create_backend(hpc_user_api_config=hpc_user_settings)
         # Mock the hpc_user_client
         self.backend.hpc_user_client = Mock()
 

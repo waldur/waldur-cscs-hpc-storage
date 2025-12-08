@@ -112,7 +112,7 @@ except ValueError:
     logger.exception("Configuration validation failed")
     sys.exit(1)
 
-waldur_api_settings = config.waldur_api
+waldur_api_config = config.waldur_api
 
 
 # HPC User API settings with environment variable support
@@ -141,7 +141,7 @@ if HPC_USER_SOCKS_PROXY is None and config.hpc_user_api:
     HPC_USER_SOCKS_PROXY = config.hpc_user_api.socks_proxy
 
 # Convert HPC User API settings to config object if any values are present
-hpc_user_api_settings: Optional[HpcUserApiConfig] = None
+hpc_user_api_config: Optional[HpcUserApiConfig] = None
 if any(
     [
         HPC_USER_API_URL,
@@ -152,7 +152,7 @@ if any(
         HPC_USER_SOCKS_PROXY,
     ]
 ):
-    hpc_user_api_settings = HpcUserApiConfig(
+    hpc_user_api_config = HpcUserApiConfig(
         api_url=HPC_USER_API_URL,
         client_id=HPC_USER_CLIENT_ID,
         client_secret=HPC_USER_CLIENT_SECRET,
@@ -161,15 +161,15 @@ if any(
         socks_proxy=HPC_USER_SOCKS_PROXY,
     )
 
-if waldur_api_settings is None:
-    logger.error("Waldur API settings validation failed: settings not provided")
+if waldur_api_config is None:
+    logger.error("Waldur API configuration validation failed")
     sys.exit(1)
 
 cscs_storage_backend = CscsHpcStorageBackend(
-    config.backend_settings,
+    config.backend_config,
     config.backend_components,
-    waldur_api_settings=waldur_api_settings,
-    hpc_user_api_settings=hpc_user_api_settings,
+    waldur_api_config=waldur_api_config,
+    hpc_user_api_config=hpc_user_api_config,
 )
 
 # Authentication settings - environment variables override config file
@@ -359,7 +359,7 @@ def storage_resources(
         # Prepare agent's configuration info
         agent_config_info = {
             "waldur_api_url": config.waldur_api.api_url if config.waldur_api else None,
-            "backend_settings": dataclasses.asdict(config.backend_settings),
+            "backend_config": dataclasses.asdict(config.backend_config),
             "backend_components": config.backend_components,
             "configured_storage_systems": config.storage_systems,
             "requested_storage_system": storage_system.value

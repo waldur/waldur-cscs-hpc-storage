@@ -16,7 +16,7 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
 @pytest.fixture
 def backend():
     """Create a backend instance for testing."""
-    backend_settings = BackendConfig(
+    backend_config = BackendConfig(
         storage_file_system="lustre",
         inode_soft_coefficient=1.33,
         inode_hard_coefficient=2.0,
@@ -27,16 +27,16 @@ def backend():
 
     backend_components = ["storage"]
 
-    waldur_api_settings = WaldurApiConfig(
+    waldur_api_config = WaldurApiConfig(
         api_url="https://example.com", access_token="token"
     )
 
     with patch("waldur_cscs_hpc_storage.backend.get_client") as mock_get_client:
         mock_get_client.return_value = Mock()
         backend = CscsHpcStorageBackend(
-            backend_settings,
+            backend_config,
             backend_components,
-            waldur_api_settings=waldur_api_settings,
+            waldur_api_config=waldur_api_config,
         )
 
     # Inject mock client for testing if needed (though get_client mock handles it)

@@ -60,44 +60,44 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
 
     try:
         # Prepare Waldur API settings
-        waldur_api_settings = WaldurApiConfig(
+        waldur_api_config = WaldurApiConfig(
             api_url=offering_config["waldur_api_url"],
             access_token=offering_config["waldur_api_token"],
         )
 
         # Initialize backend
-        backend_settings = offering_config.get("backend_settings", {})
+        backend_config = offering_config.get("backend_config", {})
         backend_components = offering_config.get("backend_components", {})
 
         # Extract HPC User API settings if present (legacy support)
-        hpc_user_api_settings = None
-        if "hpc_user_api_url" in backend_settings:
-            hpc_user_api_settings = HpcUserApiConfig(
-                api_url=backend_settings.get("hpc_user_api_url"),
-                client_id=backend_settings.get("hpc_user_client_id"),
-                client_secret=backend_settings.get("hpc_user_client_secret"),
-                oidc_token_url=backend_settings.get("hpc_user_oidc_token_url"),
-                oidc_scope=backend_settings.get("hpc_user_oidc_scope"),
-                socks_proxy=backend_settings.get("hpc_user_socks_proxy"),
+        hpc_user_api_config = None
+        if "hpc_user_api_url" in backend_config:
+            hpc_user_api_config = HpcUserApiConfig(
+                api_url=backend_config.get("hpc_user_api_url"),
+                client_id=backend_config.get("hpc_user_client_id"),
+                client_secret=backend_config.get("hpc_user_client_secret"),
+                oidc_token_url=backend_config.get("hpc_user_oidc_token_url"),
+                oidc_scope=backend_config.get("hpc_user_oidc_scope"),
+                socks_proxy=backend_config.get("hpc_user_socks_proxy"),
             )
 
         # Prepare backend configuration
         backend_config = BackendConfig(
-            storage_file_system=backend_settings.get("storage_file_system", "lustre"),
-            inode_soft_coefficient=backend_settings.get("inode_soft_coefficient", 1.33),
-            inode_hard_coefficient=backend_settings.get("inode_hard_coefficient", 2.0),
-            inode_base_multiplier=backend_settings.get(
+            storage_file_system=backend_config.get("storage_file_system", "lustre"),
+            inode_soft_coefficient=backend_config.get("inode_soft_coefficient", 1.33),
+            inode_hard_coefficient=backend_config.get("inode_hard_coefficient", 2.0),
+            inode_base_multiplier=backend_config.get(
                 "inode_base_multiplier", 1_000_000
             ),
-            use_mock_target_items=backend_settings.get("use_mock_target_items", False),
-            development_mode=backend_settings.get("development_mode", False),
+            use_mock_target_items=backend_config.get("use_mock_target_items", False),
+            development_mode=backend_config.get("development_mode", False),
         )
 
         backend = CscsHpcStorageBackend(
             backend_config,
             backend_components,
-            hpc_user_api_settings=hpc_user_api_settings,
-            waldur_api_settings=waldur_api_settings,
+            hpc_user_api_config=hpc_user_api_config,
+            waldur_api_config=waldur_api_config,
         )
 
         if dry_run:
@@ -186,7 +186,7 @@ def main() -> None:
             "waldur_api_token": offering_info.get("waldur_api_token"),
             "waldur_offering_uuid": offering_info.get("waldur_offering_uuid"),
             "backend_type": offering_info.get("backend_type"),
-            "backend_settings": offering_info.get("backend_settings", {}),
+            "backend_config": offering_info.get("backend_config", {}),
             "backend_components": offering_info.get("backend_components", {}),
         }
 
