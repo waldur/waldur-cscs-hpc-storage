@@ -40,7 +40,6 @@ class CscsHpcStorageBackend:
             hpc_user_api_settings: Optional HPC User API configuration
             waldur_api_settings: Optional Waldur API configuration for internal client
         """
-        self.backend_type = "cscs-hpc-storage"
         self.backend_settings = backend_settings
         self.backend_components = backend_components
 
@@ -483,7 +482,7 @@ class CscsHpcStorageBackend:
 
     def _get_target_status_from_waldur_state(
         self, waldur_resource: WaldurResource
-    ) -> str:
+    ) -> TargetStatus:
         """Map Waldur resource state to target item status (pending, active, removing)."""
         # Map Waldur resource state to target item status
         target_status_mapping = {
@@ -2146,7 +2145,7 @@ class CscsHpcStorageBackend:
                 if (
                     hasattr(resource, "state")
                     and not isinstance(resource.state, Unset)
-                    and resource.state in ["Creating"]
+                    and resource.state == ResourceState.CREATING
                 ):
                     # For transitional resources, only process if order is in pending-provider state
                     if (
@@ -2160,9 +2159,9 @@ class CscsHpcStorageBackend:
                             and not isinstance(resource.order_in_progress.state, Unset)
                             and resource.order_in_progress.state
                             in [
-                                "pending-consumer",
-                                "pending-project",
-                                "pending-start-date",
+                                OrderState.PENDING_CONSUMER,
+                                OrderState.PENDING_PROJECT,
+                                OrderState.PENDING_START_DATE,
                             ]
                         ):
                             logger.info(

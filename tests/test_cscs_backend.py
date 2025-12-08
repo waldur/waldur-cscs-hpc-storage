@@ -45,7 +45,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_backend_initialization(self):
         """Test backend initialization."""
-        assert self.backend.backend_type == "cscs-hpc-storage"
         assert self.backend.storage_file_system == "lustre"
         assert self.backend.inode_soft_coefficient == 1.5
         assert self.backend.inode_hard_coefficient == 2.0
