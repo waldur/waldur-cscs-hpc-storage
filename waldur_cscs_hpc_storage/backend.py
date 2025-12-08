@@ -14,7 +14,14 @@ from waldur_api_client.types import Unset
 
 from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
 from waldur_cscs_hpc_storage.utils import get_client
-from waldur_cscs_hpc_storage.enums import StorageDataType, TargetStatus, TargetType
+from waldur_cscs_hpc_storage.enums import (
+    EnforcementType,
+    QuotaType,
+    QuotaUnit,
+    StorageDataType,
+    TargetStatus,
+    TargetType,
+)
 from waldur_cscs_hpc_storage.exceptions import BackendError
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
@@ -821,28 +828,28 @@ class CscsHpcStorageBackend:
             quotas.extend(
                 [
                     Quota(
-                        type="space",
+                        type=QuotaType.SPACE,
                         quota=float(storage_quota_soft_tb),
-                        unit="tera",
-                        enforcementType="soft",
+                        unit=QuotaUnit.TERA,
+                        enforcementType=EnforcementType.SOFT,
                     ),
                     Quota(
-                        type="space",
+                        type=QuotaType.SPACE,
                         quota=float(storage_quota_hard_tb),
-                        unit="tera",
-                        enforcementType="hard",
+                        unit=QuotaUnit.TERA,
+                        enforcementType=EnforcementType.HARD,
                     ),
                     Quota(
-                        type="inodes",
+                        type=QuotaType.INODES,
                         quota=float(inode_soft),
-                        unit="none",
-                        enforcementType="soft",
+                        unit=QuotaUnit.NONE,
+                        enforcementType=EnforcementType.SOFT,
                     ),
                     Quota(
-                        type="inodes",
+                        type=QuotaType.INODES,
                         quota=float(inode_hard),
-                        unit="none",
-                        enforcementType="hard",
+                        unit=QuotaUnit.NONE,
+                        enforcementType=EnforcementType.HARD,
                     ),
                 ]
             )
