@@ -651,9 +651,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_list.sync_detailed.side_effect = Exception("API connection failed")
 
             # Test that generate_all_resources_json returns error response
-            result = backend.generate_all_resources_json(
-                "test-offering-uuid", Mock(), page=1, page_size=10
-            )
+            result = backend.generate_all_resources_json("test-offering-uuid")
 
             # Verify error response structure
             assert result["status"] == "error"
@@ -662,7 +660,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             assert result["result"]["storageResources"] == []
             assert result["result"]["paginate"]["total"] == 0
             assert result["result"]["paginate"]["current"] == 1
-            assert result["result"]["paginate"]["limit"] == 10
+            assert result["result"]["paginate"]["limit"] == 100
 
     def test_dynamic_target_type_mapping(self):
         """Test that storage data type correctly maps to target type."""

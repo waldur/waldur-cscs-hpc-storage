@@ -1385,23 +1385,15 @@ class CscsHpcStorageBackend:
     def generate_all_resources_json(
         self,
         offering_uuid: str,
-        state: Optional[ResourceState] = None,
-        page: int = 1,
-        page_size: int = 100,
-        storage_system: Optional[str] = None,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
     ) -> dict:
-        """Generate JSON data with all storage resources with pagination support."""
+        """Generate JSON data with all storage resources.
+
+        This method is used by the sync script to generate the all.json file.
+        It fetches all resources for the given offering without pagination or filtering.
+        """
         try:
             storage_resources, pagination_info = self._get_all_storage_resources(
                 offering_uuid,
-                state,
-                page=page,
-                page_size=page_size,
-                storage_system=storage_system,
-                data_type=data_type,
-                status=status,
             )
 
             # Serialize storage resources to dicts for JSON response
@@ -1428,9 +1420,9 @@ class CscsHpcStorageBackend:
                 "result": {
                     "storageResources": [],
                     "paginate": {
-                        "current": page,
-                        "limit": page_size,
-                        "offset": (page - 1) * page_size,
+                        "current": 1,
+                        "limit": 100,
+                        "offset": 0,
                         "pages": 0,
                         "total": 0,
                     },
