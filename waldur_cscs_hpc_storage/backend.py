@@ -58,6 +58,14 @@ TARGET_STATUS_MAPPING: dict[ResourceState, TargetStatus] = {
     ResourceState.UPDATING: TargetStatus.PENDING,
 }
 
+# Mapping from storage data type to target type
+DATA_TYPE_TO_TARGET_MAPPING: dict[StorageDataType, TargetType] = {
+    StorageDataType.STORE: TargetType.PROJECT,
+    StorageDataType.ARCHIVE: TargetType.PROJECT,
+    StorageDataType.USERS: TargetType.USER,
+    StorageDataType.SCRATCH: TargetType.USER,
+}
+
 
 class CscsHpcStorageBackend:
     """CSCS HPC Storage backend for JSON file generation."""
@@ -529,31 +537,23 @@ class CscsHpcStorageBackend:
             logger.error(error_msg)
             raise TypeError(error_msg)
 
-        # Map storage data types to target types
-        data_type_to_target = {
-            StorageDataType.STORE: TargetType.PROJECT,
-            StorageDataType.ARCHIVE: TargetType.PROJECT,
-            StorageDataType.USERS: TargetType.USER,
-            StorageDataType.SCRATCH: TargetType.USER,
-        }
-
         # Validate that storage_data_type is a supported type
         try:
             data_type_enum = StorageDataType(storage_data_type)
         except ValueError:
             data_type_enum = None
 
-        if data_type_enum is None or data_type_enum not in data_type_to_target:
+        if data_type_enum is None or data_type_enum not in DATA_TYPE_TO_TARGET_MAPPING:
             logger.warning(
                 "Unknown storage_data_type '%s' for resource %s, using default 'project' "
                 "target type. Supported types: %s",
                 storage_data_type,
                 waldur_resource.uuid,
-                list(data_type_to_target.keys()),
+                list(DATA_TYPE_TO_TARGET_MAPPING.keys()),
             )
             target_type = TargetType.PROJECT
         else:
-            target_type = data_type_to_target[data_type_enum]
+            target_type = DATA_TYPE_TO_TARGET_MAPPING[data_type_enum]
         logger.debug(
             "Mapped storage_data_type '%s' to target_type '%s'",
             storage_data_type,
