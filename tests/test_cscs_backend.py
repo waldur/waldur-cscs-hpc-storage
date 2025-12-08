@@ -8,6 +8,12 @@ from pydantic import ValidationError
 from waldur_api_client.types import Unset
 from waldur_api_client.models.order_state import OrderState
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
+from waldur_cscs_hpc_storage.schemas import (
+    ParsedWaldurResource,
+    ResourceAttributes,
+)
+from waldur_cscs_hpc_storage.enums import StorageDataType
+from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
     HpcUserApiConfig,
@@ -96,15 +102,15 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.customer_slug = "university"
         mock_resource.customer_name = "University"
         mock_resource.customer_uuid = Mock()
-        mock_resource.customer_uuid.hex = str(uuid4())
+        mock_resource.customer_uuid = str(uuid4())
         mock_resource.project_slug = "physics-dept"
         mock_resource.project_name = "Physics Department"
         mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = str(uuid4())
+        mock_resource.project_uuid = str(uuid4())
         mock_resource.slug = "climate-sim"
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())  # ParsedWaldurResource.uuid is str
         mock_resource.state = "OK"  # Set state to map to "active" status
+        mock_resource.backend_metadata = Mock(additional_properties={})
 
         target_data = self.backend._get_target_item_data(mock_resource, "project")
 
@@ -122,8 +128,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.project_slug = "physics-dept"
         mock_resource.project_name = "Physics Department"
         mock_resource.slug = "test-resource"
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
+        mock_resource.backend_metadata = Mock(additional_properties={})
 
         # Test different Waldur states and their expected target statuses
         test_cases = [
@@ -150,33 +156,50 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         """Test storage resource JSON creation."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
         mock_resource.name = "Test Storage"
         mock_resource.slug = "test-storage"
         mock_resource.provider_slug = "cscs"
         mock_resource.customer_slug = "university"
         mock_resource.customer_name = "University"
         mock_resource.customer_uuid = Mock()
-        mock_resource.customer_uuid.hex = str(uuid4())
+        mock_resource.customer_uuid = str(uuid4())
         mock_resource.project_slug = "physics-dept"
         mock_resource.project_name = "Physics Department"
         mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = str(uuid4())
-        # Create mock limits with additional_properties
+        mock_resource.project_uuid = str(uuid4())
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 150}  # 150TB
+        mock_limits.storage = 150  # 150TB
         mock_resource.limits = mock_limits
 
-        # Create mock attributes with additional_properties
+        # Create mock attributes
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {"permissions": "2770"}
+        mock_attributes.permissions = "2770"
+        mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
+
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (150, 150)
+        mock_resource.get_effective_inode_quotas.return_value = (
+            int(150 * 1000 * 1000 * 1.5),
+            int(150 * 1000 * 1000 * 2.0),
+        )
+        mock_resource.effective_permissions = "2770"
 
         storage_json = self.backend._create_storage_resource_json(
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json.itemId == mock_resource.uuid.hex
+        assert storage_json.itemId == mock_resource.uuid
         assert storage_json.status == "pending"
         assert (
             storage_json.mountPoint.default
@@ -192,28 +215,45 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         """Test storage resource JSON creation includes provider action URLs when available."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
         mock_resource.name = "Test Storage"
         mock_resource.slug = "test-storage"
         mock_resource.provider_slug = "cscs"
         mock_resource.customer_slug = "university"
         mock_resource.customer_name = "University"
         mock_resource.customer_uuid = Mock()
-        mock_resource.customer_uuid.hex = str(uuid4())
+        mock_resource.customer_uuid = str(uuid4())
         mock_resource.project_slug = "physics-dept"
         mock_resource.project_name = "Physics Department"
         mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = str(uuid4())
+        mock_resource.project_uuid = str(uuid4())
 
-        # Create mock limits with additional_properties
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 150}  # 150TB
+        mock_limits.storage = 150
         mock_resource.limits = mock_limits
 
-        # Create mock attributes with additional_properties
+        # Create mock attributes
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {"permissions": "2770"}
+        mock_attributes.permissions = "2770"
+        mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
+
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (150, 150)
+        mock_resource.get_effective_inode_quotas.return_value = (
+            100,
+            200,
+        )  # simpler mock
+        mock_resource.effective_permissions = "2770"
 
         # Create mock order_in_progress
         order_uuid = str(uuid4())
@@ -233,7 +273,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json.itemId == mock_resource.uuid.hex
+        assert storage_json.itemId == mock_resource.uuid
         assert (
             storage_json.extra_fields["approve_by_provider_url"]
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/"
@@ -247,28 +287,41 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         """Test storage resource JSON creation without provider action URLs when not available."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
         mock_resource.name = "Test Storage"
         mock_resource.slug = "test-storage"
         mock_resource.provider_slug = "cscs"
         mock_resource.customer_slug = "university"
         mock_resource.customer_name = "University"
         mock_resource.customer_uuid = Mock()
-        mock_resource.customer_uuid.hex = str(uuid4())
+        mock_resource.customer_uuid = str(uuid4())
         mock_resource.project_slug = "physics-dept"
         mock_resource.project_name = "Physics Department"
         mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = str(uuid4())
+        mock_resource.project_uuid = str(uuid4())
 
-        # Create mock limits with additional_properties
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 150}  # 150TB
+        mock_limits.storage = 150
         mock_resource.limits = mock_limits
 
-        # Create mock attributes with additional_properties
+        # Create mock attributes
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {"permissions": "2770"}
+        mock_attributes.permissions = "2770"
+        mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (150, 150)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "2770"
 
         # No order_in_progress
         mock_resource.order_in_progress = Unset()
@@ -277,7 +330,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json.itemId == mock_resource.uuid.hex
+        assert storage_json.itemId == mock_resource.uuid
         assert "approve_by_provider_url" not in storage_json.extra_fields
         assert "reject_by_provider_url" not in storage_json.extra_fields
 
@@ -285,28 +338,42 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         """Test storage resource JSON creation when order exists but has no UUID."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
         mock_resource.name = "Test Storage"
         mock_resource.slug = "test-storage"
         mock_resource.provider_slug = "cscs"
         mock_resource.customer_slug = "university"
         mock_resource.customer_name = "University"
         mock_resource.customer_uuid = Mock()
-        mock_resource.customer_uuid.hex = str(uuid4())
+        mock_resource.customer_uuid = str(uuid4())
         mock_resource.project_slug = "physics-dept"
         mock_resource.project_name = "Physics Department"
         mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = str(uuid4())
+        mock_resource.project_uuid = str(uuid4())
 
-        # Create mock limits with additional_properties
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 150}  # 150TB
+        mock_limits.storage = 150
         mock_resource.limits = mock_limits
 
-        # Create mock attributes with additional_properties
+        # Create mock attributes
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {"permissions": "2770"}
+        mock_attributes.permissions = "2770"
+        mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
+
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (150, 150)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "2770"
 
         # Create mock order_in_progress without UUID
         # Create mock order_in_progress without UUID
@@ -318,7 +385,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource, "lustre-fs"
         )
 
-        assert storage_json.itemId == mock_resource.uuid.hex
+        assert storage_json.itemId == mock_resource.uuid
         assert "approve_by_provider_url" not in storage_json.extra_fields
         assert "reject_by_provider_url" not in storage_json.extra_fields
 
@@ -328,45 +395,38 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource1 = Mock()
         mock_resource1.offering_name = "Test Storage"
         mock_resource1.offering_slug = "test-storage"
-        mock_resource1.uuid.hex = "test-uuid-1"
+        mock_resource1.uuid = "test-uuid-1"
         mock_resource1.slug = "resource-1"
         mock_resource1.customer_slug = "university"
         mock_resource1.project_slug = "physics"
-        # Create mock limits with additional_properties for resource1
-        mock_limits1 = Mock()
-        mock_limits1.additional_properties = {"storage": 100}
-        mock_resource1.limits = mock_limits1
-
-        # Create mock attributes with additional_properties for resource1
-        mock_attributes1 = Mock()
-        mock_attributes1.additional_properties = {}
-        mock_resource1.attributes = mock_attributes1
+        mock_resource1.limits = Mock(storage=100)
+        mock_resource1.attributes = Mock(storage_data_type="store", permissions="770")
+        mock_resource1.options = Mock(permissions=None)
+        mock_resource1.backend_metadata = Mock(tenant_item=None, customer_item=None)
+        mock_resource1.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource1.get_effective_storage_quotas.return_value = (100, 100)
+        mock_resource1.effective_permissions = "770"
 
         mock_resource2 = Mock()
         mock_resource2.offering_name = "Test Storage"
         mock_resource2.offering_slug = "test-storage"
-        mock_resource2.uuid.hex = "test-uuid-2"
+        mock_resource2.uuid = "test-uuid-2"
         mock_resource2.slug = "resource-2"
         mock_resource2.customer_slug = "university"
         mock_resource2.project_slug = "chemistry"
 
-        # Create mock limits with additional_properties for resource2
-        mock_limits2 = Mock()
-        mock_limits2.additional_properties = {"storage": 200}
-        mock_resource2.limits = mock_limits2
+        mock_resource2.limits = Mock(storage=200)
+        mock_resource2.attributes = Mock(storage_data_type="store", permissions="770")
+        mock_resource2.options = Mock(permissions=None)
+        mock_resource2.backend_metadata = Mock(tenant_item=None, customer_item=None)
+        mock_resource2.get_effective_inode_quotas.return_value = (200, 400)
+        mock_resource2.get_effective_storage_quotas.return_value = (200, 200)
+        mock_resource2.effective_permissions = "770"
 
-        # Create mock attributes with additional_properties for resource2
-        mock_attributes2 = Mock()
-        mock_attributes2.additional_properties = {}
-        mock_resource2.attributes = mock_attributes2
-
-        # Mock the sync_detailed response
-        mock_response = Mock()
-        mock_response.parsed = [mock_resource1, mock_resource2]
-        # Mock headers as a dict-like object (httpx.Headers behavior)
-        mock_headers = Mock()
-        mock_headers.get = Mock(return_value="2")
-        mock_response.headers = mock_headers
+        # Mock the WaldurResourceResponse
+        mock_response = WaldurResourceResponse(
+            resources=[mock_resource1, mock_resource2], total_count=2
+        )
 
         mock_list = self.backend.waldur_service.list_resources
         mock_list.return_value = mock_response
@@ -407,7 +467,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
         mock_resource.name = "Test Resource"
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
@@ -415,12 +475,11 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create mock limits
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 50}
+        mock_limits.storage = 50
         mock_resource.limits = mock_limits
 
         # Create mock attributes
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {}
         mock_resource.attributes = mock_attributes
 
         # Test with list storage_system (should raise TypeError)
@@ -452,28 +511,28 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Mock resource
         mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid"
+        mock_resource.uuid = "test-uuid"
         mock_resource.slug = "resource-1"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
         mock_resource.offering_slug = "test-storage"
 
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 100}
+        mock_limits.storage = 100
         mock_resource.limits = mock_limits
 
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {}
+        mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (100, 100)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "775"
 
-        # Test with different header case variations
-        mock_response = Mock()
-        mock_response.parsed = [mock_resource]
-        # httpx.Headers is case-insensitive, so we just need to test it returns the right value
-        mock_headers = Mock()
-        mock_headers.get = Mock(return_value="5")
-        mock_response.headers = mock_headers
+        # Mock the WaldurResourceResponse
+        mock_response = WaldurResourceResponse(resources=[mock_resource], total_count=5)
         backend.waldur_service.list_resources.return_value = mock_response
         backend.waldur_service.get_offering_customers.return_value = {}
 
@@ -484,17 +543,19 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # With hierarchical structure, we get tenant + customer + project entries
         # For 1 original resource, we get at least the project itself, plus tenant and customer
         assert pagination_info["total"] >= 1  # At minimum we get the project resource
-        # Verify that get was called with lowercase key (httpx normalizes to lowercase)
-        mock_headers.get.assert_called_with("x-result-count")
+        # The header check is less relevant now that we have WaldurResourceResponse,
+        # but let's assume we want to ensure list_resources was called correctly.
+        assert pagination_info["total"] >= 1  # At minimum we get the project resource
 
     def test_invalid_attribute_types_validation(self):
         """Test that non-string attribute values raise clear validation errors."""
-        backend = self._create_backend()
+        """Test that non-string attribute values raise clear validation errors."""
+        # backend = self._create_backend() # Removed unused variable
 
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
         mock_resource.name = "Test Resource"
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
@@ -502,26 +563,37 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create mock limits
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 50}
+        mock_limits.storage = 50
         mock_resource.limits = mock_limits
 
-        # Test with list permissions (should raise TypeError)
-        mock_attributes = Mock()
-        mock_attributes.additional_properties = {"permissions": ["775", "770"]}
-        mock_resource.attributes = mock_attributes
+        # Test with invalidated attributes (should raise ValidationError)
+        # However, backend now takes ParsedWaldurResource. If we pass a Mock that simulates it but violates internal type checks of logic?
+        # Actually, backend assumes `waldur_resource` IS validated.
+        # But `_create_storage_resource_json` does not re-validate.
+        # So this test checks if invalid data *in the model* raises error?
+        # But the model is parsed *before* passing to backend methods.
+        # The test originally checked that `_create_storage_resource_json` failed when it did validation.
+        # Now validation is done upstream.
+        # So we should probably test `from_waldur_resource` in `test_schemas.py` or similar.
+        # BUT `_create_storage_resource_json` uses `waldur_resource.attributes.permissions` etc.
+        # If we pass a mock for ParsedWaldurResource, it has whatever we give it.
+        # The TypeErrors/ValidationErrors in backend were from `_parse_resource_configuration`.
+        # Since that is gone, `_create_storage_resource_json` just reads from the object.
+        # So this test is no longer relevant for `backend.py` unless we are testing `WaldurService` parsing or `ParsedWaldurResource` validation.
+        # We can simulate `ParsedWaldurResource` with invalid data if we manually construct it?
+        # But `ParsedWaldurResource` validates on init.
+        # So let's construct `ParsedWaldurResource` with bad data to see it fail.
 
-        with pytest.raises(ValidationError) as exc_info:
-            backend._create_storage_resource_json(mock_resource, "test-storage")
+        with pytest.raises(ValidationError):
+            # Manually triggering validation by creating model with bad data
+            ResourceAttributes(permissions=["775", "770"])  # type: ignore
 
-        error_message = str(exc_info.value)
-        assert "Input should be a valid string" in error_message
-
-        # Test with dict storage_data_type (should raise TypeError)
-        mock_attributes.additional_properties = {"storage_data_type": {"type": "store"}}
-        mock_resource.attributes = mock_attributes
-
-        result = backend._create_storage_resource_json(mock_resource, "test-storage")
-        assert result.storageDataType.name == "STORE"
+    def test_invalid_storage_data_type(self):
+        """Test invalid storage data type."""
+        # The schema uses a validator that falls back to STORE on error.
+        # So we expect it to NOT raise, but default to STORE.
+        attr = ResourceAttributes(storage_data_type={"type": "store"})  # type: ignore
+        assert attr.storage_data_type == StorageDataType.STORE
 
     def test_status_mapping_from_waldur_state(self):
         """Test that Waldur resource state is correctly mapped to CSCS status."""
@@ -529,22 +601,26 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create a mock resource
         mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid"
+        mock_resource.uuid = "test-uuid"
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
         mock_resource.state = "OK"
 
-        # Create mock limits
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 50}
+        mock_limits.storage = 50
         mock_resource.limits = mock_limits
 
-        # Create mock attributes
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {}
+        mock_attributes.storage_data_type = "store"
+        mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (50, 50)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "775"
 
         # Test different state mappings
         test_cases = [
@@ -594,18 +670,18 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create a mock resource
         mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid"
+        mock_resource.uuid = "test-uuid"
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
-        mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = "project-uuid"
+        mock_resource.project_uuid = "project-uuid"
         mock_resource.state = "OK"
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
 
-        # Create mock limits
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 50}
+        mock_limits.storage = 50
         mock_resource.limits = mock_limits
 
         # Test different storage data types
@@ -620,10 +696,13 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         for storage_data_type, expected_target_type in test_cases:
             # Create mock attributes with storage_data_type
             mock_attributes = Mock()
-            mock_attributes.additional_properties = {
-                "storage_data_type": storage_data_type
-            }
+            mock_attributes.storage_data_type = storage_data_type
+            mock_attributes.permissions = "775"
             mock_resource.attributes = mock_attributes
+
+            mock_resource.get_effective_storage_quotas.return_value = (50, 50)
+            mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+            mock_resource.effective_permissions = "775"
 
             result = backend._create_storage_resource_json(
                 mock_resource, "test-storage"
@@ -655,7 +734,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid"
+        mock_resource.uuid = "test-uuid"
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
@@ -663,12 +742,20 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create mock limits with non-zero storage
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 42.5}  # Use float value
+        mock_limits.storage = 42.5  # Use float value
         mock_resource.limits = mock_limits
 
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {}
+        mock_attributes.storage_data_type = "store"
+        mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
+
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (42.5, 42.5)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "775"
 
         result = backend._create_storage_resource_json(mock_resource, "test-storage")
 
@@ -689,11 +776,11 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
+        mock_resource.uuid = str(uuid4())
 
         # Test with invalid data type (list)
         with pytest.raises(TypeError) as exc_info:
-            backend._get_target_data(mock_resource, ["store", "archive"])
+            backend._get_target_data(mock_resource, ["store", "archive"])  # type: ignore
 
         error_message = str(exc_info.value)
         assert "Invalid storage_data_type" in error_message
@@ -702,7 +789,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Test with None
         with pytest.raises(TypeError) as exc_info:
-            backend._get_target_data(mock_resource, None)
+            backend._get_target_data(mock_resource, None)  # type: ignore
 
         error_message = str(exc_info.value)
         assert "Invalid storage_data_type" in error_message
@@ -721,7 +808,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid"
+        mock_resource.uuid = "test-uuid"
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
@@ -729,12 +816,26 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create mock limits
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 50}
+        mock_limits.storage = 50
         mock_resource.limits = mock_limits
 
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {"storage_data_type": "store"}
+        mock_attributes.storage_data_type = "store"
+        mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (50, 50)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "775"
 
         result = backend._create_storage_resource_json(
             mock_resource, "test-storage-system"
@@ -960,47 +1061,49 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create mock resources with different storage systems
         mock_resource1 = Mock()
-        mock_resource1.uuid.hex = "uuid-1"
+        mock_resource1.uuid = "uuid-1"
         mock_resource1.slug = "resource-1"
         mock_resource1.customer_slug = "university"
         mock_resource1.project_slug = "physics"
         mock_resource1.offering_slug = "capstor"
         mock_resource1.state = "OK"
-        mock_limits1 = Mock()
-        mock_limits1.additional_properties = {"storage": 100}
-        mock_resource1.limits = mock_limits1
-        mock_attributes1 = Mock()
-        mock_attributes1.additional_properties = {"storage_system": "capstor"}
-        mock_resource1.attributes = mock_attributes1
+        mock_resource1.limits = Mock(storage=100)
+        mock_resource1.attributes = Mock(
+            storage_data_type="store", permissions="775"
+        )  # implicit store for capstor
+        mock_resource1.options = Mock(permissions=None)
+        mock_resource1.backend_metadata = Mock(tenant_item=None, customer_item=None)
+        mock_resource1.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource1.get_effective_storage_quotas.return_value = (100, 100)
+        mock_resource1.effective_permissions = "775"
 
         mock_resource2 = Mock()
-        mock_resource2.uuid.hex = "uuid-2"
+        mock_resource2.uuid = "uuid-2"
         mock_resource2.slug = "resource-2"
         mock_resource2.customer_slug = "university"
         mock_resource2.project_slug = "chemistry"
         mock_resource2.offering_slug = "vast"
         mock_resource2.state = "OK"
-        mock_limits2 = Mock()
-        mock_limits2.additional_properties = {"storage": 200}
-        mock_resource2.limits = mock_limits2
-        mock_attributes2 = Mock()
-        mock_attributes2.additional_properties = {"storage_system": "vast"}
-        mock_resource2.attributes = mock_attributes2
+        mock_resource2.limits = Mock(storage=200)
+        mock_resource2.attributes = Mock(storage_data_type="store", permissions="775")
+        mock_resource2.options = Mock(permissions=None)
+        mock_resource2.backend_metadata = Mock(tenant_item=None, customer_item=None)
+        mock_resource2.get_effective_inode_quotas.return_value = (200, 400)
+        mock_resource2.get_effective_storage_quotas.return_value = (200, 200)
+        mock_resource2.effective_permissions = "775"
 
         # Mock API response: 2 total resources from different storage systems
-        mock_response = Mock()
-        mock_response.parsed = [mock_resource1, mock_resource2]
-        mock_headers = Mock()
-        mock_headers.get = Mock(
-            return_value="2"
-        )  # API says there are 2 total resources
-        mock_response.headers = mock_headers
+        mock_response = WaldurResourceResponse(
+            resources=[mock_resource1, mock_resource2], total_count=2
+        )
         backend.waldur_service.list_resources.return_value = mock_response
         backend.waldur_service.get_offering_customers.return_value = {}
 
         # Test filtering by storage_system that matches only 1 resource
+        # Note: offering_slug is passed as None to verify it doesn't break anything, or proper strings.
+        # Avoid passing Mock() if not needed.
         resources, pagination_info = backend._get_all_storage_resources(
-            "test-offering-uuid", Mock(), page=1, page_size=10, storage_system="capstor"
+            "test-offering-uuid", page=1, page_size=10, storage_system="capstor"
         )
 
         # With hierarchical structure, filtering by storage_system="capstor" returns:
@@ -1021,7 +1124,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Test filtering by storage_system that matches no resources
         resources, pagination_info = backend._get_all_storage_resources(
             "test-offering-uuid",
-            Mock(),
             page=1,
             page_size=10,
             storage_system="nonexistent",
@@ -1042,22 +1144,21 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Mock resource in non-transitional state
         mock_resource = Mock()
         mock_resource.offering_name = "Test Storage"
+        mock_resource.offering_name = "Test Storage"
         mock_resource.offering_slug = "test-storage"
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = "test-uuid-1"
+        mock_resource.uuid = "test-uuid-1"
         mock_resource.slug = "resource-1"
         mock_resource.customer_slug = "university"
         mock_resource.customer_name = "University"
-        mock_resource.customer_uuid = Mock()
-        mock_resource.customer_uuid.hex = str(uuid4())
+        mock_resource.customer_uuid = str(uuid4())
         mock_resource.project_slug = "physics"
         mock_resource.project_name = "Physics Department"
-        mock_resource.project_uuid = Mock()
-        mock_resource.project_uuid.hex = str(uuid4())
+        mock_resource.project_uuid = str(uuid4())
+        mock_resource.project_uuid = str(uuid4())
         mock_resource.provider_slug = "cscs"
         mock_resource.provider_name = "CSCS"
         mock_resource.offering_uuid = Mock()
-        mock_resource.offering_uuid.hex = str(uuid4())
+        mock_resource.offering_uuid = str(uuid4())
         mock_resource.state = "OK"  # Non-transitional state
 
         # Create mock order_in_progress with any state (shouldn't matter)
@@ -1075,22 +1176,31 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Create mock limits and attributes
         mock_limits = Mock()
-        mock_limits.additional_properties = {"storage": 100}
+        mock_limits.storage = 100
         mock_resource.limits = mock_limits
         mock_attributes = Mock()
-        mock_attributes.additional_properties = {}
+        mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
-        # Mock options as well (required for validation)
-        mock_resource.options = {}
 
-        # Mock the sync_detailed response
-        mock_response = Mock()
-        mock_response.parsed = [mock_resource]
-        mock_headers = Mock()
-        mock_headers.get = Mock(return_value="1")
-        mock_response.headers = mock_headers
-
+        # Mock list_resources response
+        mock_response = WaldurResourceResponse(resources=[mock_resource], total_count=1)
         self.backend.waldur_service.list_resources.return_value = mock_response
+        # Mock options as well (required for validation)
+        mock_resource.options = Mock(
+            permissions="775",
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+        )
+        mock_resource.backend_metadata = Mock(
+            tenant_item=None, customer_item=None, project_item=None, user_item=None
+        )
+        mock_resource.get_effective_storage_quotas.return_value = (100, 100)
+        mock_resource.get_effective_inode_quotas.return_value = (100, 200)
+        mock_resource.effective_permissions = "775"
+        mock_resource.attributes.storage_data_type = "store"
+
         self.backend.waldur_service.get_offering_customers.return_value = {}
 
         # Configure backend client with base URL

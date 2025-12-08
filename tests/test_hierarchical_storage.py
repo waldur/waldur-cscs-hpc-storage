@@ -71,39 +71,47 @@ def create_mock_resource(
         resource_uuid = str(uuid4())
 
     resource = Mock()
-    resource.uuid = Mock()
-    resource.uuid.hex = resource_uuid
+    resource.uuid = resource_uuid
     resource.slug = project_slug
     resource.name = project_name
     resource.state = "OK"
     resource.customer_slug = customer_slug
     resource.customer_name = customer_name
-    resource.customer_uuid = Mock()
-    resource.customer_uuid.hex = str(uuid4())
+    resource.customer_uuid = str(uuid4())
     resource.project_slug = project_slug
     resource.project_name = project_name
-    resource.project_uuid = Mock()
-    resource.project_uuid.hex = str(uuid4())
+    resource.project_uuid = str(uuid4())
     resource.offering_slug = offering_slug
     resource.provider_slug = provider_slug
     resource.provider_name = provider_name
-    resource.offering_uuid = Mock()
-    resource.offering_uuid.hex = str(uuid4())
+    resource.offering_uuid = str(uuid4())
 
-    # Mock limits
+    # Mock limits (use direct attribute access for ParsedWaldurResource)
     resource.limits = Mock()
-    resource.limits.additional_properties = {"storage": storage_limit}
+    resource.limits.storage = storage_limit
 
     # Mock attributes
     resource.attributes = Mock()
-    resource.attributes.additional_properties = {
-        "storage_data_type": storage_data_type,
-        "permissions": "2770",
-    }
+    resource.attributes.storage_data_type = storage_data_type
+    resource.attributes.permissions = "2770"
 
     # Mock options
-    resource.options = {}
-    resource.backend_metadata = None
+    resource.options = Mock(
+        permissions=None,
+        soft_quota_space=None,
+        hard_quota_space=None,
+        soft_quota_inodes=None,
+        hard_quota_inodes=None,
+    )
+    resource.backend_metadata = Mock(
+        tenant_item=None, customer_item=None, project_item=None, user_item=None
+    )
+    resource.get_effective_storage_quotas.return_value = (storage_limit, storage_limit)
+    resource.get_effective_inode_quotas.return_value = (
+        int(storage_limit * 1000 * 1000 * 1.5),
+        int(storage_limit * 1000 * 1000 * 2.0),
+    )
+    resource.effective_permissions = "2770"
 
     return resource
 
@@ -288,9 +296,10 @@ class TestProjectLevelGeneration:
     def test_project_with_custom_permissions(self, backend):
         """Test project with custom permissions from attributes."""
         resource = create_mock_resource()
-        resource.attributes.additional_properties["permissions"] = "0755"
-
-        resource.attributes.additional_properties["permissions"] = "0755"
+        resource.attributes.permissions = "0755"
+        # Since we are mocking backend internals in some places, but also passing resource to methods,
+        # we update the effective_permissions call mocks too if needed. But _create_storage_resource_json uses attributes.
+        resource.effective_permissions = "0755"
 
         result = backend._create_storage_resource_json(resource, "capstor")
 
@@ -353,9 +362,7 @@ class TestThreeTierHierarchyGeneration:
 
         for resource in resources:
             storage_system_name = resource.offering_slug
-            storage_data_type = resource.attributes.additional_properties.get(
-                "storage_data_type", "store"
-            )
+            storage_data_type = resource.attributes.storage_data_type or "store"
             tenant_id = resource.provider_slug
             tenant_name = resource.provider_name
 
@@ -674,7 +681,7 @@ class TestIntegrationScenarios:
 
         for resource in resources:
             storage_system = resource.offering_slug
-            data_type = resource.attributes.additional_properties["storage_data_type"]
+            data_type = resource.attributes.storage_data_type
             tenant_id = resource.provider_slug
 
             # Create tenant

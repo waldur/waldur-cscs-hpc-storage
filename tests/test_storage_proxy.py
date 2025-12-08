@@ -17,6 +17,7 @@ os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
 os.environ["DISABLE_AUTH"] = "true"
 
 from waldur_cscs_hpc_storage.waldur_storage_proxy.main import app  # noqa: E402
+from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
 
 
 class TestStorageProxyAPI:
@@ -472,12 +473,7 @@ class TestStorageProxyAPI:
     def test_comma_separated_slugs_in_waldur_api_call(self, mock_list_resources):
         """Test that the backend uses comma-separated offering slugs when calling Waldur API."""
         # Mock the API response
-        mock_response = Response(
-            status_code=200,
-            content=b"",
-            headers=Headers({"x-result-count": "0"}),
-            parsed=[],  # Empty list of resources
-        )
+        mock_response = WaldurResourceResponse(resources=[], total_count=0)
         mock_list_resources.return_value = mock_response
 
         # Make a request without storage_system filter (should use all storage systems)

@@ -1,5 +1,8 @@
 import logging
+from dataclasses import dataclass
 from typing import Any, Optional, Union
+
+from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
 
 from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
@@ -10,6 +13,12 @@ from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class WaldurResourceResponse:
+    resources: list[ParsedWaldurResource]
+    total_count: int
 
 
 class WaldurService:
@@ -79,7 +88,7 @@ class WaldurService:
             **kwargs: Additional filters
 
         Returns:
-            Response object from the API client
+            WaldurResourceResponse object containing parsed resources and pagination info
         """
         filters = {}
         if state:
@@ -100,9 +109,16 @@ class WaldurService:
 
         filters.update(kwargs)
 
-        return marketplace_resources_list.sync_detailed(
+        response = marketplace_resources_list.sync_detailed(
             client=self.client,
             page=page,
             page_size=page_size,
             **filters,
         )
+
+        parsed_resources = [
+            ParsedWaldurResource.from_waldur_resource(r) for r in response.parsed
+        ]
+        total = int(response.headers.get("x-result-count", 0))
+
+        return WaldurResourceResponse(resources=parsed_resources, total_count=total)

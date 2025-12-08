@@ -6,7 +6,7 @@ from waldur_cscs_hpc_storage.gid_service import GidService
 from waldur_cscs_hpc_storage.waldur_service import WaldurService
 from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource_state import ResourceState
-from waldur_api_client.models.resource import Resource as WaldurResource
+
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.enums import (
     EnforcementType,
@@ -50,13 +50,7 @@ from waldur_cscs_hpc_storage.target_ids import (
     generate_tenant_target_id,
     generate_user_target_id,
 )
-from waldur_cscs_hpc_storage.schemas import (
-    ParsedWaldurResource,
-    ResourceAttributes,
-    ResourceBackendMetadata,
-    ResourceLimits,
-    ResourceOptions,
-)
+from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
 
 from waldur_cscs_hpc_storage.serializers import JsonSerializer
 
@@ -199,61 +193,30 @@ class CscsHpcStorageBackend:
 
         return filtered_resources
 
-    def _parse_resource_configuration(
-        self, waldur_resource: WaldurResource
-    ) -> ParsedWaldurResource:
-        """Helper to convert raw API objects into validated Pydantic models."""
-
-        # Extract raw dictionaries, handling Unset/None types from the API client
-        raw_limits: dict[str, Any] = getattr(
-            waldur_resource.limits, "additional_properties", {}
-        )
-        if not isinstance(raw_limits, dict):
-            raw_limits = {}
-
-        raw_attributes: dict[str, Any] = getattr(
-            waldur_resource.attributes, "additional_properties", {}
-        )
-        if not isinstance(raw_attributes, dict):
-            raw_attributes = {}
-
-        raw_options: dict[str, Any] = waldur_resource.options or {}
-        if not isinstance(raw_options, dict):
-            raw_options = {}
-
-        # safely handle backend_metadata
-        raw_metadata: dict[str, Any] = {}
-        if waldur_resource.backend_metadata:
-            metadata_props = getattr(
-                waldur_resource.backend_metadata, "additional_properties", {}
-            )
-            if isinstance(metadata_props, dict):
-                raw_metadata = metadata_props
-
-        # Validate and return
-        return ParsedWaldurResource(
-            limits=ResourceLimits(**raw_limits),
-            attributes=ResourceAttributes(**raw_attributes),
-            options=ResourceOptions(**raw_options),
-            backend_metadata=ResourceBackendMetadata(**raw_metadata),
-        )
+    # _parse_resource_configuration is removed as parsing moved to WaldurService
 
     def _collect_resource_limits(
-        self, waldur_resource: WaldurResource
+        self, waldur_resource: ParsedWaldurResource
     ) -> tuple[dict[str, int], dict[str, int]]:
-        """Collect storage limits from Waldur resource."""
+        """Collect storage limits from parsed Waldur resource."""
         backend_limits = {}
         waldur_limits = {}
 
-        # Extract storage size from resource limits or attributes
-        if waldur_resource.limits:
-            for (
-                component_name,
-                limit_value,
-            ) in waldur_resource.limits.additional_properties.items():
-                if component_name in self.backend_components:
-                    backend_limits[component_name] = limit_value
-                    waldur_limits[component_name] = limit_value
+        # Extract storage from validated limit model
+        # Assuming schema definition: storage: Optional[float]
+        storage_limit = waldur_resource.limits.storage
+        if storage_limit is not None:
+            # Pydantic model ensures this is float/int.
+            # Convert to appropriate unit/type if needed.
+            # Existing code iterated all limits. With strict schema, we only have specific fields.
+            # If dynamic iteration is needed, we can check model fields.
+            # For now, let's map 'storage' if enabled in backend components.
+
+            if "storage" in self.backend_components:
+                # Assuming simple mapping for now.
+                # If schema has more fields, map them here.
+                backend_limits["storage"] = storage_limit
+                waldur_limits["storage"] = storage_limit
 
         return backend_limits, waldur_limits
 
@@ -317,25 +280,34 @@ class CscsHpcStorageBackend:
         )
         return mock_gid
 
-    def _get_target_status_from_waldur_state(
-        self, waldur_resource: WaldurResource
-    ) -> TargetStatus:
-        """Map Waldur resource state to target item status."""
-        return TARGET_STATUS_MAPPING.get(waldur_resource.state, TargetStatus.PENDING)
+    def _get_target_status_from_waldur_state(self, state: str) -> TargetStatus:
+        """Map Waldur resource state string to target item status."""
+        for rs, ts in TARGET_STATUS_MAPPING.items():
+            if str(rs) == state:
+                return ts
+        return TargetStatus.PENDING
 
     def _get_target_item_data(  # noqa: PLR0911
         self,
-        waldur_resource: WaldurResource,
+        waldur_resource: ParsedWaldurResource,
         target_type: TargetType,
     ) -> Optional[TargetItem]:
         """Get target item data from backend_metadata or generate mock data."""
-        if not self.use_mock_target_items and waldur_resource.backend_metadata:
+        if not self.use_mock_target_items:
             # Try to get real data from backend_metadata
-            target_data = waldur_resource.backend_metadata.additional_properties.get(
-                f"{target_type}_item"
+            # Using getattr/dict access because ResourceBackendMetadata has fields like tenant_item, project_item
+            target_item_field = f"{target_type.value}_item"
+            target_data = getattr(
+                waldur_resource.backend_metadata, target_item_field, None
             )
             if target_data:
-                return TargetItem(**target_data)
+                # If it's already a TargetItem instance (which the schema implies), return it.
+                # However, schema defines specific *TargetItem subclasses. TargetItem is generic.
+                # If backend_metadata fields are populated with valid objects, we can use them.
+                # The schema says they are Optional[TenantTargetItem], etc.
+                # Converting to generic TargetItem or returning as is if compatible.
+                # Since TargetItem is base, returning subclass instance is fine.
+                return target_data
 
         # Generate mock data for development/testing
         if target_type == TargetType.TENANT:
@@ -351,7 +323,9 @@ class CscsHpcStorageBackend:
                 name=waldur_resource.project_name,
             )
         if target_type == TargetType.PROJECT:
-            target_status = self._get_target_status_from_waldur_state(waldur_resource)
+            target_status = self._get_target_status_from_waldur_state(
+                waldur_resource.state
+            )
             project_slug = waldur_resource.project_slug or "unknown"
 
             unix_gid = self._get_project_unix_gid(project_slug)
@@ -366,7 +340,9 @@ class CscsHpcStorageBackend:
                 active=target_status == TargetStatus.ACTIVE,
             )
         if target_type == TargetType.USER:
-            target_status = self._get_target_status_from_waldur_state(waldur_resource)
+            target_status = self._get_target_status_from_waldur_state(
+                waldur_resource.state
+            )
             project_slug = waldur_resource.project_slug or "default-project"
 
             # TODO: Just a placeholder, for user a default gid would be needed, which could be
@@ -394,7 +370,7 @@ class CscsHpcStorageBackend:
 
     def _get_target_data(
         self,
-        waldur_resource: WaldurResource,
+        waldur_resource: ParsedWaldurResource,
         storage_data_type: str,
     ) -> Optional[Target]:
         """Get target data based on storage data type mapping."""
@@ -441,7 +417,7 @@ class CscsHpcStorageBackend:
         )
 
     def _calculate_quotas(
-        self, waldur_resource: WaldurResource
+        self, waldur_resource: ParsedWaldurResource
     ) -> tuple[float, float, int, int]:
         """Calculate storage and inode quotas from waldur resource.
 
@@ -455,7 +431,8 @@ class CscsHpcStorageBackend:
             Tuple of (storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard)
         """
         # 1. Parse and Validate
-        config = self._parse_resource_configuration(waldur_resource)
+        # config is now waldur_resource itself, as it is already parsed
+        config = waldur_resource
 
         # 2. Base Calculations
         # storage is Optional[float] in schema, default 0.0
@@ -469,21 +446,6 @@ class CscsHpcStorageBackend:
         )
 
         return soft_tb, hard_tb, soft_inode, hard_inode
-
-    def _extract_permissions(self, waldur_resource: WaldurResource) -> str:
-        """Extract permissions from waldur resource attributes and options.
-
-        Extracts permissions from attributes with validation,
-        and applies overrides from options if present.
-
-        Args:
-            waldur_resource: Waldur resource object
-
-        Returns:
-            Permission string (e.g., "775")
-        """
-        config = self._parse_resource_configuration(waldur_resource)
-        return config.effective_permissions
 
     def _render_quotas(
         self,
@@ -535,16 +497,9 @@ class CscsHpcStorageBackend:
             )
         return quotas if quotas else None
 
-    def _get_storage_data_type(
-        self, waldur_resource: WaldurResource
-    ) -> StorageDataType:
-        """Get data type from resource attributes."""
-        config = self._parse_resource_configuration(waldur_resource)
-        return config.attributes.storage_data_type
-
     def _create_storage_resource_json(
         self,
-        waldur_resource: WaldurResource,
+        waldur_resource: ParsedWaldurResource,
         storage_system: str,
     ) -> Optional[StorageResource]:
         """Create JSON representation for a single storage resource.
@@ -596,10 +551,10 @@ class CscsHpcStorageBackend:
         )
 
         # Extract permissions
-        permissions = self._extract_permissions(waldur_resource)
+        permissions = waldur_resource.effective_permissions
 
         # Get storage data type
-        storage_data_type = self._get_storage_data_type(waldur_resource)
+        storage_data_type = waldur_resource.attributes.storage_data_type
 
         # Generate mount point now that we have the storage_data_type
         mount_point = generate_project_mount_point(
@@ -611,11 +566,11 @@ class CscsHpcStorageBackend:
         )
 
         # Get status from waldur resource state
-        cscs_status = self._get_target_status_from_waldur_state(waldur_resource)
+        cscs_status = self._get_target_status_from_waldur_state(waldur_resource.state)
 
         logger.debug(
             "Mapped waldur state '%s' to CSCS status '%s'",
-            getattr(waldur_resource, "state", "unknown"),
+            waldur_resource.state,
             cscs_status,
         )
 
@@ -630,7 +585,7 @@ class CscsHpcStorageBackend:
             return None
 
         return StorageResource(
-            itemId=waldur_resource.uuid.hex,
+            itemId=waldur_resource.uuid,
             status=cscs_status,
             mountPoint=MountPoint(default=mount_point),
             permission=Permission(value=permissions),
@@ -656,7 +611,9 @@ class CscsHpcStorageBackend:
             extra_fields=self._get_callback_urls(waldur_resource),
         )
 
-    def _get_callback_urls(self, waldur_resource: WaldurResource) -> dict[str, str]:
+    def _get_callback_urls(
+        self, waldur_resource: ParsedWaldurResource
+    ) -> dict[str, str]:
         """
         Get callback URLs for the given Waldur resource.
         """
@@ -837,21 +794,11 @@ class CscsHpcStorageBackend:
                 **filters,
             )
 
-            # Extract resources from response parsed data
-            # sync_detailed returns parsed objects in response.parsed
-            waldur_resources = response.parsed if response.parsed else []
+            # Extract resources from response
+            waldur_resources = response.resources
 
-            # Extract pagination info from headers
-            total_count = 0
-            # Headers is a httpx.Headers object, access it like a dict (case-insensitive)
-            header_value = response.headers.get("x-result-count")
-            if header_value:
-                try:
-                    total_count = int(header_value)
-                except (ValueError, TypeError):
-                    logger.warning(
-                        f"Invalid X-Result-Count header value: {header_value}"
-                    )
+            # Extract pagination info from response
+            total_count = response.total_count
 
             # Calculate pagination info
             total_pages = (
@@ -1216,10 +1163,10 @@ class CscsHpcStorageBackend:
             )
 
             raw_resources = []
-            total_api_count = int(response.headers.get("x-total-count", "0"))
+            total_api_count = response.total_count
 
-            if response.parsed:
-                for resource in response.parsed:
+            if response.resources:
+                for resource in response.resources:
                     # Apply storage_system filter if provided
                     if (
                         storage_system_filter
@@ -1297,7 +1244,7 @@ class CscsHpcStorageBackend:
                 **filters,
             )
 
-            if not response.parsed:
+            if not response.resources:
                 return {
                     "resources": [],
                     "pagination": {
@@ -1315,9 +1262,9 @@ class CscsHpcStorageBackend:
                     },
                 }
 
-            resources = response.parsed
-            # Extract pagination info from response headers
-            total_count = int(response.headers.get("X-Total-Count", len(resources)))
+            resources = response.resources
+            # Extract pagination info from response
+            total_count = response.total_count
 
             # Serialize resources for JSON response first
             serialized_resources = []
@@ -1423,23 +1370,23 @@ class CscsHpcStorageBackend:
             all_storage_resources = []
             total_api_count = 0
 
-            if response.parsed:
-                # Get count from headers
-                total_api_count = int(response.headers.get("x-result-count", "0"))
-                logger.debug("Response headers: %s", dict(response.headers))
-                logger.debug("Total API count from headers: %d", total_api_count)
+            if response.resources:
+                # Get count from response
+                total_api_count = response.total_count
+                logger.debug("Total API count: %d", total_api_count)
 
                 logger.info(
                     "Found %d resources from API (total: %d)",
-                    len(response.parsed),
+                    len(response.resources),
                     total_api_count,
                 )
 
                 # Get offering customers for hierarchical resources
                 # For multiple slugs, we need to get customers for all unique offerings
                 offering_uuids = set()
-                for resource in response.parsed:
-                    offering_uuids.add(resource.offering_uuid.hex)
+                offering_uuids = set()
+                for resource in response.resources:
+                    offering_uuids.add(resource.offering_uuid)
 
                 all_offering_customers = {}
                 for offering_uuid in offering_uuids:
@@ -1451,8 +1398,10 @@ class CscsHpcStorageBackend:
                 tenant_entries = {}  # Track unique tenant entries
                 customer_entries = {}  # Track unique customer entries
 
-                logger.debug("Starting to process %d resources", len(response.parsed))
-                for resource in response.parsed:
+                logger.debug(
+                    "Starting to process %d resources", len(response.resources)
+                )
+                for resource in response.resources:
                     try:
                         # Apply storage_system filter if provided
                         if (
@@ -1469,12 +1418,13 @@ class CscsHpcStorageBackend:
 
                         # Get storage data type for the resource
                         storage_data_type = StorageDataType.STORE  # default
-                        if resource.attributes:
-                            storage_data_type = (
-                                resource.attributes.additional_properties.get(
-                                    "storage_data_type", storage_data_type
+                        if resource.attributes.storage_data_type:
+                            try:
+                                storage_data_type = StorageDataType(
+                                    resource.attributes.storage_data_type
                                 )
-                            )
+                            except ValueError:
+                                pass  # keep default
 
                         # Get tenant information
                         tenant_id = resource.provider_slug
@@ -1626,7 +1576,7 @@ class CscsHpcStorageBackend:
                 **filters,
             )
 
-            if not response.parsed:
+            if not response.resources:
                 return [], {
                     "current": page,
                     "limit": page_size,
@@ -1635,9 +1585,9 @@ class CscsHpcStorageBackend:
                     "total": 0,
                 }
 
-            resources = response.parsed
-            # Extract pagination info from response headers
-            total_count = int(response.headers.get("X-Total-Count", len(resources)))
+            resources = response.resources
+            # Extract pagination info from response
+            total_count = response.total_count
 
             # Get offering customers for hierarchical resources
             # Note: For slug-based lookup, we need to convert slug to UUID first
@@ -1646,7 +1596,7 @@ class CscsHpcStorageBackend:
                 # Get UUID from the first resource's offering_uuid field
                 first_resource = resources[0]
                 if first_resource.offering_uuid:
-                    offering_uuid_for_customers = first_resource.offering_uuid.hex
+                    offering_uuid_for_customers = first_resource.offering_uuid
 
             offering_customers = {}
             if offering_uuid_for_customers:
@@ -1721,13 +1671,7 @@ class CscsHpcStorageBackend:
                     )
 
                     # Get storage data type for the resource
-                    storage_data_type = StorageDataType.STORE  # default
-                    if resource.attributes:
-                        storage_data_type = (
-                            resource.attributes.additional_properties.get(
-                                "storage_data_type", storage_data_type
-                            )
-                        )
+                    storage_data_type = resource.attributes.storage_data_type
                     # Get tenant information
                     tenant_id = resource.provider_slug
                     tenant_name = resource.provider_name or tenant_id.upper()
@@ -1738,7 +1682,7 @@ class CscsHpcStorageBackend:
                     )
                     if tenant_key not in tenant_entries:
                         # Get offering UUID from resource
-                        offering_uuid_str = str(resource.offering_uuid)
+                        offering_uuid_str = resource.offering_uuid
 
                         tenant_resource = self._create_tenant_storage_resource_json(
                             tenant_id=tenant_id,
@@ -1833,7 +1777,7 @@ class CscsHpcStorageBackend:
 
     def _resource_matches_filters(
         self,
-        resource: WaldurResource,
+        resource: ParsedWaldurResource,
         data_type: Optional[str] = None,
         status: Optional[str] = None,
     ) -> bool:

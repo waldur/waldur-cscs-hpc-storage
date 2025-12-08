@@ -1,5 +1,7 @@
-from typing import Optional, Annotated
+from typing import Any, Optional, Annotated
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
+
+from waldur_api_client.models.resource_state import ResourceState
 
 # Re-importing Enums from your existing structure to ensure compatibility
 from waldur_cscs_hpc_storage.enums import StorageDataType
@@ -108,12 +110,84 @@ class ParsedWaldurResource(BaseModel):
     extracted from the loose WaldurResource dicts.
     """
 
+    # Identity & metadata
+    uuid: str
+    name: str = ""
+    slug: str = ""
+    state: ResourceState = ""
+
+    # Hierarchy info
+    offering_uuid: str
+    offering_name: str = ""
+    offering_slug: str = ""
+    project_uuid: str
+    project_name: str = ""
+    project_slug: str = ""
+    customer_uuid: str
+    customer_name: str = ""
+    customer_slug: str = ""
+
     limits: ResourceLimits = Field(default_factory=ResourceLimits)
     attributes: ResourceAttributes = Field(default_factory=ResourceAttributes)
     options: ResourceOptions = Field(default_factory=ResourceOptions)
     backend_metadata: ResourceBackendMetadata = Field(
         default_factory=ResourceBackendMetadata
     )
+
+    # Optional order info
+    order_in_progress: Optional[Any] = None
+
+    @classmethod
+    def from_waldur_resource(cls, resource: Any) -> "ParsedWaldurResource":
+        # Extract raw dictionaries, handling Unset/None types from the API client
+        raw_limits: dict[str, Any] = getattr(
+            resource.limits, "additional_properties", {}
+        )
+        if not isinstance(raw_limits, dict):
+            raw_limits = {}
+
+        raw_attributes: dict[str, Any] = getattr(
+            resource.attributes, "additional_properties", {}
+        )
+        if not isinstance(raw_attributes, dict):
+            raw_attributes = {}
+
+        raw_options: dict[str, Any] = resource.options or {}
+        if not isinstance(raw_options, dict):
+            raw_options = {}
+
+        # safely handle backend_metadata
+        raw_metadata: dict[str, Any] = {}
+        if resource.backend_metadata:
+            metadata_props = getattr(
+                resource.backend_metadata, "additional_properties", {}
+            )
+            if isinstance(metadata_props, dict):
+                raw_metadata = metadata_props
+
+        return cls(
+            uuid=getattr(resource.uuid, "hex", "") or str(resource.uuid),
+            name=resource.name or "",
+            slug=resource.slug or "",
+            state=resource.state or "",
+            offering_uuid=getattr(resource.offering_uuid, "hex", "")
+            or str(resource.offering_uuid),
+            offering_name=resource.offering_name or "",
+            offering_slug=resource.offering_slug or "",
+            project_uuid=getattr(resource.project_uuid, "hex", "")
+            or str(resource.project_uuid),
+            project_name=resource.project_name or "",
+            project_slug=resource.project_slug or "",
+            customer_uuid=getattr(resource.customer_uuid, "hex", "")
+            or str(resource.customer_uuid),
+            customer_name=resource.customer_name or "",
+            customer_slug=resource.customer_slug or "",
+            limits=ResourceLimits(**raw_limits),
+            attributes=ResourceAttributes(**raw_attributes),
+            options=ResourceOptions(**raw_options),
+            backend_metadata=ResourceBackendMetadata(**raw_metadata),
+            order_in_progress=resource.order_in_progress,
+        )
 
     @property
     def effective_permissions(self) -> str:
