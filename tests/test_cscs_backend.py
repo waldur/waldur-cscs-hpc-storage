@@ -84,18 +84,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         )
         assert mount_point == "/lustre-fs/store/university/physics-dept/climate-sim"
 
-    def test_calculate_inode_quotas(self):
-        """Test inode quota calculation."""
-        soft, hard = self.backend._calculate_inode_quotas(150.0)  # 150TB
-        expected_soft = int(
-            150 * self.backend.inode_base_multiplier * 1.5
-        )  # 225M with default settings
-        expected_hard = int(
-            150 * self.backend.inode_base_multiplier * 2.0
-        )  # 300M with default settings
-        assert soft == expected_soft
-        assert hard == expected_hard
-
     def test_get_target_item_data_mock(self):
         """Test target item data generation with mock enabled."""
         mock_resource = Mock()
@@ -265,6 +253,10 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/"
         )
         mock_resource.order_in_progress = mock_order
+        mock_resource.callback_urls = {
+            "approve_by_provider_url": f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/",
+            "reject_by_provider_url": f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/reject_by_provider/",
+        }
 
         # Configure backend config with base URL
         self.backend.waldur_api_config.api_url = "https://waldur.example.com/api"
@@ -325,6 +317,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # No order_in_progress
         mock_resource.order_in_progress = Unset()
+        mock_resource.callback_urls = {}
 
         storage_json = self.backend._create_storage_resource_json(
             mock_resource, "lustre-fs"
@@ -380,6 +373,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_order = Mock()
         mock_order.uuid = Unset()
         mock_resource.order_in_progress = mock_order
+        mock_resource.callback_urls = {}
 
         storage_json = self.backend._create_storage_resource_json(
             mock_resource, "lustre-fs"
@@ -1173,6 +1167,10 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/"
         )
         mock_resource.order_in_progress = mock_order
+        mock_resource.callback_urls = {
+            "approve_by_provider_url": f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/",
+            "reject_by_provider_url": f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/reject_by_provider/",
+        }
 
         # Create mock limits and attributes
         mock_limits = Mock()

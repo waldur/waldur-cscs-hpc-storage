@@ -4,8 +4,8 @@ from typing import Any, Optional, Sequence, Union
 
 from waldur_cscs_hpc_storage.gid_service import GidService
 from waldur_cscs_hpc_storage.waldur_service import WaldurService
-from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource_state import ResourceState
+from waldur_api_client.models.order_state import OrderState
 
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.enums import (
@@ -220,14 +220,6 @@ class CscsHpcStorageBackend:
 
         return backend_limits, waldur_limits
 
-    def _calculate_inode_quotas(self, storage_quota_tb: float) -> tuple[int, int]:
-        """Calculate inode quotas based on storage size and coefficients."""
-        # Base calculation: storage in TB * configurable base multiplier
-        base_inodes = storage_quota_tb * self.inode_base_multiplier
-        soft_limit = int(base_inodes * self.inode_soft_coefficient)
-        hard_limit = int(base_inodes * self.inode_hard_coefficient)
-        return soft_limit, hard_limit
-
     def _get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for project from HPC User service with caching.
 
@@ -430,18 +422,15 @@ class CscsHpcStorageBackend:
         Returns:
             Tuple of (storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard)
         """
-        # 1. Parse and Validate
-        # config is now waldur_resource itself, as it is already parsed
-        config = waldur_resource
+        # 1. Base Calculations
+        storage_quota_tb = waldur_resource.limits.storage or 0.0
+        base_inodes = storage_quota_tb * self.inode_base_multiplier
+        base_soft_inode = int(base_inodes * self.inode_soft_coefficient)
+        base_hard_inode = int(base_inodes * self.inode_hard_coefficient)
 
-        # 2. Base Calculations
-        # storage is Optional[float] in schema, default 0.0
-        storage_limit = config.limits.storage or 0.0
-        base_soft_inode, base_hard_inode = self._calculate_inode_quotas(storage_limit)
-
-        # 3. Apply Overrides (declarative logic in the model)
-        soft_tb, hard_tb = config.get_effective_storage_quotas()
-        soft_inode, hard_inode = config.get_effective_inode_quotas(
+        # 2. Apply Overrides (declarative logic in the model)
+        soft_tb, hard_tb = waldur_resource.get_effective_storage_quotas()
+        soft_inode, hard_inode = waldur_resource.get_effective_inode_quotas(
             base_soft_inode, base_hard_inode
         )
 
@@ -608,35 +597,8 @@ class CscsHpcStorageBackend:
                 path=storage_data_type.lower(),
             ),
             parentItemId=None,
-            extra_fields=self._get_callback_urls(waldur_resource),
+            extra_fields=waldur_resource.callback_urls,
         )
-
-    def _get_callback_urls(
-        self, waldur_resource: ParsedWaldurResource
-    ) -> dict[str, str]:
-        """
-        Get callback URLs for the given Waldur resource.
-        """
-        try:
-            order = waldur_resource.order_in_progress
-            order_state = order.state
-            order_url = order.url
-        except AttributeError:
-            return {}
-
-        allowed_actions = set()
-
-        if order_state == OrderState.PENDING_PROVIDER:
-            allowed_actions.update(["approve_by_provider", "reject_by_provider"])
-
-        if order_state == OrderState.EXECUTING:
-            allowed_actions.update(["set_state_done", "set_state_erred"])
-
-        if order_state == OrderState.DONE:
-            allowed_actions.add("set_backend_id")
-
-        base = order_url.rstrip("/")
-        return {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}
 
     def _create_tenant_storage_resource_json(
         self,
@@ -1383,8 +1345,7 @@ class CscsHpcStorageBackend:
 
                 # Get offering customers for hierarchical resources
                 # For multiple slugs, we need to get customers for all unique offerings
-                offering_uuids = set()
-                offering_uuids = set()
+                offering_uuids: set[str] = set()
                 for resource in response.resources:
                     offering_uuids.add(resource.offering_uuid)
 

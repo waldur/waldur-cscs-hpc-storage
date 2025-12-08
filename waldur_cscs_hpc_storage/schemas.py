@@ -2,6 +2,7 @@ from typing import Any, Optional, Annotated
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
 from waldur_api_client.models.resource_state import ResourceState
+from waldur_api_client.models.order_state import OrderState
 
 # Re-importing Enums from your existing structure to ensure compatibility
 from waldur_cscs_hpc_storage.enums import StorageDataType
@@ -31,8 +32,8 @@ class ResourceLimits(BaseModel):
     Validates the 'limits' field from WaldurResource.
     """
 
-    storage: Optional[float] = Field(
-        default=0.0, ge=0, description="Storage limit in Terabytes"
+    storage: Optional[int] = Field(
+        default=0, ge=0, description="Storage limit in Terabytes"
     )
 
 
@@ -139,53 +140,26 @@ class ParsedWaldurResource(BaseModel):
 
     @classmethod
     def from_waldur_resource(cls, resource: Any) -> "ParsedWaldurResource":
-        # Extract raw dictionaries, handling Unset/None types from the API client
-        raw_limits: dict[str, Any] = getattr(
-            resource.limits, "additional_properties", {}
-        )
-        if not isinstance(raw_limits, dict):
-            raw_limits = {}
-
-        raw_attributes: dict[str, Any] = getattr(
-            resource.attributes, "additional_properties", {}
-        )
-        if not isinstance(raw_attributes, dict):
-            raw_attributes = {}
-
-        raw_options: dict[str, Any] = resource.options or {}
-        if not isinstance(raw_options, dict):
-            raw_options = {}
-
-        # safely handle backend_metadata
-        raw_metadata: dict[str, Any] = {}
-        if resource.backend_metadata:
-            metadata_props = getattr(
-                resource.backend_metadata, "additional_properties", {}
-            )
-            if isinstance(metadata_props, dict):
-                raw_metadata = metadata_props
-
         return cls(
-            uuid=getattr(resource.uuid, "hex", "") or str(resource.uuid),
-            name=resource.name or "",
-            slug=resource.slug or "",
-            state=resource.state or "",
-            offering_uuid=getattr(resource.offering_uuid, "hex", "")
-            or str(resource.offering_uuid),
-            offering_name=resource.offering_name or "",
-            offering_slug=resource.offering_slug or "",
-            project_uuid=getattr(resource.project_uuid, "hex", "")
-            or str(resource.project_uuid),
-            project_name=resource.project_name or "",
-            project_slug=resource.project_slug or "",
-            customer_uuid=getattr(resource.customer_uuid, "hex", "")
-            or str(resource.customer_uuid),
-            customer_name=resource.customer_name or "",
-            customer_slug=resource.customer_slug or "",
-            limits=ResourceLimits(**raw_limits),
-            attributes=ResourceAttributes(**raw_attributes),
-            options=ResourceOptions(**raw_options),
-            backend_metadata=ResourceBackendMetadata(**raw_metadata),
+            uuid=resource.uuid.hex,
+            name=resource.name,
+            slug=resource.slug,
+            state=resource.state,
+            offering_uuid=resource.offering_uuid.hex,
+            offering_name=resource.offering_name,
+            offering_slug=resource.offering_slug,
+            project_uuid=resource.project_uuid.hex,
+            project_name=resource.project_name,
+            project_slug=resource.project_slug,
+            customer_uuid=resource.customer_uuid.hex,
+            customer_name=resource.customer_name,
+            customer_slug=resource.customer_slug,
+            limits=ResourceLimits(**resource.limits.additional_properties),
+            attributes=ResourceAttributes(**resource.attributes.additional_properties),
+            options=ResourceOptions(**resource.options.additional_properties),
+            backend_metadata=ResourceBackendMetadata(
+                **resource.backend_metadata.additional_properties
+            ),
             order_in_progress=resource.order_in_progress,
         )
 
@@ -195,10 +169,6 @@ class ParsedWaldurResource(BaseModel):
         return self.options.permissions or self.attributes.permissions
 
     def get_effective_storage_quotas(self) -> tuple[float, float]:
-        """
-        Returns (soft_tb, hard_tb).
-        Logic extracted from _calculate_quotas overrides.
-        """
         limit = self.limits.storage or 0.0
 
         soft = (
@@ -217,10 +187,6 @@ class ParsedWaldurResource(BaseModel):
     def get_effective_inode_quotas(
         self, base_soft: int, base_hard: int
     ) -> tuple[int, int]:
-        """
-        Returns (soft_inode, hard_inode).
-        Logic extracted from _calculate_quotas overrides.
-        """
         soft = (
             self.options.soft_quota_inodes
             if self.options.soft_quota_inodes is not None
@@ -233,3 +199,36 @@ class ParsedWaldurResource(BaseModel):
         )
 
         return soft, hard
+
+    @property
+    def callback_urls(self) -> dict[str, str]:
+        """
+        Get callback URLs for the given Waldur resource.
+        """
+        try:
+            order = self.order_in_progress
+            if not order:
+                return {}
+
+            order_state = getattr(order, "state", None)
+            order_url = getattr(order, "url", None)
+
+            if not order_url:
+                return {}
+
+        except AttributeError:
+            return {}
+
+        allowed_actions = set()
+
+        if order_state == OrderState.PENDING_PROVIDER:
+            allowed_actions.update(["approve_by_provider", "reject_by_provider"])
+
+        if order_state == OrderState.EXECUTING:
+            allowed_actions.update(["set_state_done", "set_state_erred"])
+
+        if order_state == OrderState.DONE:
+            allowed_actions.add("set_backend_id")
+
+        base = order_url.rstrip("/")
+        return {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}

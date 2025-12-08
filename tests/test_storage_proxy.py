@@ -7,17 +7,15 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from httpx import Headers
 from waldur_api_client.models.resource_state import ResourceState
-from waldur_api_client.types import Response
 
 # Set up environment before importing the app
 test_config_path = Path(__file__).parent / "test_config.yaml"
 os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
 os.environ["DISABLE_AUTH"] = "true"
 
-from waldur_cscs_hpc_storage.waldur_storage_proxy.main import app  # noqa: E402
 from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
+from waldur_cscs_hpc_storage.waldur_storage_proxy.main import app  # noqa: E402
 
 
 class TestStorageProxyAPI:
