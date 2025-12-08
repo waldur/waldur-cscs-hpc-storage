@@ -193,33 +193,6 @@ class CscsHpcStorageBackend:
 
         return filtered_resources
 
-    # _parse_resource_configuration is removed as parsing moved to WaldurService
-
-    def _collect_resource_limits(
-        self, waldur_resource: ParsedWaldurResource
-    ) -> tuple[dict[str, int], dict[str, int]]:
-        """Collect storage limits from parsed Waldur resource."""
-        backend_limits = {}
-        waldur_limits = {}
-
-        # Extract storage from validated limit model
-        # Assuming schema definition: storage: Optional[float]
-        storage_limit = waldur_resource.limits.storage
-        if storage_limit is not None:
-            # Pydantic model ensures this is float/int.
-            # Convert to appropriate unit/type if needed.
-            # Existing code iterated all limits. With strict schema, we only have specific fields.
-            # If dynamic iteration is needed, we can check model fields.
-            # For now, let's map 'storage' if enabled in backend components.
-
-            if "storage" in self.backend_components:
-                # Assuming simple mapping for now.
-                # If schema has more fields, map them here.
-                backend_limits["storage"] = storage_limit
-                waldur_limits["storage"] = storage_limit
-
-        return backend_limits, waldur_limits
-
     def _get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for project from HPC User service with caching.
 
@@ -293,12 +266,6 @@ class CscsHpcStorageBackend:
                 waldur_resource.backend_metadata, target_item_field, None
             )
             if target_data:
-                # If it's already a TargetItem instance (which the schema implies), return it.
-                # However, schema defines specific *TargetItem subclasses. TargetItem is generic.
-                # If backend_metadata fields are populated with valid objects, we can use them.
-                # The schema says they are Optional[TenantTargetItem], etc.
-                # Converting to generic TargetItem or returning as is if compatible.
-                # Since TargetItem is base, returning subclass instance is fine.
                 return target_data
 
         # Generate mock data for development/testing
