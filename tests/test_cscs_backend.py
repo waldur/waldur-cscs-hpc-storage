@@ -12,7 +12,6 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     HpcUserApiConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.exceptions import BackendError
 
 
 class TestCscsHpcStorageBackendBase:
@@ -399,54 +398,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             page_size=10,
             exclude_pending_transitional=True,
         )
-
-    def test_unset_offering_slug_validation(self):
-        """Test that Unset offering_slug raises a clear validation error."""
-        backend = self._create_backend()
-
-        # Create a mock resource with Unset offering_slug
-        mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
-        mock_resource.slug = "test-resource"
-        mock_resource.name = "Test Resource"
-        mock_resource.offering_slug = Unset()  # This should raise a validation error
-        mock_resource.customer_slug = "university"
-        mock_resource.project_slug = "physics-dept"
-
-        # Test that validation raises BackendError with clear message
-        with pytest.raises(BackendError) as exc_info:
-            backend._validate_resource_data(mock_resource)
-
-        error_message = str(exc_info.value)
-        assert "offering_slug" in error_message
-        assert "missing required fields" in error_message
-        assert (
-            "test-resource" in error_message
-        )  # Should include resource ID for context
-
-    def test_multiple_unset_fields_validation(self):
-        """Test validation error when multiple fields are Unset."""
-        backend = self._create_backend()
-
-        # Create a mock resource with multiple Unset fields
-        mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid.hex = str(uuid4())
-        mock_resource.slug = "test-resource"
-        mock_resource.offering_slug = Unset()
-        mock_resource.customer_slug = Unset()
-        mock_resource.project_slug = Unset()
-
-        # Test that validation raises BackendError listing all missing fields
-        with pytest.raises(BackendError) as exc_info:
-            backend._validate_resource_data(mock_resource)
-
-        error_message = str(exc_info.value)
-        assert "offering_slug" in error_message
-        assert "customer_slug" in error_message
-        assert "project_slug" in error_message
-        assert "test-resource" in error_message
 
     def test_invalid_storage_system_type_validation(self):
         """Test that non-string storage_system raises clear validation error."""

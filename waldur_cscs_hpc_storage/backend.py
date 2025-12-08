@@ -22,7 +22,6 @@ from waldur_cscs_hpc_storage.enums import (
     TargetStatus,
     TargetType,
 )
-from waldur_cscs_hpc_storage.exceptions import BackendError
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
     HpcUserApiConfig,
@@ -83,7 +82,6 @@ class CscsHpcStorageBackend:
             waldur_api_config: Waldur API configuration (WaldurApiConfig object)
             hpc_user_api_config: Optional HPC User API configuration (HpcUserApiConfig object)
         """
-        self.backend_components = backend_components
         self.backend_components = backend_components
         self.backend_config = backend_config
         self.waldur_api_config = waldur_api_config
@@ -226,39 +224,6 @@ class CscsHpcStorageBackend:
         )
 
         return filtered_resources
-
-    def _validate_resource_data(self, waldur_resource: WaldurResource) -> None:
-        """Validate that required resource data is present and not Unset."""
-        missing_fields = []
-
-        if isinstance(waldur_resource.offering_slug, Unset):
-            missing_fields.append("offering_slug")
-
-        if isinstance(waldur_resource.uuid, Unset):
-            missing_fields.append("uuid")
-
-        if isinstance(waldur_resource.slug, Unset):
-            missing_fields.append("slug")
-
-        if isinstance(waldur_resource.customer_slug, Unset):
-            missing_fields.append("customer_slug")
-
-        if isinstance(waldur_resource.project_slug, Unset):
-            missing_fields.append("project_slug")
-
-        if missing_fields:
-            resource_id = (
-                waldur_resource.slug
-                if not isinstance(waldur_resource.slug, Unset)
-                else str(waldur_resource.uuid)
-                if not isinstance(waldur_resource.uuid, Unset)
-                else "unknown"
-            )
-            raise BackendError(
-                f"Resource {resource_id} is missing required fields from Waldur API: "
-                f"{', '.join(missing_fields)}. This indicates incomplete data from the "
-                f"marketplace API response."
-            )
 
     def _collect_resource_limits(
         self, waldur_resource: WaldurResource
@@ -1220,9 +1185,6 @@ class CscsHpcStorageBackend:
                     )
                 else:
                     logger.debug("Attributes: None or Unset")
-
-                # Validate resource data before processing
-                self._validate_resource_data(resource)
 
                 # Use offering_slug as the storage system name
                 storage_system_name = resource.offering_slug
