@@ -279,7 +279,7 @@ class CscsHpcStorageBackend:
     ) -> TargetStatus:
         """Map Waldur resource state to target item status."""
         waldur_state = getattr(waldur_resource, "state", None)
-        if waldur_state and not isinstance(waldur_state, Unset):
+        if waldur_state:
             return TARGET_STATUS_MAPPING.get(waldur_state, TargetStatus.PENDING)
         return TargetStatus.PENDING
 
@@ -312,11 +312,7 @@ class CscsHpcStorageBackend:
             )
         if target_type == TargetType.PROJECT:
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
-            project_slug = (
-                waldur_resource.project_slug
-                if not isinstance(waldur_resource.project_slug, Unset)
-                else "unknown"
-            )
+            project_slug = waldur_resource.project_slug or "unknown"
 
             unix_gid = self._get_project_unix_gid(project_slug)
             if unix_gid is None:
@@ -331,11 +327,7 @@ class CscsHpcStorageBackend:
             )
         if target_type == TargetType.USER:
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
-            project_slug = (
-                waldur_resource.project_slug
-                if not isinstance(waldur_resource.project_slug, Unset)
-                else "default-project"
-            )
+            project_slug = waldur_resource.project_slug or "default-project"
 
             # TODO: Just a placeholder, for user a default gid would be needed, which could be
             # looked up from https://api-user.hpc-user.tds.cscs.ch/api/v1/export/cscs/users/{username}
@@ -741,7 +733,6 @@ class CscsHpcStorageBackend:
             )
             return None
 
-        # Create StorageResource object
         storage_resource = StorageResource(
             itemId=waldur_resource.uuid.hex,
             status=cscs_status,
