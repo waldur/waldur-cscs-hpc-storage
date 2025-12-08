@@ -15,6 +15,7 @@ from waldur_api_client.types import Unset
 
 from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
 from waldur_cscs_hpc_storage.utils import get_client
+from waldur_cscs_hpc_storage.enums import StorageDataType, TargetStatus, TargetType
 from waldur_cscs_hpc_storage.exceptions import BackendError
 
 
@@ -320,7 +321,7 @@ class CscsHpcStorageBackend:
         tenant_id: str,
         customer: str,
         project_id: str,
-        data_type: str = "store",
+        data_type: str = StorageDataType.STORE,
     ) -> str:
         """Generate mount point path based on hierarchy and storage data type."""
         return (
@@ -332,7 +333,7 @@ class CscsHpcStorageBackend:
         storage_system: str,
         tenant_id: str,
         customer: str,
-        data_type: str = "store",
+        data_type: str = StorageDataType.STORE,
     ) -> str:
         """Generate mount point path for customer-level entry."""
         return f"/{storage_system}/{data_type.lower()}/{tenant_id}/{customer}"
@@ -341,7 +342,7 @@ class CscsHpcStorageBackend:
         self,
         storage_system: str,
         tenant_id: str,
-        data_type: str = "store",
+        data_type: str = StorageDataType.STORE,
     ) -> str:
         """Generate mount point path for tenant-level entry."""
         return f"/{storage_system}/{data_type.lower()}/{tenant_id}"
@@ -486,20 +487,20 @@ class CscsHpcStorageBackend:
         """Map Waldur resource state to target item status (pending, active, removing)."""
         # Map Waldur resource state to target item status
         target_status_mapping = {
-            ResourceState.CREATING: "pending",
-            ResourceState.OK: "active",
-            ResourceState.ERRED: "pending",  # Treat errors as pending for target items
-            ResourceState.TERMINATING: "removing",
-            ResourceState.TERMINATED: "removing",  # Treat terminated as removing for target items
-            ResourceState.UPDATING: "pending",  # Treat updating as pending for target items
+            ResourceState.CREATING: TargetStatus.PENDING,
+            ResourceState.OK: TargetStatus.ACTIVE,
+            ResourceState.ERRED: TargetStatus.PENDING,  # Treat errors as pending for target items
+            ResourceState.TERMINATING: TargetStatus.REMOVING,
+            ResourceState.TERMINATED: TargetStatus.REMOVING,  # Treat terminated as removing for target items
+            ResourceState.UPDATING: TargetStatus.PENDING,  # Treat updating as pending for target items
         }
 
         # Get status from waldur resource state, default to "pending"
         waldur_state = getattr(waldur_resource, "state", None)
         if waldur_state and not isinstance(waldur_state, Unset):
             # Check if state is in mapping
-            return target_status_mapping.get(waldur_state, "pending")
-        return "pending"
+            return target_status_mapping.get(waldur_state, TargetStatus.PENDING)
+        return TargetStatus.PENDING
 
     def _get_target_item_data(  # noqa: PLR0911
         self,
@@ -516,7 +517,7 @@ class CscsHpcStorageBackend:
                 return target_data
 
         # Generate mock data for development/testing
-        if target_type == "tenant":
+        if target_type == TargetType.TENANT:
             return {
                 "itemId": self._generate_deterministic_uuid(
                     f"tenant:{waldur_resource.customer_slug}"
@@ -524,7 +525,7 @@ class CscsHpcStorageBackend:
                 "key": waldur_resource.customer_slug.lower(),
                 "name": waldur_resource.customer_name,
             }
-        if target_type == "customer":
+        if target_type == TargetType.CUSTOMER:
             return {
                 "itemId": self._generate_deterministic_uuid(
                     f"customer:{waldur_resource.project_slug}"
@@ -532,7 +533,7 @@ class CscsHpcStorageBackend:
                 "key": waldur_resource.project_slug.lower(),
                 "name": waldur_resource.project_name,
             }
-        if target_type == "project":
+        if target_type == TargetType.PROJECT:
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
             project_slug = (
                 waldur_resource.project_slug
@@ -551,9 +552,9 @@ class CscsHpcStorageBackend:
                 "name": waldur_resource.slug,
                 "unixGid": unix_gid,
                 "active": target_status
-                == "active",  # Active only when status is "active"
+                == TargetStatus.ACTIVE,  # Active only when status is "active"
             }
-        if target_type == "user":
+        if target_type == TargetType.USER:
             target_status = self._get_target_status_from_waldur_state(waldur_resource)
             project_slug = (
                 waldur_resource.project_slug
@@ -577,10 +578,10 @@ class CscsHpcStorageBackend:
                     "name": project_slug,
                     "unixGid": unix_gid,
                     "active": target_status
-                    == "active",  # Active only when status is "active"
+                    == TargetStatus.ACTIVE,  # Active only when status is "active"
                 },
                 "active": target_status
-                == "active",  # Active only when status is "active"
+                == TargetStatus.ACTIVE,  # Active only when status is "active"
             }
 
         return {}
@@ -603,14 +604,19 @@ class CscsHpcStorageBackend:
 
         # Map storage data types to target types
         data_type_to_target = {
-            "store": "project",
-            "archive": "project",
-            "users": "user",
-            "scratch": "user",
+            StorageDataType.STORE: TargetType.PROJECT,
+            StorageDataType.ARCHIVE: TargetType.PROJECT,
+            StorageDataType.USERS: TargetType.USER,
+            StorageDataType.SCRATCH: TargetType.USER,
         }
 
         # Validate that storage_data_type is a supported type
-        if storage_data_type not in data_type_to_target:
+        try:
+            data_type_enum = StorageDataType(storage_data_type)
+        except ValueError:
+            data_type_enum = None
+
+        if data_type_enum is None or data_type_enum not in data_type_to_target:
             logger.warning(
                 "Unknown storage_data_type '%s' for resource %s, using default 'project' "
                 "target type. Supported types: %s",
@@ -618,8 +624,9 @@ class CscsHpcStorageBackend:
                 waldur_resource.uuid,
                 list(data_type_to_target.keys()),
             )
-
-        target_type = data_type_to_target.get(storage_data_type, "project")
+            target_type = TargetType.PROJECT
+        else:
+            target_type = data_type_to_target[data_type_enum]
         logger.debug(
             "  Mapped storage_data_type '%s' to target_type '%s'",
             storage_data_type,
@@ -703,7 +710,7 @@ class CscsHpcStorageBackend:
 
         # Get permissions and data type from resource attributes first (needed for mount point)
         permissions = "775"  # default
-        storage_data_type = "store"  # default
+        storage_data_type: str = StorageDataType.STORE  # default
 
         if waldur_resource.attributes:
             logger.debug(
@@ -1112,7 +1119,7 @@ class CscsHpcStorageBackend:
 
         return {
             "itemId": tenant_item_id,
-            "status": "pending",  # Tenant entries are always pending
+            "status": TargetStatus.PENDING,  # Tenant entries are always pending
             "mountPoint": {"default": mount_point},
             "permission": {
                 "permissionType": "octal",
@@ -1120,7 +1127,7 @@ class CscsHpcStorageBackend:
             },
             "quotas": None,  # Tenant entries don't have quotas
             "target": {
-                "targetType": "tenant",
+                "targetType": TargetType.TENANT,
                 "targetItem": {
                     "itemId": offering_uuid
                     if offering_uuid
@@ -1180,7 +1187,7 @@ class CscsHpcStorageBackend:
 
         return {
             "itemId": customer_info["itemId"],
-            "status": "pending",  # Customer entries are always pending
+            "status": TargetStatus.PENDING,  # Customer entries are always pending
             "mountPoint": {"default": mount_point},
             "permission": {
                 "permissionType": "octal",
@@ -1188,7 +1195,7 @@ class CscsHpcStorageBackend:
             },
             "quotas": None,  # Customer entries typically don't have quotas
             "target": {
-                "targetType": "customer",
+                "targetType": TargetType.CUSTOMER,
                 "targetItem": {
                     "itemId": customer_info["itemId"],
                     "key": customer_info["key"],
@@ -2361,13 +2368,15 @@ class CscsHpcStorageBackend:
         if status:
             # Map resource state to status
             state_to_status_map = {
-                ResourceState.CREATING: "pending",
-                ResourceState.OK: "active",
-                ResourceState.ERRED: "error",
-                ResourceState.TERMINATING: "removing",
-                ResourceState.TERMINATED: "removed",
+                ResourceState.CREATING: TargetStatus.PENDING,
+                ResourceState.OK: TargetStatus.ACTIVE,
+                ResourceState.ERRED: TargetStatus.ERROR,
+                ResourceState.TERMINATING: TargetStatus.REMOVING,
+                ResourceState.TERMINATED: TargetStatus.REMOVED,
             }
-            resource_status = state_to_status_map.get(resource.state, "unknown")
+            resource_status = state_to_status_map.get(
+                resource.state, TargetStatus.UNKNOWN
+            )
             if resource_status != status:
                 return False
 
