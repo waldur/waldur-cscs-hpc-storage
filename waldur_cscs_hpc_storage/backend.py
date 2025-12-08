@@ -898,7 +898,7 @@ class CscsHpcStorageBackend:
 
         # Get target data - return None if target creation fails
         # (e.g., unixGid lookup fails in production)
-        target_data = self._get_target_data(waldur_resource, storage_data_type.lower())
+        target_data = self._get_target_data(waldur_resource, storage_data_type)
         if target_data is None:
             logger.warning(
                 "Skipping resource %s due to target data creation failure (production mode)",
