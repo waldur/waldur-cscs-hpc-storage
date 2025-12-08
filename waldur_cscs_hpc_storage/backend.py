@@ -31,10 +31,8 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
 from waldur_cscs_hpc_storage.models import (
     Permission,
     Quota,
-    StorageDataType as StorageDataTypeModel,
-    StorageFileSystem as StorageFileSystemModel,
+    StorageItem,
     StorageResource,
-    StorageSystem as StorageSystemModel,
     Target,
     TargetItem,
     TenantTargetItem,
@@ -132,6 +130,26 @@ class CscsHpcStorageBackend:
     def _generate_deterministic_uuid(self, name: str) -> str:
         """Generate a deterministic UUID from a string name."""
         return str(uuid5(NAMESPACE_OID, name))
+
+    def _create_storage_item(
+        self, item_type: str, identifier: str, include_path: bool = False
+    ) -> StorageItem:
+        """Create a storage item model with deterministic UUID and standardized key/name.
+
+        Args:
+            item_type: Type prefix for UUID generation (e.g., 'storage_system')
+            identifier: Identifier value for the item
+            include_path: Whether to include the path field (for data type items)
+
+        Returns:
+            StorageItem instance
+        """
+        item_id = self._generate_deterministic_uuid(f"{item_type}:{identifier}")
+        key = identifier.lower()
+        name = identifier.upper()
+        path = identifier.lower() if include_path else ""
+
+        return StorageItem(itemId=item_id, key=key, name=name, path=path)
 
     def _apply_filters(
         self,
@@ -862,27 +880,12 @@ class CscsHpcStorageBackend:
             permission=Permission(value=permissions),
             quotas=quotas if quotas else None,
             target=target_data,
-            storageSystem=StorageSystemModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_system:{storage_system}"
-                ),
-                key=storage_system.lower(),
-                name=storage_system.upper(),
+            storageSystem=self._create_storage_item("storage_system", storage_system),
+            storageFileSystem=self._create_storage_item(
+                "storage_file_system", self.storage_file_system
             ),
-            storageFileSystem=StorageFileSystemModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_file_system:{self.storage_file_system}"
-                ),
-                key=self.storage_file_system.lower(),
-                name=self.storage_file_system.upper(),
-            ),
-            storageDataType=StorageDataTypeModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_data_type:{storage_data_type}"
-                ),
-                key=storage_data_type.lower(),
-                name=storage_data_type.upper(),
-                path=storage_data_type.lower(),
+            storageDataType=self._create_storage_item(
+                "storage_data_type", storage_data_type, include_path=True
             ),
             parentItemId=None,
         )
@@ -1017,27 +1020,12 @@ class CscsHpcStorageBackend:
                     name=tenant_name,
                 ),
             ),
-            storageSystem=StorageSystemModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_system:{storage_system}"
-                ),
-                key=storage_system.lower(),
-                name=storage_system.upper(),
+            storageSystem=self._create_storage_item("storage_system", storage_system),
+            storageFileSystem=self._create_storage_item(
+                "storage_file_system", self.storage_file_system
             ),
-            storageFileSystem=StorageFileSystemModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_file_system:{self.storage_file_system}"
-                ),
-                key=self.storage_file_system.lower(),
-                name=self.storage_file_system.upper(),
-            ),
-            storageDataType=StorageDataTypeModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_data_type:{storage_data_type}"
-                ),
-                key=storage_data_type.lower(),
-                name=storage_data_type.upper(),
-                path=storage_data_type.lower(),
+            storageDataType=self._create_storage_item(
+                "storage_data_type", storage_data_type, include_path=True
             ),
             parentItemId=None,
         )
@@ -1078,27 +1066,12 @@ class CscsHpcStorageBackend:
                     name=customer_info["name"],
                 ),
             ),
-            storageSystem=StorageSystemModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_system:{storage_system}"
-                ),
-                key=storage_system.lower(),
-                name=storage_system.upper(),
+            storageSystem=self._create_storage_item("storage_system", storage_system),
+            storageFileSystem=self._create_storage_item(
+                "storage_file_system", self.storage_file_system
             ),
-            storageFileSystem=StorageFileSystemModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_file_system:{self.storage_file_system}"
-                ),
-                key=self.storage_file_system.lower(),
-                name=self.storage_file_system.upper(),
-            ),
-            storageDataType=StorageDataTypeModel(
-                itemId=self._generate_deterministic_uuid(
-                    f"storage_data_type:{storage_data_type}"
-                ),
-                key=storage_data_type.lower(),
-                name=storage_data_type.upper(),
-                path=storage_data_type.lower(),
+            storageDataType=self._create_storage_item(
+                "storage_data_type", storage_data_type, include_path=True
             ),
             parentItemId=parent_tenant_id,
         )

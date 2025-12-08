@@ -42,24 +42,10 @@ class BaseStorageItem:
 
 
 @dataclasses.dataclass
-class StorageSystem(BaseStorageItem):
-    """Represents a storage system."""
+class StorageItem(BaseStorageItem):
+    """Represents a storage-related item (system, filesystem, or data type)."""
 
-    pass
-
-
-@dataclasses.dataclass
-class StorageFileSystem(BaseStorageItem):
-    """Represents a storage file system."""
-
-    pass
-
-
-@dataclasses.dataclass
-class StorageDataType(BaseStorageItem):
-    """Represents a storage data type."""
-
-    path: str = ""
+    path: str = ""  # Optional path field (used for data type)
 
 
 @dataclasses.dataclass
@@ -163,9 +149,9 @@ class StorageResource:
     status: TargetStatus
     mountPoint: MountPoint
     permission: Permission
-    storageSystem: StorageSystem
-    storageFileSystem: StorageFileSystem
-    storageDataType: StorageDataType
+    storageSystem: StorageItem
+    storageFileSystem: StorageItem
+    storageDataType: StorageItem
     target: Target
     quotas: Optional[list[Quota]] = None
     parentItemId: Optional[str] = None
