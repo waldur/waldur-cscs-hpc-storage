@@ -115,16 +115,6 @@ class CscsHpcStorageBackend:
         self.gid_service: Optional[GidService] = None
         if hpc_user_api_config:
             self.gid_service = GidService(hpc_user_api_config)
-
-            if hpc_user_api_config.socks_proxy:
-                logger.info(
-                    "SOCKS proxy configured from hpc_user_api settings: %s",
-                    hpc_user_api_config.socks_proxy,
-                )
-            logger.info(
-                "HPC User client initialized with URL: %s",
-                hpc_user_api_config.api_url,
-            )
         else:
             logger.info("HPC User client not configured - using mock unixGid values")
 
@@ -1138,7 +1128,7 @@ class CscsHpcStorageBackend:
                 )
 
                 # Get storage data type for the resource
-                storage_data_type = "store"  # default
+                storage_data_type = StorageDataType.STORE  # default
                 if resource.attributes and not isinstance(resource.attributes, Unset):
                     storage_data_type = resource.attributes.additional_properties.get(
                         "storage_data_type", storage_data_type
@@ -1684,7 +1674,7 @@ class CscsHpcStorageBackend:
                         # after serialization
 
                         # Get storage data type for the resource
-                        storage_data_type = "store"  # default
+                        storage_data_type = StorageDataType.STORE  # default
                         if resource.attributes and not isinstance(
                             resource.attributes, Unset
                         ):
@@ -1961,7 +1951,7 @@ class CscsHpcStorageBackend:
                     )
 
                     # Get storage data type for the resource
-                    storage_data_type = "store"  # default
+                    storage_data_type = StorageDataType.STORE  # default
                     if resource.attributes and not isinstance(
                         resource.attributes, Unset
                     ):

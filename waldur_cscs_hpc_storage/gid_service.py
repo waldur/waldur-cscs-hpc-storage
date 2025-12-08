@@ -39,6 +39,16 @@ class GidService:
         self._token_expires_at: Optional[datetime] = None
         self._gid_cache: dict[str, int] = {}
 
+        if self.socks_proxy:
+            logger.info(
+                "SOCKS proxy configured from hpc_user_api settings: %s",
+                self.socks_proxy,
+            )
+        logger.info(
+            "HPC User client initialized with URL: %s",
+            self.api_url,
+        )
+
     def _get_auth_token(self) -> str:
         """Get or refresh OIDC authentication token.
 
