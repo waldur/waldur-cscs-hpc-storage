@@ -11,7 +11,7 @@ import os
 import sys
 from pathlib import Path
 
-from waldur_cscs_hpc_storage.utils import get_client, load_configuration
+from waldur_cscs_hpc_storage.utils import load_configuration
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 
 logger = logging.getLogger(__name__)
@@ -54,28 +54,32 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
     logger.info("Syncing resources for offering: %s", offering_name)
 
     try:
-        # Create authenticated client
-        client = get_client(
-            api_url=offering_config["waldur_api_url"],
-            access_token=offering_config["waldur_api_token"],
-        )
+        # Prepare Waldur API settings
+        waldur_api_settings = {
+            "api_url": offering_config["waldur_api_url"],
+            "access_token": offering_config["waldur_api_token"],
+        }
 
         # Initialize backend
         backend_settings = offering_config.get("backend_settings", {})
         backend_components = offering_config.get("backend_components", {})
 
-        backend = CscsHpcStorageBackend(backend_settings, backend_components)
+        backend = CscsHpcStorageBackend(
+            backend_settings,
+            backend_components,
+            waldur_api_settings=waldur_api_settings,
+        )
 
         if dry_run:
             logger.info(
                 "DRY RUN: Would generate all.json for offering %s", offering_name
             )
             # Still fetch resources to validate API access
-            resources = backend._get_all_storage_resources(offering_uuid, client)
+            resources, _ = backend._get_all_storage_resources(offering_uuid)
             logger.info("DRY RUN: Would write %d resources to all.json", len(resources))
         else:
             # Generate the all.json file
-            backend.generate_all_resources_json(offering_uuid, client)
+            backend.generate_all_resources_json(offering_uuid)
             logger.info(
                 "Successfully generated all.json for offering %s", offering_name
             )

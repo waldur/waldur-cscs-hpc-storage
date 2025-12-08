@@ -17,9 +17,8 @@ from fastapi_keycloak_middleware import (
 from waldur_api_client.models.user import User
 from waldur_api_client.models.resource_state import ResourceState
 
-from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user
-from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import setup_auth
-from waldur_cscs_hpc_storage.utils import get_client
+from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user, setup_auth
+
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.sync_script import setup_logging
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import StorageProxyConfig
@@ -84,17 +83,17 @@ if config.waldur_socks_proxy:
 else:
     logger.info("No SOCKS proxy configured for Waldur API connections")
 
-# Create Waldur API client
+# Helper: Prepare Waldur API settings
 WALDUR_API_TOKEN = os.getenv("WALDUR_API_TOKEN", "")
 if not WALDUR_API_TOKEN and config.waldur_api_token:
     WALDUR_API_TOKEN = config.waldur_api_token
 
-waldur_client = get_client(
-    api_url=config.waldur_api_url,
-    access_token=WALDUR_API_TOKEN,
-    verify_ssl=config.waldur_verify_ssl,
-    proxy=config.waldur_socks_proxy,
-)
+waldur_api_settings = {
+    "api_url": config.waldur_api_url,
+    "access_token": WALDUR_API_TOKEN,
+    "verify_ssl": config.waldur_verify_ssl,
+    "proxy": config.waldur_socks_proxy,
+}
 
 
 # HPC User API settings with environment variable support
@@ -147,6 +146,7 @@ cscs_storage_backend = CscsHpcStorageBackend(
     config.backend_settings,
     config.backend_components,
     hpc_user_api_settings=hpc_user_api_settings,
+    waldur_api_settings=waldur_api_settings,
 )
 
 # Authentication settings - environment variables override config file
@@ -361,7 +361,6 @@ def storage_resources(
             storage_system_offering_slug = config.storage_systems[storage_system.value]
             debug_data = cscs_storage_backend.get_debug_resources_by_slug(
                 offering_slug=storage_system_offering_slug,
-                client=waldur_client,
                 state=state,
                 page=page,
                 page_size=page_size,
@@ -372,7 +371,6 @@ def storage_resources(
             # Get raw resources from all storage systems
             debug_data = cscs_storage_backend.get_debug_resources_by_slugs(
                 offering_slugs=list(config.storage_systems.values()),
-                client=waldur_client,
                 state=state,
                 page=page,
                 page_size=page_size,
@@ -395,7 +393,6 @@ def storage_resources(
         storage_system_offering_slug = config.storage_systems[storage_system.value]
         storage_data = cscs_storage_backend.generate_all_resources_json_by_slug(
             offering_slug=storage_system_offering_slug,
-            client=waldur_client,
             state=state,
             page=page,
             page_size=page_size,
@@ -406,7 +403,6 @@ def storage_resources(
         # Fetch resources from all storage systems
         storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
             offering_slugs=list(config.storage_systems.values()),
-            client=waldur_client,
             state=state,
             page=page,
             page_size=page_size,

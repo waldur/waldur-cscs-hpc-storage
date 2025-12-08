@@ -28,6 +28,8 @@ class TestCscsHpcStorageBackendBase:
         self.backend = CscsHpcStorageBackend(
             self.backend_settings, self.backend_components
         )
+        # Inject mock client for testing
+        self.backend._client = Mock()
 
 
 class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
@@ -153,11 +155,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {"permissions": "2770"}
         mock_resource.attributes = mock_attributes
 
-        # Create mock client
-        mock_client = Mock()
-
         storage_json = self.backend._create_storage_resource_json(
-            mock_resource, "lustre-fs", mock_client
+            mock_resource, "lustre-fs"
         )
 
         assert storage_json["itemId"] == mock_resource.uuid.hex
@@ -205,14 +204,13 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_order.uuid = order_uuid
         mock_resource.order_in_progress = mock_order
 
-        # Create mock client with base URL
-        mock_client = Mock()
+        # Configure backend client with base URL
         mock_httpx_client = Mock()
         mock_httpx_client.base_url = "https://waldur.example.com/api"
-        mock_client.get_httpx_client.return_value = mock_httpx_client
+        self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         storage_json = self.backend._create_storage_resource_json(
-            mock_resource, "lustre-fs", mock_client
+            mock_resource, "lustre-fs"
         )
 
         assert storage_json["itemId"] == mock_resource.uuid.hex
@@ -255,9 +253,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # No order_in_progress
         mock_resource.order_in_progress = Unset()
 
-        mock_client = Mock()
         storage_json = self.backend._create_storage_resource_json(
-            mock_resource, "lustre-fs", mock_client
+            mock_resource, "lustre-fs"
         )
 
         assert storage_json["itemId"] == mock_resource.uuid.hex
@@ -297,9 +294,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_order.uuid = Unset()
         mock_resource.order_in_progress = mock_order
 
-        mock_client = Mock()
         storage_json = self.backend._create_storage_resource_json(
-            mock_resource, "lustre-fs", mock_client
+            mock_resource, "lustre-fs"
         )
 
         assert storage_json["itemId"] == mock_resource.uuid.hex
@@ -355,14 +351,14 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_list.sync_detailed.return_value = mock_response
 
         # Mock API client with base URL
-        mock_client = Mock()
+        # Configure backend client with base URL
         mock_httpx_client = Mock()
         mock_httpx_client.base_url = "https://waldur.example.com/api"
-        mock_client.get_httpx_client.return_value = mock_httpx_client
+        self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         # Test the method with pagination parameters
         resources, pagination_info = self.backend._get_all_storage_resources(
-            "test-offering-uuid", mock_client, page=1, page_size=10
+            "test-offering-uuid", page=1, page_size=10
         )
 
         # With hierarchical structure, we get tenant + customer + project entries for each resource
@@ -380,7 +376,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Should call the sync_detailed endpoint with pagination
         mock_list.sync_detailed.assert_called_once_with(
-            client=mock_client,
+            client=self.backend._client,
             offering_uuid=["test-offering-uuid"],
             page=1,
             page_size=10,
@@ -458,31 +454,24 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {}
         mock_resource.attributes = mock_attributes
 
-        # Create mock client
-        mock_client = Mock()
-
         # Test with list storage_system (should raise TypeError)
         with pytest.raises(TypeError) as exc_info:
-            backend._create_storage_resource_json(
-                mock_resource, ["system1", "system2"], mock_client
-            )
+            backend._create_storage_resource_json(mock_resource, ["system1", "system2"])
 
         error_message = str(exc_info.value)
         assert "Invalid storage_system type" in error_message
         assert "expected string, got list" in error_message
         assert str(mock_resource.uuid) in error_message
 
-        # Test with None storage_system (should raise TypeError)
         with pytest.raises(TypeError) as exc_info:
-            backend._create_storage_resource_json(mock_resource, None, mock_client)
+            backend._create_storage_resource_json(mock_resource, None)
 
         error_message = str(exc_info.value)
         assert "Invalid storage_system type" in error_message
         assert "expected string, got NoneType" in error_message
 
-        # Test with empty string storage_system (should raise TypeError)
         with pytest.raises(TypeError) as exc_info:
-            backend._create_storage_resource_json(mock_resource, "", mock_client)
+            backend._create_storage_resource_json(mock_resource, "")
 
         error_message = str(exc_info.value)
         assert "Empty storage_system provided" in error_message
@@ -551,18 +540,13 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_limits.additional_properties = {"storage": 50}
         mock_resource.limits = mock_limits
 
-        # Create mock client
-        mock_client = Mock()
-
         # Test with list permissions (should raise TypeError)
         mock_attributes = Mock()
         mock_attributes.additional_properties = {"permissions": ["775", "770"]}
         mock_resource.attributes = mock_attributes
 
         with pytest.raises(TypeError) as exc_info:
-            backend._create_storage_resource_json(
-                mock_resource, "test-storage", mock_client
-            )
+            backend._create_storage_resource_json(mock_resource, "test-storage")
 
         error_message = str(exc_info.value)
         assert "Invalid permissions type" in error_message
@@ -574,9 +558,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.attributes = mock_attributes
 
         with pytest.raises(TypeError) as exc_info:
-            backend._create_storage_resource_json(
-                mock_resource, "test-storage", mock_client
-            )
+            backend._create_storage_resource_json(mock_resource, "test-storage")
 
         error_message = str(exc_info.value)
         assert "Invalid storage_data_type" in error_message
@@ -605,9 +587,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {}
         mock_resource.attributes = mock_attributes
 
-        # Create mock client
-        mock_client = Mock()
-
         # Test different state mappings
         test_cases = [
             ("Creating", "pending"),
@@ -622,7 +601,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource.state = waldur_state
 
             result = backend._create_storage_resource_json(
-                mock_resource, "test-storage", mock_client
+                mock_resource, "test-storage"
             )
 
             assert result["status"] == expected_status, (
@@ -633,16 +612,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         from waldur_api_client.types import Unset
 
         mock_resource.state = Unset()
-        result = backend._create_storage_resource_json(
-            mock_resource, "test-storage", mock_client
-        )
+        result = backend._create_storage_resource_json(mock_resource, "test-storage")
         assert result["status"] == "pending"
 
         # Test with no state attribute
         delattr(mock_resource, "state")
-        result = backend._create_storage_resource_json(
-            mock_resource, "test-storage", mock_client
-        )
+        result = backend._create_storage_resource_json(mock_resource, "test-storage")
         assert result["status"] == "pending"
 
     def test_error_handling_returns_error_status(self):
@@ -689,9 +664,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_limits.additional_properties = {"storage": 50}
         mock_resource.limits = mock_limits
 
-        # Create mock client
-        mock_client = Mock()
-
         # Test different storage data types
         test_cases = [
             ("store", "project"),
@@ -710,7 +682,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             mock_resource.attributes = mock_attributes
 
             result = backend._create_storage_resource_json(
-                mock_resource, "test-storage", mock_client
+                mock_resource, "test-storage"
             )
 
             actual_target_type = result["target"]["targetType"]
@@ -754,12 +726,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {}
         mock_resource.attributes = mock_attributes
 
-        # Create mock client
-        mock_client = Mock()
-
-        result = backend._create_storage_resource_json(
-            mock_resource, "test-storage", mock_client
-        )
+        result = backend._create_storage_resource_json(mock_resource, "test-storage")
 
         # Verify all quotas are floats
         quotas = result["quotas"]
@@ -825,11 +792,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {"storage_data_type": "store"}
         mock_resource.attributes = mock_attributes
 
-        # Create mock client
-        mock_client = Mock()
-
         result = backend._create_storage_resource_json(
-            mock_resource, "test-storage-system", mock_client
+            mock_resource, "test-storage-system"
         )
 
         # Verify that system identifiers are in UUID format
@@ -849,12 +813,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert re.match(uuid_pattern, storage_data_type["itemId"])
         assert storage_data_type["key"] == "store"
 
-        # Test that UUIDs are deterministic (same input produces same UUID)
-        # Create mock client
-        mock_client = Mock()
-
         result2 = self.backend._create_storage_resource_json(
-            mock_resource, "test-storage-system", mock_client
+            mock_resource, "test-storage-system"
         )
 
         assert result["storageSystem"]["itemId"] == result2["storageSystem"]["itemId"]
@@ -1198,16 +1158,13 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Mock customers response
         mock_customers.sync_detailed.return_value = Mock(parsed=[])
 
-        # Mock API client with base URL
-        mock_client = Mock()
+        # Configure backend client with base URL
         mock_httpx_client = Mock()
         mock_httpx_client.base_url = "https://waldur.example.com/api"
-        mock_client.get_httpx_client.return_value = mock_httpx_client
+        self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         # Test the method
-        resources, _ = self.backend._get_all_storage_resources(
-            "test-offering-uuid", mock_client
-        )
+        resources, _ = self.backend._get_all_storage_resources("test-offering-uuid")
 
         # Should include the resource since it's not in transitional state
         assert len(resources) >= 1

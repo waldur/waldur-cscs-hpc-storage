@@ -13,6 +13,7 @@ from waldur_api_client.models.resource import Resource as WaldurResource
 from waldur_api_client.types import Unset
 
 from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
+from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.exceptions import BackendError
 
 
@@ -27,6 +28,7 @@ class CscsHpcStorageBackend:
         backend_settings: dict,
         backend_components: dict[str, dict],
         hpc_user_api_settings: Optional[dict] = None,
+        waldur_api_settings: Optional[dict] = None,
     ) -> None:
         """Initialize CSCS storage backend.
 
@@ -34,6 +36,7 @@ class CscsHpcStorageBackend:
             backend_settings: Backend-specific configuration settings
             backend_components: Component configuration
             hpc_user_api_settings: Optional HPC User API configuration
+            waldur_api_settings: Optional Waldur API configuration for internal client
         """
         self.backend_type = "cscs-hpc-storage"
         self.backend_settings = backend_settings
@@ -108,6 +111,32 @@ class CscsHpcStorageBackend:
         self._gid_cache: dict[str, int] = {}
         logger.info("Project GID cache initialized (persists until server restart)")
 
+        # Initialize Waldur API client if settings provided
+        self._client = None
+        if waldur_api_settings:
+            # Check for required fields in settings
+            if (
+                "api_url" in waldur_api_settings
+                and "access_token" in waldur_api_settings
+            ):
+                # Use a default user agent slightly different from the caller if needed,
+                # or just reuse the logic from utils.
+                self._client = get_client(
+                    api_url=waldur_api_settings["api_url"],
+                    access_token=waldur_api_settings["access_token"],
+                    agent_header=waldur_api_settings.get("agent_header"),
+                    verify_ssl=waldur_api_settings.get("verify_ssl", True),
+                    proxy=waldur_api_settings.get("proxy"),
+                )
+                logger.debug(
+                    "Waldur API client initialized for URL: %s",
+                    waldur_api_settings["api_url"],
+                )
+            else:
+                logger.warning(
+                    "Waldur API settings provided but missing required 'api_url' or 'access_token'"
+                )
+
         # Validate configuration
         self._validate_configuration()
 
@@ -181,6 +210,19 @@ class CscsHpcStorageBackend:
         )
 
         return filtered_resources
+
+    def _get_client(self) -> AuthenticatedClient:
+        """Get the authenticated Waldur API client.
+
+        Returns:
+            AuthenticatedClient instance
+
+        Raises:
+            BackendError: If the client was not initialized
+        """
+        if not self._client:
+            raise BackendError("Waldur API client not initialized in backend")
+        return self._client
 
     def _validate_configuration(self) -> None:
         """Validate backend configuration settings."""
@@ -399,21 +441,18 @@ class CscsHpcStorageBackend:
         )
         return mock_gid
 
-    def _get_offering_customers(
-        self, offering_uuid: str, client: AuthenticatedClient
-    ) -> dict:
+    def _get_offering_customers(self, offering_uuid: str) -> dict:
         """Get customers for a specific offering.
 
         Args:
             offering_uuid: UUID of the offering
-            client: Authenticated Waldur API client
 
         Returns:
             Dictionary mapping customer slugs to customer information
         """
         try:
             response = marketplace_provider_offerings_customers_list.sync_detailed(
-                uuid=offering_uuid, client=client
+                uuid=offering_uuid, client=self._get_client()
             )
 
             if not response.parsed:
@@ -597,9 +636,13 @@ class CscsHpcStorageBackend:
         self,
         waldur_resource: WaldurResource,
         storage_system: str,
-        client: Optional[AuthenticatedClient] = None,
-    ) -> Optional[dict]:
-        """Create JSON structure for a single storage resource."""
+    ) -> dict | None:
+        """Create JSON representation for a single storage resource.
+
+        Args:
+            waldur_resource: Waldur resource object
+            storage_system: Storage system name
+        """
         logger.debug(
             "Creating storage resource JSON for resource %s", waldur_resource.uuid
         )
@@ -928,9 +971,9 @@ class CscsHpcStorageBackend:
 
             # Get base URL from client if available
             base_url = ""
-            if client:
+            if self._client:
                 try:
-                    httpx_client = client.get_httpx_client()
+                    httpx_client = self._client.get_httpx_client()
                     base_url = str(httpx_client.base_url).rstrip("/")
                 except Exception as e:
                     logger.warning("Failed to get base URL from client: %s", e)
@@ -1168,7 +1211,6 @@ class CscsHpcStorageBackend:
     def _get_all_storage_resources(
         self,
         offering_uuid: str,
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1180,7 +1222,6 @@ class CscsHpcStorageBackend:
 
         Args:
             offering_uuid: UUID of the offering to fetch resources for
-            client: Authenticated Waldur API client for API access
             state: Optional resource state filter
             page: Page number (1-based)
             page_size: Number of items per page
@@ -1200,7 +1241,7 @@ class CscsHpcStorageBackend:
 
             # Use sync_detailed to get both content and headers
             response = marketplace_resources_list.sync_detailed(
-                client=client,
+                client=self._client,
                 offering_uuid=[offering_uuid],
                 page=page,
                 page_size=page_size,
@@ -1238,7 +1279,7 @@ class CscsHpcStorageBackend:
             }
 
             # Get offering customers for hierarchical resources
-            offering_customers = self._get_offering_customers(offering_uuid, client)
+            offering_customers = self._get_offering_customers(offering_uuid)
 
             # Convert Waldur resources to storage JSON format
             # We'll create tenant, customer-level and project-level entries (three-tier hierarchy)
@@ -1392,7 +1433,6 @@ class CscsHpcStorageBackend:
                 storage_resource = self._create_storage_resource_json(
                     waldur_resource=resource,
                     storage_system=storage_system_name,
-                    client=client,
                 )
                 if storage_resource is not None:
                     # Set parent reference if customer entry exists
@@ -1446,7 +1486,6 @@ class CscsHpcStorageBackend:
     def generate_all_resources_json(
         self,
         offering_uuid: str,
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1458,7 +1497,6 @@ class CscsHpcStorageBackend:
         try:
             storage_resources, pagination_info = self._get_all_storage_resources(
                 offering_uuid,
-                client,
                 state,
                 page=page,
                 page_size=page_size,
@@ -1500,7 +1538,6 @@ class CscsHpcStorageBackend:
     def generate_all_resources_json_by_slugs(
         self,
         offering_slugs: list[str],
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1512,7 +1549,6 @@ class CscsHpcStorageBackend:
         try:
             storage_resources, pagination_info = self._get_resources_by_offering_slugs(
                 offering_slugs=offering_slugs,
-                client=client,
                 state=state,
                 page=page,
                 page_size=page_size,
@@ -1547,7 +1583,6 @@ class CscsHpcStorageBackend:
     def generate_all_resources_json_by_slug(
         self,
         offering_slug: str,
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1558,7 +1593,6 @@ class CscsHpcStorageBackend:
         try:
             storage_resources, pagination_info = self._get_resources_by_offering_slug(
                 offering_slug=offering_slug,
-                client=client,
                 state=state,
                 page=page,
                 page_size=page_size,
@@ -1591,7 +1625,6 @@ class CscsHpcStorageBackend:
     def get_debug_resources_by_slugs(
         self,
         offering_slugs: list[str],
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1610,7 +1643,7 @@ class CscsHpcStorageBackend:
 
             # Fetch raw resources filtered by offering slugs
             filters = {
-                "client": client,
+                "client": self._get_client(),
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": offering_slugs,
@@ -1682,7 +1715,6 @@ class CscsHpcStorageBackend:
     def get_debug_resources_by_slug(
         self,
         offering_slug: str,
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1693,7 +1725,7 @@ class CscsHpcStorageBackend:
         try:
             # Fetch resources directly with offering slug filter
             filters = {
-                "client": client,
+                "client": self._get_client(),
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": [offering_slug],  # Filter by offering slug
@@ -1787,7 +1819,6 @@ class CscsHpcStorageBackend:
     def _get_resources_by_offering_slugs(
         self,
         offering_slugs: list[str],
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1817,7 +1848,6 @@ class CscsHpcStorageBackend:
             )
 
             filters = {
-                "client": client,
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": ",".join(
@@ -1827,7 +1857,9 @@ class CscsHpcStorageBackend:
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(**filters)
+            response = marketplace_resources_list.sync_detailed(
+                client=self._get_client(), **filters
+            )
 
             all_storage_resources = []
             total_api_count = 0
@@ -1855,7 +1887,7 @@ class CscsHpcStorageBackend:
 
                 all_offering_customers = {}
                 for offering_uuid in offering_uuids:
-                    customers = self._get_offering_customers(offering_uuid, client)
+                    customers = self._get_offering_customers(offering_uuid)
                     all_offering_customers.update(customers)  # Merge all customers
 
                 tenant_entries = {}  # Track unique tenant entries
@@ -1957,7 +1989,6 @@ class CscsHpcStorageBackend:
                         storage_resource = self._create_storage_resource_json(
                             waldur_resource=resource,
                             storage_system=resource.offering_slug,
-                            client=client,
                         )
                         if storage_resource is not None:
                             # Set parent reference if customer entry exists
@@ -2024,7 +2055,6 @@ class CscsHpcStorageBackend:
     def _get_resources_by_offering_slug(
         self,
         offering_slug: str,
-        client: AuthenticatedClient,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -2035,7 +2065,7 @@ class CscsHpcStorageBackend:
         try:
             # Fetch resources with offering slug filter
             filters = {
-                "client": client,
+                "client": self._get_client(),
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": [offering_slug],  # Filter by offering slug
@@ -2072,7 +2102,7 @@ class CscsHpcStorageBackend:
             offering_customers = {}
             if offering_uuid_for_customers:
                 offering_customers = self._get_offering_customers(
-                    offering_uuid_for_customers, client
+                    offering_uuid_for_customers
                 )
 
             storage_resources = []
@@ -2229,7 +2259,7 @@ class CscsHpcStorageBackend:
 
                     # Create project-level resource (the original resource)
                     storage_resource = self._create_storage_resource_json(
-                        resource, storage_system_name, client
+                        resource, storage_system_name
                     )
                     if storage_resource is not None:
                         # Set parent reference if customer entry exists

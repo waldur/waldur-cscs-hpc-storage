@@ -37,45 +37,38 @@ class TestSyncScript:
         setup_logging(verbose=False)
         setup_logging(verbose=True)
 
-    @patch("waldur_cscs_hpc_storage.sync_script.get_client")
     @patch("waldur_cscs_hpc_storage.sync_script.CscsHpcStorageBackend")
-    def test_sync_offering_resources_success(self, mock_backend_class, mock_get_client):
+    def test_sync_offering_resources_success(self, mock_backend_class):
         """Test successful offering synchronization."""
-        # Mock client and backend
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        # Mock backend
 
         mock_backend = Mock()
-        mock_backend._get_all_storage_resources.return_value = [
-            {"itemId": "test-resource-1"},
-            {"itemId": "test-resource-2"},
-        ]
+        mock_backend._get_all_storage_resources.return_value = (
+            [{"itemId": "test-resource-1"}, {"itemId": "test-resource-2"}],
+            {"total": 2},
+        )
         mock_backend_class.return_value = mock_backend
 
         # Test successful sync
         result = sync_offering_resources(self.offering_config, dry_run=False)
 
         assert result is True
-        mock_get_client.assert_called_once_with(
-            api_url="http://localhost:8081/api/", access_token="test-token"
-        )
+
         mock_backend_class.assert_called_once()
         mock_backend.generate_all_resources_json.assert_called_once_with(
-            self.offering_config["waldur_offering_uuid"], mock_client
+            self.offering_config["waldur_offering_uuid"]
         )
 
-    @patch("waldur_cscs_hpc_storage.sync_script.get_client")
     @patch("waldur_cscs_hpc_storage.sync_script.CscsHpcStorageBackend")
-    def test_sync_offering_resources_dry_run(self, mock_backend_class, mock_get_client):
+    def test_sync_offering_resources_dry_run(self, mock_backend_class):
         """Test dry run mode."""
-        # Mock client and backend
-        mock_client = Mock()
-        mock_get_client.return_value = mock_client
+        # Mock backend
 
         mock_backend = Mock()
-        mock_backend._get_all_storage_resources.return_value = [
-            {"itemId": "test-resource-1"}
-        ]
+        mock_backend._get_all_storage_resources.return_value = (
+            [{"itemId": "test-resource-1"}],
+            {"total": 1},
+        )
         mock_backend_class.return_value = mock_backend
 
         # Test dry run
@@ -104,10 +97,14 @@ class TestSyncScript:
 
         assert result is False
 
-    @patch("waldur_cscs_hpc_storage.sync_script.get_client")
-    def test_sync_offering_resources_api_error(self, mock_get_client):
+    @patch("waldur_cscs_hpc_storage.sync_script.CscsHpcStorageBackend")
+    def test_sync_offering_resources_api_error(self, mock_backend_class):
         """Test error handling for API failures."""
-        mock_get_client.side_effect = Exception("API connection failed")
+        mock_backend = Mock()
+        mock_backend.generate_all_resources_json.side_effect = Exception(
+            "API connection failed"
+        )
+        mock_backend_class.return_value = mock_backend
 
         result = sync_offering_resources(self.offering_config)
 
