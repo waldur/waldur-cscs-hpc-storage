@@ -552,6 +552,56 @@ class CscsHpcStorageBackend:
             targetItem=target_item,
         )
 
+    def _render_quotas(
+        self,
+        storage_quota_soft_tb: float,
+        storage_quota_hard_tb: float,
+        inode_soft: int,
+        inode_hard: int,
+    ) -> Optional[list[Quota]]:
+        """Render quota objects from storage and inode quota values.
+
+        Args:
+            storage_quota_soft_tb: Soft storage quota in terabytes
+            storage_quota_hard_tb: Hard storage quota in terabytes
+            inode_soft: Soft inode quota
+            inode_hard: Hard inode quota
+
+        Returns:
+            List of Quota objects, or None if no quotas are set
+        """
+        quotas = []
+        if storage_quota_soft_tb > 0 or storage_quota_hard_tb > 0:
+            quotas.extend(
+                [
+                    Quota(
+                        type=QuotaType.SPACE,
+                        quota=float(storage_quota_soft_tb),
+                        unit=QuotaUnit.TERA,
+                        enforcementType=EnforcementType.SOFT,
+                    ),
+                    Quota(
+                        type=QuotaType.SPACE,
+                        quota=float(storage_quota_hard_tb),
+                        unit=QuotaUnit.TERA,
+                        enforcementType=EnforcementType.HARD,
+                    ),
+                    Quota(
+                        type=QuotaType.INODES,
+                        quota=float(inode_soft),
+                        unit=QuotaUnit.NONE,
+                        enforcementType=EnforcementType.SOFT,
+                    ),
+                    Quota(
+                        type=QuotaType.INODES,
+                        quota=float(inode_hard),
+                        unit=QuotaUnit.NONE,
+                        enforcementType=EnforcementType.HARD,
+                    ),
+                ]
+            )
+        return quotas if quotas else None
+
     def _create_storage_resource_json(
         self,
         waldur_resource: WaldurResource,
@@ -805,37 +855,10 @@ class CscsHpcStorageBackend:
             )
             return None
 
-        # Create quotas list
-        quotas = []
-        if storage_quota_soft_tb > 0 or storage_quota_hard_tb > 0:
-            quotas.extend(
-                [
-                    Quota(
-                        type=QuotaType.SPACE,
-                        quota=float(storage_quota_soft_tb),
-                        unit=QuotaUnit.TERA,
-                        enforcementType=EnforcementType.SOFT,
-                    ),
-                    Quota(
-                        type=QuotaType.SPACE,
-                        quota=float(storage_quota_hard_tb),
-                        unit=QuotaUnit.TERA,
-                        enforcementType=EnforcementType.HARD,
-                    ),
-                    Quota(
-                        type=QuotaType.INODES,
-                        quota=float(inode_soft),
-                        unit=QuotaUnit.NONE,
-                        enforcementType=EnforcementType.SOFT,
-                    ),
-                    Quota(
-                        type=QuotaType.INODES,
-                        quota=float(inode_hard),
-                        unit=QuotaUnit.NONE,
-                        enforcementType=EnforcementType.HARD,
-                    ),
-                ]
-            )
+        # Render quotas
+        quotas = self._render_quotas(
+            storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
+        )
 
         # Create StorageResource object
         storage_resource = StorageResource(
@@ -843,7 +866,7 @@ class CscsHpcStorageBackend:
             status=cscs_status,
             mountPoint=MountPoint(default=mount_point),
             permission=Permission(value=permissions),
-            quotas=quotas if quotas else None,
+            quotas=quotas,
             target=target_data,
             storageSystem=self._create_storage_item("storage_system", storage_system),
             storageFileSystem=self._create_storage_item(
