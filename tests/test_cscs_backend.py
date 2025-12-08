@@ -13,6 +13,7 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     WaldurApiConfig,
 )
 from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
+from waldur_api_client.models.resource_state import ResourceState
 
 
 class TestCscsHpcStorageBackendBase:
@@ -534,6 +535,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
+        mock_resource.state = "OK"
 
         # Create mock limits
         mock_limits = Mock()
@@ -544,9 +546,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes = Mock()
         mock_attributes.additional_properties = {}
         mock_resource.attributes = mock_attributes
-
-        # Import ResourceState
-        from waldur_api_client.models.resource_state import ResourceState
 
         # Test different state mappings
         test_cases = [
@@ -568,18 +567,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             assert result.status == expected_status, (
                 f"State '{waldur_state}' should map to '{expected_status}'"
             )
-
-        # Test with Unset state
-        from waldur_api_client.types import Unset
-
-        mock_resource.state = Unset()
-        result = backend._create_storage_resource_json(mock_resource, "test-storage")
-        assert result.status == "pending"
-
-        # Test with no state attribute
-        delattr(mock_resource, "state")
-        result = backend._create_storage_resource_json(mock_resource, "test-storage")
-        assert result.status == "pending"
 
     def test_error_handling_returns_error_status(self):
         """Test that errors return proper error status and code 500."""

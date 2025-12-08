@@ -106,17 +106,14 @@ class CscsHpcStorageBackend:
         self.use_mock_target_items = backend_config.use_mock_target_items
         self.development_mode = backend_config.development_mode
 
-        # HPC User service configuration
         self.gid_service: Optional[GidService] = None
         if hpc_user_api_config:
             self.gid_service = GidService(hpc_user_api_config)
         else:
             logger.info("HPC User client not configured - using mock unixGid values")
 
-        # Initialize Waldur Service
         self.waldur_service = WaldurService(waldur_api_config)
 
-        # Validate configuration
         self.backend_config.validate()
 
     def _apply_filters(
@@ -278,10 +275,7 @@ class CscsHpcStorageBackend:
         self, waldur_resource: WaldurResource
     ) -> TargetStatus:
         """Map Waldur resource state to target item status."""
-        waldur_state = getattr(waldur_resource, "state", None)
-        if waldur_state:
-            return TARGET_STATUS_MAPPING.get(waldur_state, TargetStatus.PENDING)
-        return TargetStatus.PENDING
+        return TARGET_STATUS_MAPPING.get(waldur_resource.state, TargetStatus.PENDING)
 
     def _get_target_item_data(  # noqa: PLR0911
         self,
