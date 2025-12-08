@@ -11,7 +11,7 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.resource import Resource as WaldurResource
 from waldur_api_client.types import Unset
 
-from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
+from waldur_cscs_hpc_storage.gid_service import GidService
 from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.enums import (
     EnforcementType,
@@ -109,9 +109,9 @@ class CscsHpcStorageBackend:
         self.development_mode = backend_config.development_mode
 
         # HPC User service configuration
-        self.hpc_user_client: Optional[CSCSHpcUserClient] = None
+        self.gid_service: Optional[GidService] = None
         if hpc_user_api_config:
-            self.hpc_user_client = CSCSHpcUserClient(hpc_user_api_config)
+            self.gid_service = GidService(hpc_user_api_config)
 
             if hpc_user_api_config.socks_proxy:
                 logger.info(
@@ -253,8 +253,8 @@ class CscsHpcStorageBackend:
             unixGid value from service, mock value (dev mode), or None (prod mode on failure)
         """
         # Try to fetch from HPC User service
-        if self.hpc_user_client:
-            unix_gid = self.hpc_user_client.get_project_unix_gid(project_slug)
+        if self.gid_service:
+            unix_gid = self.gid_service.get_project_unix_gid(project_slug)
             if unix_gid is not None:
                 return unix_gid
 
@@ -1599,9 +1599,9 @@ class CscsHpcStorageBackend:
     ) -> tuple[list[StorageResource], dict[str, Any]]:
         """Fetch and process resources filtered by multiple offering slugs."""
         # HPC User client diagnostics
-        if self.hpc_user_client:
-            logger.info("HPC User API configured: %s", self.hpc_user_client.api_url)
-            hpc_user_available = self.hpc_user_client.ping()
+        if self.gid_service:
+            logger.info("HPC User API configured: %s", self.gid_service.api_url)
+            hpc_user_available = self.gid_service.ping()
             logger.info("HPC User API accessible: %s", hpc_user_available)
             if not hpc_user_available:
                 logger.warning(

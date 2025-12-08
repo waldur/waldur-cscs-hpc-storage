@@ -1157,15 +1157,15 @@ class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
             oidc_scope="scope",
         )
         self.backend = self._create_backend(hpc_user_api_config=hpc_user_settings)
-        # Mock the hpc_user_client
-        self.backend.hpc_user_client = Mock()
+        # Mock the gid_service
+        self.backend.gid_service = Mock()
 
     def test_get_project_unix_gid_success(self):
         """Test successful GID lookup."""
-        self.backend.hpc_user_client.get_project_unix_gid.return_value = 30042
+        self.backend.gid_service.get_project_unix_gid.return_value = 30042
         gid = self.backend._get_project_unix_gid("test-project")
         assert gid == 30042
-        self.backend.hpc_user_client.get_project_unix_gid.assert_called_once_with(
+        self.backend.gid_service.get_project_unix_gid.assert_called_once_with(
             "test-project"
         )
 
@@ -1173,7 +1173,7 @@ class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
         """Test lookup failure in production mode returns None."""
         self.backend.development_mode = False
         # The client catches exceptions and returns None, so we simulate that
-        self.backend.hpc_user_client.get_project_unix_gid.return_value = None
+        self.backend.gid_service.get_project_unix_gid.return_value = None
 
         gid = self.backend._get_project_unix_gid("test-project")
         assert gid is None

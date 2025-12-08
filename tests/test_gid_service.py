@@ -6,12 +6,12 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
+from waldur_cscs_hpc_storage.gid_service import GidService
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
 
 
-class TestCSCSHpcUserClient:
-    """Test cases for CSCS HPC User client."""
+class TestGidService:
+    """Test cases for GidService."""
 
     @pytest.fixture
     def client_config(self):
@@ -25,13 +25,13 @@ class TestCSCSHpcUserClient:
         )
 
     @pytest.fixture
-    def hpc_user_client(self, client_config):
-        """Create HPC User client instance."""
-        return CSCSHpcUserClient(client_config)
+    def gid_service(self, client_config):
+        """Create GidService instance."""
+        return GidService(client_config)
 
     def test_init(self, client_config):
         """Test client initialization."""
-        client = CSCSHpcUserClient(client_config)
+        client = GidService(client_config)
 
         assert client.api_url == "https://api-user.hpc-user.example.com"
         assert client.client_id == "test_client"
@@ -50,7 +50,7 @@ class TestCSCSHpcUserClient:
             oidc_token_url="https://auth.example.com/token",
             oidc_scope="openid profile",
         )
-        client = CSCSHpcUserClient(config)
+        client = GidService(config)
         assert client.api_url == "https://api-user.hpc-user.example.com"
 
     def test_init_default_scope(self):
@@ -62,11 +62,11 @@ class TestCSCSHpcUserClient:
             oidc_token_url="https://auth.example.com/token",
             # oidc_scope missing (None)
         )
-        client = CSCSHpcUserClient(config)
+        client = GidService(config)
         assert client.oidc_scope == "openid"
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_acquire_oidc_token_success(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_acquire_oidc_token_success(self, mock_client_class, gid_service):
         """Test successful OIDC token acquisition."""
         # Mock HTTP response
         mock_response = Mock()
@@ -82,11 +82,11 @@ class TestCSCSHpcUserClient:
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
         # Test token acquisition
-        token = hpc_user_client._acquire_oidc_token()
+        token = gid_service._acquire_oidc_token()
 
         assert token == "test_access_token"
-        assert hpc_user_client._token == "test_access_token"
-        assert hpc_user_client._token_expires_at is not None
+        assert gid_service._token == "test_access_token"
+        assert gid_service._token_expires_at is not None
 
         # Verify HTTP request
         mock_client_instance.post.assert_called_once_with(
@@ -100,10 +100,8 @@ class TestCSCSHpcUserClient:
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_acquire_oidc_token_no_access_token(
-        self, mock_client_class, hpc_user_client
-    ):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_acquire_oidc_token_no_access_token(self, mock_client_class, gid_service):
         """Test OIDC token acquisition when no access_token in response."""
         mock_response = Mock()
         mock_response.json.return_value = {"token_type": "Bearer"}
@@ -114,10 +112,10 @@ class TestCSCSHpcUserClient:
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
         with pytest.raises(ValueError, match="No access_token in OIDC response"):
-            hpc_user_client._acquire_oidc_token()
+            gid_service._acquire_oidc_token()
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_acquire_oidc_token_http_error(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_acquire_oidc_token_http_error(self, mock_client_class, gid_service):
         """Test OIDC token acquisition HTTP error handling."""
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -129,7 +127,7 @@ class TestCSCSHpcUserClient:
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
         with pytest.raises(httpx.HTTPStatusError):
-            hpc_user_client._acquire_oidc_token()
+            gid_service._acquire_oidc_token()
 
     def test_get_auth_token_no_oidc_url(self):
         """Test auth token acquisition when OIDC URL not configured."""
@@ -139,32 +137,32 @@ class TestCSCSHpcUserClient:
             client_secret="test_secret",
             # oidc_token_url missing (None)
         )
-        client = CSCSHpcUserClient(config)
+        client = GidService(config)
 
         with pytest.raises(ValueError, match="hpc_user_oidc_token_url not configured"):
             client._get_auth_token()
 
-    def test_get_auth_token_cached_valid(self, hpc_user_client):
+    def test_get_auth_token_cached_valid(self, gid_service):
         """Test auth token returns cached token when still valid."""
         from datetime import timedelta
 
         # Set up cached token that expires in the future
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "cached_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "cached_token"
+        gid_service._token_expires_at = future_time
 
-        token = hpc_user_client._get_auth_token()
+        token = gid_service._get_auth_token()
         assert token == "cached_token"
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_get_projects_success(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_get_projects_success(self, mock_client_class, gid_service):
         """Test successful project data retrieval."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         # Mock API response
         mock_response = Mock()
@@ -189,7 +187,7 @@ class TestCSCSHpcUserClient:
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
         # Test projects retrieval
-        result = hpc_user_client.get_projects(["project1", "project2"])
+        result = gid_service.get_projects(["project1", "project2"])
 
         assert len(result) == 2
         assert result[0]["posixName"] == "project1"
@@ -204,15 +202,15 @@ class TestCSCSHpcUserClient:
             headers={"Authorization": "Bearer test_token"},
         )
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_get_projects_empty_list(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_get_projects_empty_list(self, mock_client_class, gid_service):
         """Test project retrieval with empty project list."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         # Mock API response
         mock_response = Mock()
@@ -223,7 +221,7 @@ class TestCSCSHpcUserClient:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
-        result = hpc_user_client.get_projects([])
+        result = gid_service.get_projects([])
 
         assert result == []
 
@@ -234,15 +232,15 @@ class TestCSCSHpcUserClient:
             headers={"Authorization": "Bearer test_token"},
         )
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_get_project_unix_gid_found(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_get_project_unix_gid_found(self, mock_client_class, gid_service):
         """Test successful unixGid lookup for existing project."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         # Mock API response
         mock_response = Mock()
@@ -261,23 +259,23 @@ class TestCSCSHpcUserClient:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
-        result = hpc_user_client.get_project_unix_gid("project1")
+        result = gid_service.get_project_unix_gid("project1")
 
         assert result == 30001
 
         assert result == 30001
 
         # Verify it cached the result
-        assert hpc_user_client._gid_cache["project1"] == 30001
+        assert gid_service._gid_cache["project1"] == 30001
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_get_project_unix_gid_uses_cache(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_get_project_unix_gid_uses_cache(self, mock_client_class, gid_service):
         """Test that get_project_unix_gid uses cached value if available."""
         # Pre-populate cache
-        hpc_user_client._gid_cache["cached_project"] = 12345
+        gid_service._gid_cache["cached_project"] = 12345
 
         # Call method
-        result = hpc_user_client.get_project_unix_gid("cached_project")
+        result = gid_service.get_project_unix_gid("cached_project")
 
         # Should return cached value
         assert result == 12345
@@ -285,15 +283,15 @@ class TestCSCSHpcUserClient:
         # Should NOT make any API calls
         mock_client_class.assert_not_called()
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_get_project_unix_gid_not_found(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_get_project_unix_gid_not_found(self, mock_client_class, gid_service):
         """Test unixGid lookup for non-existent project."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         # Mock API response with different project
         mock_response = Mock()
@@ -312,19 +310,19 @@ class TestCSCSHpcUserClient:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
-        result = hpc_user_client.get_project_unix_gid("project1")
+        result = gid_service.get_project_unix_gid("project1")
 
         assert result is None
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_get_project_unix_gid_api_error(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_get_project_unix_gid_api_error(self, mock_client_class, gid_service):
         """Test unixGid lookup when API request fails."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
@@ -335,19 +333,19 @@ class TestCSCSHpcUserClient:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
-        result = hpc_user_client.get_project_unix_gid("project1")
+        result = gid_service.get_project_unix_gid("project1")
 
         assert result is None
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_ping_success(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_ping_success(self, mock_client_class, gid_service):
         """Test successful ping to HPC User API."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         # Mock API response
         mock_response = Mock()
@@ -357,7 +355,7 @@ class TestCSCSHpcUserClient:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
-        result = hpc_user_client.ping()
+        result = gid_service.ping()
 
         assert result is True
 
@@ -367,15 +365,15 @@ class TestCSCSHpcUserClient:
             headers={"Authorization": "Bearer test_token"},
         )
 
-    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
-    def test_ping_failure(self, mock_client_class, hpc_user_client):
+    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    def test_ping_failure(self, mock_client_class, gid_service):
         """Test ping failure when API is not accessible."""
         from datetime import timedelta
 
         # Mock token acquisition
         future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
-        hpc_user_client._token = "test_token"
-        hpc_user_client._token_expires_at = future_time
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
 
         # Mock API response with non-200 status
         mock_response = Mock()
@@ -385,13 +383,13 @@ class TestCSCSHpcUserClient:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__enter__.return_value = mock_client_instance
 
-        result = hpc_user_client.ping()
+        result = gid_service.ping()
 
         assert result is False
 
-    def test_ping_exception(self, hpc_user_client):
+    def test_ping_exception(self, gid_service):
         """Test ping handles exceptions gracefully."""
         # Don't mock anything to trigger exception in _get_auth_token
-        result = hpc_user_client.ping()
+        result = gid_service.ping()
 
         assert result is False

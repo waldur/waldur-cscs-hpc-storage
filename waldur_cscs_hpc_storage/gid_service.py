@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 HTTP_OK = 200
 
 
-class CSCSHpcUserClient:
+class GidService:
     """Client for interacting with CSCS HPC User API for project information."""
 
     def __init__(self, api_config: HpcUserApiConfig) -> None:
