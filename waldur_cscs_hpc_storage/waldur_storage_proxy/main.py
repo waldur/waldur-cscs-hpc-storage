@@ -1,6 +1,5 @@
 """API server used as proxy to Waldur storage resources."""
 
-from enum import Enum
 from typing import Annotated, Optional
 import logging
 import os
@@ -18,7 +17,7 @@ from waldur_api_client.models.user import User
 from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user, setup_auth
-
+from waldur_cscs_hpc_storage.enums import StorageSystem
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.sync_script import setup_logging
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import StorageProxyConfig
@@ -159,14 +158,6 @@ else:
     DISABLE_AUTH = False
 
 app = FastAPI(redirect_slashes=True)
-
-
-class StorageSystem(str, Enum):
-    """Allowed storage system values."""
-
-    CAPSTOR = "capstor"
-    VAST = "vast"
-    IOPSSTOR = "iopsstor"
 
 
 @app.exception_handler(RequestValidationError)

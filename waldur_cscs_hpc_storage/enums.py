@@ -28,3 +28,11 @@ class TargetType(StrEnum):
     USER = "user"
     TENANT = "tenant"
     CUSTOMER = "customer"
+
+
+class StorageSystem(StrEnum):
+    """Allowed storage system values."""
+
+    CAPSTOR = "capstor"
+    VAST = "vast"
+    IOPSSTOR = "iopsstor"
