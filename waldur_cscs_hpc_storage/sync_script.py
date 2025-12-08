@@ -13,6 +13,7 @@ from pathlib import Path
 
 from waldur_cscs_hpc_storage.utils import load_configuration
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +62,26 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
         }
 
         # Initialize backend
+        # Initialize backend
         backend_settings = offering_config.get("backend_settings", {})
         backend_components = offering_config.get("backend_components", {})
+
+        # Extract HPC User API settings if present (legacy support)
+        hpc_user_api_settings = None
+        if "hpc_user_api_url" in backend_settings:
+            hpc_user_api_settings = HpcUserApiConfig(
+                api_url=backend_settings.get("hpc_user_api_url"),
+                client_id=backend_settings.get("hpc_user_client_id"),
+                client_secret=backend_settings.get("hpc_user_client_secret"),
+                oidc_token_url=backend_settings.get("hpc_user_oidc_token_url"),
+                oidc_scope=backend_settings.get("hpc_user_oidc_scope"),
+                socks_proxy=backend_settings.get("hpc_user_socks_proxy"),
+            )
 
         backend = CscsHpcStorageBackend(
             backend_settings,
             backend_components,
+            hpc_user_api_settings=hpc_user_api_settings,
             waldur_api_settings=waldur_api_settings,
         )
 

@@ -236,3 +236,42 @@ class TestSyncScript:
             "backend_components": self.offering_config["backend_components"],
         }
         mock_sync_offering.assert_called_once_with(expected_offering_dict, True)
+
+    @patch("waldur_cscs_hpc_storage.sync_script.CscsHpcStorageBackend")
+    def test_sync_offering_resources_with_hpc_settings(self, mock_backend_class):
+        """Test that HPC User API settings are correctly extracted and passed to backend."""
+        # Setup config with HPC settings in backend_settings
+        config = self.offering_config.copy()
+        config["backend_settings"] = {
+            "output_directory": self.temp_dir,
+            "storage_file_system": "lustre",
+            "hpc_user_api_url": "https://hpc-user.example.com",
+            "hpc_user_client_id": "client-id",
+            "hpc_user_client_secret": "client-secret",
+            "hpc_user_oidc_token_url": "https://auth.example.com/token",
+            "hpc_user_oidc_scope": "hpc-scope",
+            "hpc_user_socks_proxy": "socks5://proxy:1080",
+        }
+
+        # Mock backend instance
+        mock_backend = Mock()
+        mock_backend._get_all_storage_resources.return_value = ([], {"total": 0})
+        mock_backend_class.return_value = mock_backend
+
+        # Run sync
+        result = sync_offering_resources(config, dry_run=False)
+
+        assert result is True
+
+        # Verify backend was initialized with HpcUserApiConfig
+        args, kwargs = mock_backend_class.call_args
+        assert "hpc_user_api_settings" in kwargs
+        hpc_config = kwargs["hpc_user_api_settings"]
+
+        from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+
+        assert isinstance(hpc_config, HpcUserApiConfig)
+        assert hpc_config.api_url == "https://hpc-user.example.com"
+        assert hpc_config.client_id == "client-id"
+        assert hpc_config.client_secret == "client-secret"
+        assert hpc_config.socks_proxy == "socks5://proxy:1080"

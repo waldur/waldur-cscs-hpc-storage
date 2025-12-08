@@ -61,57 +61,19 @@ class CscsHpcStorageBackend:
         self.development_mode = backend_settings.get("development_mode", False)
 
         # HPC User service configuration
-        # Support both new separate section (obj only) and legacy backend_settings location
+        self.hpc_user_client: Optional[CSCSHpcUserClient] = None
         if hpc_user_api_settings:
-            # Use new separate configuration section
-            self.hpc_user_api_url = hpc_user_api_settings.api_url
-            self.hpc_user_client_id = hpc_user_api_settings.client_id
-            self.hpc_user_client_secret = hpc_user_api_settings.client_secret
-            self.hpc_user_oidc_token_url = hpc_user_api_settings.oidc_token_url
-            self.hpc_user_oidc_scope = hpc_user_api_settings.oidc_scope
-            self.hpc_user_socks_proxy = hpc_user_api_settings.socks_proxy
+            self.hpc_user_client = CSCSHpcUserClient(hpc_user_api_settings)
 
-            if self.hpc_user_socks_proxy:
+            if hpc_user_api_settings.socks_proxy:
                 logger.info(
                     "SOCKS proxy configured from hpc_user_api settings: %s",
-                    self.hpc_user_socks_proxy,
+                    hpc_user_api_settings.socks_proxy,
                 )
-        else:
-            # Fall back to legacy configuration in backend_settings
-            self.hpc_user_api_url = backend_settings.get("hpc_user_api_url")
-            self.hpc_user_client_id = backend_settings.get("hpc_user_client_id")
-            self.hpc_user_client_secret = backend_settings.get("hpc_user_client_secret")
-            self.hpc_user_oidc_token_url = backend_settings.get(
-                "hpc_user_oidc_token_url"
-            )
-            self.hpc_user_oidc_scope = backend_settings.get("hpc_user_oidc_scope")
-            self.hpc_user_socks_proxy = backend_settings.get("hpc_user_socks_proxy")
-
-        # Initialize HPC User client if configured
-        self.hpc_user_client: Optional[CSCSHpcUserClient] = None
-        if (
-            self.hpc_user_api_url
-            and self.hpc_user_client_id
-            and self.hpc_user_client_secret
-        ):
-            if hpc_user_api_settings:
-                user_api_config = hpc_user_api_settings
-            else:
-                user_api_config = HpcUserApiConfig(
-                    api_url=self.hpc_user_api_url,
-                    client_id=self.hpc_user_client_id,
-                    client_secret=self.hpc_user_client_secret,
-                    oidc_token_url=self.hpc_user_oidc_token_url,
-                    oidc_scope=self.hpc_user_oidc_scope,
-                    socks_proxy=self.hpc_user_socks_proxy,
-                )
-
-            self.hpc_user_client = CSCSHpcUserClient(user_api_config)
             logger.info(
-                "HPC User client initialized with URL: %s", self.hpc_user_api_url
+                "HPC User client initialized with URL: %s",
+                hpc_user_api_settings.api_url,
             )
-            if self.hpc_user_socks_proxy:
-                logger.info("Using SOCKS proxy: %s", self.hpc_user_socks_proxy)
         else:
             logger.info("HPC User client not configured - using mock unixGid values")
 
@@ -1856,7 +1818,7 @@ class CscsHpcStorageBackend:
         """Fetch and process resources filtered by multiple offering slugs."""
         # HPC User client diagnostics
         if self.hpc_user_client:
-            logger.info("HPC User API configured: %s", self.hpc_user_api_url)
+            logger.info("HPC User API configured: %s", self.hpc_user_client.api_url)
             hpc_user_available = self.hpc_user_client.ping()
             logger.info("HPC User API accessible: %s", hpc_user_available)
             if not hpc_user_available:
