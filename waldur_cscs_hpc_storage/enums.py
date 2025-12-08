@@ -68,3 +68,15 @@ class EnforcementType(StrEnum):
 
     SOFT = "soft"
     HARD = "hard"
+
+
+class TargetIdScope(StrEnum):
+    """Scope for target ID generation."""
+
+    TENANT = "tenant"
+    CUSTOMER = "customer"
+    PROJECT = "project"
+    USER = "user"
+    STORAGE_SYSTEM = "storage_system"
+    STORAGE_FILE_SYSTEM = "storage_file_system"
+    STORAGE_DATA_TYPE = "storage_data_type"

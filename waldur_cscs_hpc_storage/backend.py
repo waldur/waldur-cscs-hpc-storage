@@ -1,7 +1,6 @@
 import logging
 from datetime import datetime
 from typing import Any, Optional, Sequence, Union
-from uuid import NAMESPACE_OID, uuid5
 
 from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
@@ -45,6 +44,16 @@ from waldur_cscs_hpc_storage.mount_points import (
     generate_customer_mount_point,
     generate_project_mount_point,
     generate_tenant_mount_point,
+)
+from waldur_cscs_hpc_storage.target_ids import (
+    generate_customer_target_id,
+    generate_project_target_id,
+    generate_storage_data_type_target_id,
+    generate_storage_filesystem_target_id,
+    generate_storage_system_target_id,
+    generate_tenant_resource_id,
+    generate_tenant_target_id,
+    generate_user_target_id,
 )
 
 
@@ -129,30 +138,6 @@ class CscsHpcStorageBackend:
 
         # Validate configuration
         self.backend_config.validate()
-
-    def _generate_deterministic_uuid(self, name: str) -> str:
-        """Generate a deterministic UUID from a string name."""
-        return str(uuid5(NAMESPACE_OID, name))
-
-    def _create_storage_item(
-        self, item_type: str, identifier: str, include_path: bool = False
-    ) -> StorageItem:
-        """Create a storage item model with deterministic UUID and standardized key/name.
-
-        Args:
-            item_type: Type prefix for UUID generation (e.g., 'storage_system')
-            identifier: Identifier value for the item
-            include_path: Whether to include the path field (for data type items)
-
-        Returns:
-            StorageItem instance
-        """
-        item_id = self._generate_deterministic_uuid(f"{item_type}:{identifier}")
-        key = identifier.lower()
-        name = identifier.upper()
-        path = identifier.lower() if include_path else ""
-
-        return StorageItem(itemId=item_id, key=key, name=name, path=path)
 
     def _apply_filters(
         self,
@@ -409,17 +394,13 @@ class CscsHpcStorageBackend:
         # Generate mock data for development/testing
         if target_type == TargetType.TENANT:
             return TenantTargetItem(
-                itemId=self._generate_deterministic_uuid(
-                    f"tenant:{waldur_resource.customer_slug}"
-                ),
+                itemId=generate_tenant_target_id(waldur_resource.customer_slug),
                 key=waldur_resource.customer_slug.lower(),
                 name=waldur_resource.customer_name,
             )
         if target_type == TargetType.CUSTOMER:
             return CustomerTargetItem(
-                itemId=self._generate_deterministic_uuid(
-                    f"customer:{waldur_resource.project_slug}"
-                ),
+                itemId=generate_customer_target_id(waldur_resource.project_slug),
                 key=waldur_resource.project_slug.lower(),
                 name=waldur_resource.project_name,
             )
@@ -435,9 +416,7 @@ class CscsHpcStorageBackend:
             if unix_gid is None:
                 return None  # Skip resource when unixGid lookup fails in production
             return ProjectTargetItem(
-                itemId=self._generate_deterministic_uuid(
-                    f"project:{waldur_resource.slug}"
-                ),
+                itemId=generate_project_target_id(waldur_resource.slug),
                 key=None,  # Not used for project
                 name=waldur_resource.slug,
                 status=target_status,
@@ -459,9 +438,7 @@ class CscsHpcStorageBackend:
                 return None  # Skip resource when unixGid lookup fails in production
 
             return UserTargetItem(
-                itemId=self._generate_deterministic_uuid(
-                    f"user:{waldur_resource.slug}"
-                ),
+                itemId=generate_user_target_id(waldur_resource.slug),
                 key=None,
                 name=None,
                 status=target_status,
@@ -866,12 +843,21 @@ class CscsHpcStorageBackend:
             permission=Permission(value=permissions),
             quotas=quotas,
             target=target_data,
-            storageSystem=self._create_storage_item("storage_system", storage_system),
-            storageFileSystem=self._create_storage_item(
-                "storage_file_system", self.storage_file_system
+            storageSystem=StorageItem(
+                itemId=generate_storage_system_target_id(storage_system),
+                key=storage_system.lower(),
+                name=storage_system.upper(),
             ),
-            storageDataType=self._create_storage_item(
-                "storage_data_type", storage_data_type, include_path=True
+            storageFileSystem=StorageItem(
+                itemId=generate_storage_filesystem_target_id(self.storage_file_system),
+                key=self.storage_file_system.lower(),
+                name=self.storage_file_system.upper(),
+            ),
+            storageDataType=StorageItem(
+                itemId=generate_storage_data_type_target_id(storage_data_type),
+                key=storage_data_type.lower(),
+                name=storage_data_type.upper(),
+                path=storage_data_type.lower(),
             ),
             parentItemId=None,
         )
@@ -942,8 +928,8 @@ class CscsHpcStorageBackend:
         tenant_item_id = (
             offering_uuid
             if offering_uuid
-            else self._generate_deterministic_uuid(
-                f"tenant:{tenant_id}-{storage_system}-{storage_data_type}"
+            else generate_tenant_resource_id(
+                tenant_id, storage_system, storage_data_type
             )
         )
 
@@ -958,17 +944,26 @@ class CscsHpcStorageBackend:
                 targetItem=TenantTargetItem(
                     itemId=offering_uuid
                     if offering_uuid
-                    else self._generate_deterministic_uuid(f"tenant:{tenant_id}"),
+                    else generate_tenant_target_id(tenant_id),
                     key=tenant_id.lower(),
                     name=tenant_name,
                 ),
             ),
-            storageSystem=self._create_storage_item("storage_system", storage_system),
-            storageFileSystem=self._create_storage_item(
-                "storage_file_system", self.storage_file_system
+            storageSystem=StorageItem(
+                itemId=generate_storage_system_target_id(storage_system),
+                key=storage_system.lower(),
+                name=storage_system.upper(),
             ),
-            storageDataType=self._create_storage_item(
-                "storage_data_type", storage_data_type, include_path=True
+            storageFileSystem=StorageItem(
+                itemId=generate_storage_filesystem_target_id(self.storage_file_system),
+                key=self.storage_file_system.lower(),
+                name=self.storage_file_system.upper(),
+            ),
+            storageDataType=StorageItem(
+                itemId=generate_storage_data_type_target_id(storage_data_type),
+                key=storage_data_type.lower(),
+                name=storage_data_type.upper(),
+                path=storage_data_type.lower(),
             ),
             parentItemId=None,
         )
@@ -1009,12 +1004,21 @@ class CscsHpcStorageBackend:
                     name=customer_info["name"],
                 ),
             ),
-            storageSystem=self._create_storage_item("storage_system", storage_system),
-            storageFileSystem=self._create_storage_item(
-                "storage_file_system", self.storage_file_system
+            storageSystem=StorageItem(
+                itemId=generate_storage_system_target_id(storage_system),
+                key=storage_system.lower(),
+                name=storage_system.upper(),
             ),
-            storageDataType=self._create_storage_item(
-                "storage_data_type", storage_data_type, include_path=True
+            storageFileSystem=StorageItem(
+                itemId=generate_storage_filesystem_target_id(self.storage_file_system),
+                key=self.storage_file_system.lower(),
+                name=self.storage_file_system.upper(),
+            ),
+            storageDataType=StorageItem(
+                itemId=generate_storage_data_type_target_id(storage_data_type),
+                key=storage_data_type.lower(),
+                name=storage_data_type.upper(),
+                path=storage_data_type.lower(),
             ),
             parentItemId=parent_tenant_id,
         )
