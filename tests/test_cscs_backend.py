@@ -22,9 +22,7 @@ class TestCscsHpcStorageBackendBase:
             "use_mock_target_items": True,
             "development_mode": True,  # Enable development mode for tests
         }
-        self.backend_components = {
-            "storage": {"unit_factor": 1024**4}  # TB to bytes
-        }
+        self.backend_components = ["storage"]
         self.backend = CscsHpcStorageBackend(
             self.backend_settings, self.backend_components
         )

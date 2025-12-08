@@ -32,7 +32,7 @@ class CscsHpcStorageBackend:
     def __init__(
         self,
         backend_settings: dict,
-        backend_components: dict[str, dict],
+        backend_components: list[str],
         hpc_user_api_settings: Optional[HpcUserApiConfig] = None,
         waldur_api_settings: Optional[WaldurApiConfig] = None,
     ) -> None:
@@ -40,7 +40,7 @@ class CscsHpcStorageBackend:
 
         Args:
             backend_settings: Backend-specific configuration settings
-            backend_components: Component configuration
+            backend_components: List of enabled backend components
             hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
             waldur_api_settings: Optional Waldur API configuration (WaldurApiConfig object)
         """

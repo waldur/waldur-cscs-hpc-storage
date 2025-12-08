@@ -13,8 +13,4 @@ offerings:
       unix_gid_field: "unix_gid" # Field name in project backend_metadata for Unix GID
       development_mode: false # Enable development mode with fallback mock GID values
     backend_components:
-      storage: # Storage component for quota management
-        measured_unit: "TB" # Storage measured in terabytes
-        accounting_type: "limit" # Limit-based accounting
-        label: "Storage" # Component label in Waldur
-        unit_factor: 1 # TB to TB conversion factor
+      - storage

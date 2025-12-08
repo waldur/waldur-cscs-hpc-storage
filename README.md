@@ -55,11 +55,7 @@ sentry_traces_sample_rate: 0.1                # Performance monitoring sample ra
 
 ```yaml
 backend_components:
-  storage:
-    measured_unit: "TB"                       # Storage unit (terabytes)
-    accounting_type: "limit"                  # Accounting type for quotas
-    label: "Storage"                          # Display label in Waldur
-    unit_factor: 1                           # Conversion factor (TB to TB)
+  - storage
 ```
 
 ### Storage Systems Configuration

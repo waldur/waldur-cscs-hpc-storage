@@ -21,14 +21,7 @@ def backend():
         "development_mode": True,
     }
 
-    backend_components = {
-        "storage": {
-            "measured_unit": "TB",
-            "accounting_type": "limit",
-            "label": "Storage",
-            "unit_factor": 1,
-        }
-    }
+    backend_components = ["storage"]
 
     backend = CscsHpcStorageBackend(backend_settings, backend_components)
     # Inject mock client for testing

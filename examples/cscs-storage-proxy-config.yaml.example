@@ -17,11 +17,7 @@ backend_settings:
 # Backend Components Configuration
 # All offerings must have exactly the same backend_components
 backend_components:
-  storage:
-    measured_unit: "TB"  # Storage unit (terabytes)
-    accounting_type: "limit"  # Accounting type for quotas
-    label: "Storage"  # Display label in Waldur
-    unit_factor: 1  # Conversion factor (TB to TB)
+  - storage
 
 # Storage systems configuration - maps storage_system names to offering slugs
 # The API will fetch resources from all configured offering slugs

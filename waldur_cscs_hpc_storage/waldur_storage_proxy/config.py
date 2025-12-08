@@ -53,7 +53,7 @@ class StorageProxyConfig:
     # Waldur API settings
     waldur_api: Optional[WaldurApiConfig]
     backend_settings: dict[str, Any]
-    backend_components: dict[str, dict[str, Any]]
+    backend_components: list[str]
     storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = None
     hpc_user_api: Optional[HpcUserApiConfig] = None
@@ -112,7 +112,7 @@ class StorageProxyConfig:
         return cls(
             waldur_api=waldur_api_config,
             backend_settings=data.get("backend_settings", {}),
-            backend_components=data.get("backend_components", {}),
+            backend_components=data.get("backend_components", []),
             storage_systems=data.get("storage_systems", {}),
             auth=auth_config,
             hpc_user_api=hpc_user_api_config,
@@ -141,4 +141,4 @@ class StorageProxyConfig:
         logger.info("Configuration validated successfully")
         logger.info("  Waldur API URL: %s", self.waldur_api.api_url)
         logger.info("  Storage systems: %s", self.storage_systems)
-        logger.info("  Backend components: %s", list(self.backend_components.keys()))
+        logger.info("  Backend components: %s", self.backend_components)
