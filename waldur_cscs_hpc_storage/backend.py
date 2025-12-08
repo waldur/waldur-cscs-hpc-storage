@@ -46,7 +46,9 @@ class CscsHpcStorageBackend:
             hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
         """
         self.backend_components = backend_components
+        self.backend_components = backend_components
         self.backend_settings = backend_settings
+        self.waldur_api_settings = waldur_api_settings
 
         # Configuration
         self.storage_file_system = backend_settings.storage_file_system
@@ -913,14 +915,8 @@ class CscsHpcStorageBackend:
         ):
             order_uuid = waldur_resource.order_in_progress.uuid
 
-            # Get base URL from client if available
-            base_url = ""
-            if self._client:
-                try:
-                    httpx_client = self._client.get_httpx_client()
-                    base_url = str(httpx_client.base_url).rstrip("/")
-                except Exception as e:
-                    logger.warning("Failed to get base URL from client: %s", e)
+            # Get base URL from settings
+            base_url = self.waldur_api_settings.api_url.rstrip("/")
 
             # Ensure /api/ is in the URL but don't duplicate it
             api_path = "/api" if not base_url.endswith("/api") else ""
