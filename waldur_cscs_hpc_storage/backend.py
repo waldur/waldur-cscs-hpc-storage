@@ -993,59 +993,39 @@ class CscsHpcStorageBackend:
                 logger.debug("Raw resource data from Waldur SDK:")
                 logger.debug(
                     "Slug: %s",
-                    resource.slug if not isinstance(resource.slug, Unset) else "Unset",
+                    resource.slug or "Unset",
                 )
                 logger.debug(
                     "State: %s",
-                    resource.state
-                    if not isinstance(resource.state, Unset)
-                    else "Unset",
+                    resource.state or "Unset",
                 )
                 logger.debug(
                     "Customer: slug=%s, name=%s, uuid=%s",
-                    resource.customer_slug
-                    if not isinstance(resource.customer_slug, Unset)
-                    else "Unset",
-                    resource.customer_name
-                    if not isinstance(resource.customer_name, Unset)
-                    else "Unset",
-                    resource.customer_uuid
-                    if not isinstance(resource.customer_uuid, Unset)
-                    else "Unset",
+                    resource.customer_slug or "Unset",
+                    resource.customer_name or "Unset",
+                    resource.customer_uuid or "Unset",
                 )
                 logger.debug(
                     "Project: slug=%s, name=%s, uuid=%s",
-                    resource.project_slug
-                    if not isinstance(resource.project_slug, Unset)
-                    else "Unset",
-                    resource.project_name
-                    if not isinstance(resource.project_name, Unset)
-                    else "Unset",
-                    resource.project_uuid
-                    if not isinstance(resource.project_uuid, Unset)
-                    else "Unset",
+                    resource.project_slug or "Unset",
+                    resource.project_name or "Unset",
+                    resource.project_uuid or "Unset",
                 )
                 logger.debug(
                     "Offering: slug=%s, uuid=%s, type=%s",
-                    resource.offering_slug
-                    if not isinstance(resource.offering_slug, Unset)
-                    else "Unset",
-                    resource.offering_uuid
-                    if not isinstance(resource.offering_uuid, Unset)
-                    else "Unset",
-                    resource.offering_type
-                    if not isinstance(resource.offering_type, Unset)
-                    else "Unset",
+                    resource.offering_slug or "Unset",
+                    resource.offering_uuid or "Unset",
+                    resource.offering_type or "Unset",
                 )
 
                 # Log limits if present
-                if resource.limits and not isinstance(resource.limits, Unset):
+                if resource.limits:
                     logger.debug("Limits: %s", resource.limits.additional_properties)
                 else:
                     logger.debug("Limits: None or Unset")
 
                 # Log attributes if present
-                if resource.attributes and not isinstance(resource.attributes, Unset):
+                if resource.attributes:
                     logger.debug(
                         "Attributes: %s", resource.attributes.additional_properties
                     )
@@ -1060,7 +1040,7 @@ class CscsHpcStorageBackend:
 
                 # Get storage data type for the resource
                 storage_data_type = StorageDataType.STORE  # default
-                if resource.attributes and not isinstance(resource.attributes, Unset):
+                if resource.attributes:
                     storage_data_type = resource.attributes.additional_properties.get(
                         "storage_data_type", storage_data_type
                     )
@@ -1078,12 +1058,7 @@ class CscsHpcStorageBackend:
                 tenant_key = f"{tenant_id}-{storage_system_name}-{storage_data_type}"
                 if tenant_key not in tenant_entries:
                     # Get offering UUID from resource (use str() for proper UUID format)
-                    offering_uuid_str = (
-                        str(resource.offering_uuid)
-                        if hasattr(resource, "offering_uuid")
-                        and not isinstance(resource.offering_uuid, Unset)
-                        else None
-                    )
+                    offering_uuid_str = str(resource.offering_uuid)
 
                     tenant_resource = self._create_tenant_storage_resource_json(
                         tenant_id=tenant_id,
@@ -1572,10 +1547,7 @@ class CscsHpcStorageBackend:
                 # For multiple slugs, we need to get customers for all unique offerings
                 offering_uuids = set()
                 for resource in response.parsed:
-                    if hasattr(resource, "offering_uuid") and not isinstance(
-                        resource.offering_uuid, Unset
-                    ):
-                        offering_uuids.add(resource.offering_uuid.hex)
+                    offering_uuids.add(resource.offering_uuid.hex)
 
                 all_offering_customers = {}
                 for offering_uuid in offering_uuids:
@@ -1605,9 +1577,7 @@ class CscsHpcStorageBackend:
 
                         # Get storage data type for the resource
                         storage_data_type = StorageDataType.STORE  # default
-                        if resource.attributes and not isinstance(
-                            resource.attributes, Unset
-                        ):
+                        if resource.attributes:
                             storage_data_type = (
                                 resource.attributes.additional_properties.get(
                                     "storage_data_type", storage_data_type
@@ -1629,12 +1599,7 @@ class CscsHpcStorageBackend:
                         )
                         if tenant_key not in tenant_entries:
                             # Get offering UUID from resource
-                            offering_uuid_str = (
-                                str(resource.offering_uuid)
-                                if hasattr(resource, "offering_uuid")
-                                and not isinstance(resource.offering_uuid, Unset)
-                                else None
-                            )
+                            offering_uuid_str = str(resource.offering_uuid)
 
                             tenant_resource = self._create_tenant_storage_resource_json(
                                 tenant_id=tenant_id,
@@ -1788,9 +1753,7 @@ class CscsHpcStorageBackend:
             if resources:
                 # Get UUID from the first resource's offering_uuid field
                 first_resource = resources[0]
-                if hasattr(first_resource, "offering_uuid") and not isinstance(
-                    first_resource.offering_uuid, Unset
-                ):
+                if first_resource.offering_uuid:
                     offering_uuid_for_customers = first_resource.offering_uuid.hex
 
             offering_customers = {}
@@ -1816,28 +1779,15 @@ class CscsHpcStorageBackend:
                 logger.info("Resource %s / %s", resource.uuid, resource.name)
 
                 # Check transitional state and skip if order is not pending-provider on creation
-                if (
-                    hasattr(resource, "state")
-                    and not isinstance(resource.state, Unset)
-                    and resource.state == ResourceState.CREATING
-                ):
+                if resource.state == ResourceState.CREATING:
                     # For transitional resources, only process if order is in pending-provider state
-                    if (
-                        hasattr(resource, "order_in_progress")
-                        and not isinstance(resource.order_in_progress, Unset)
-                        and resource.order_in_progress is not None
-                    ):
+                    if resource.order_in_progress:
                         # Check order state
-                        if (
-                            hasattr(resource.order_in_progress, "state")
-                            and not isinstance(resource.order_in_progress.state, Unset)
-                            and resource.order_in_progress.state
-                            in [
-                                OrderState.PENDING_CONSUMER,
-                                OrderState.PENDING_PROJECT,
-                                OrderState.PENDING_START_DATE,
-                            ]
-                        ):
+                        if resource.order_in_progress.state in [
+                            OrderState.PENDING_CONSUMER,
+                            OrderState.PENDING_PROJECT,
+                            OrderState.PENDING_START_DATE,
+                        ]:
                             logger.info(
                                 "Skipping resource %s in transitional state (%s) - "
                                 "order state is %s, which is in early pending states",
@@ -1848,9 +1798,7 @@ class CscsHpcStorageBackend:
                             continue
 
                         # Display order URL for transitional resources with pending-provider order
-                        if hasattr(
-                            resource.order_in_progress, "url"
-                        ) and not isinstance(resource.order_in_progress.url, Unset):
+                        if resource.order_in_progress.url:
                             logger.info(
                                 "Resource in transitional state (%s) with pending-provider order - "
                                 "Order URL: %s",
@@ -1882,9 +1830,7 @@ class CscsHpcStorageBackend:
 
                     # Get storage data type for the resource
                     storage_data_type = StorageDataType.STORE  # default
-                    if resource.attributes and not isinstance(
-                        resource.attributes, Unset
-                    ):
+                    if resource.attributes:
                         storage_data_type = (
                             resource.attributes.additional_properties.get(
                                 "storage_data_type", storage_data_type
@@ -1892,12 +1838,7 @@ class CscsHpcStorageBackend:
                         )
                     # Get tenant information
                     tenant_id = resource.provider_slug
-                    tenant_name = (
-                        resource.provider_name
-                        if hasattr(resource, "provider_name")
-                        and not isinstance(resource.provider_name, Unset)
-                        else tenant_id.upper()
-                    )
+                    tenant_name = resource.provider_name or tenant_id.upper()
 
                     # Create tenant-level entry if not already created for this combination
                     tenant_key = (
@@ -1905,12 +1846,7 @@ class CscsHpcStorageBackend:
                     )
                     if tenant_key not in tenant_entries:
                         # Get offering UUID from resource
-                        offering_uuid_str = (
-                            str(resource.offering_uuid)
-                            if hasattr(resource, "offering_uuid")
-                            and not isinstance(resource.offering_uuid, Unset)
-                            else None
-                        )
+                        offering_uuid_str = str(resource.offering_uuid)
 
                         tenant_resource = self._create_tenant_storage_resource_json(
                             tenant_id=tenant_id,
