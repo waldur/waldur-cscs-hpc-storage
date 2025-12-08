@@ -94,14 +94,19 @@ class CscsHpcStorageBackend:
             and self.hpc_user_client_id
             and self.hpc_user_client_secret
         ):
-            self.hpc_user_client = CSCSHpcUserClient(
-                api_url=self.hpc_user_api_url,
-                client_id=self.hpc_user_client_id,
-                client_secret=self.hpc_user_client_secret,
-                oidc_token_url=self.hpc_user_oidc_token_url,
-                oidc_scope=self.hpc_user_oidc_scope,
-                socks_proxy=self.hpc_user_socks_proxy,
-            )
+            if hpc_user_api_settings:
+                user_api_config = hpc_user_api_settings
+            else:
+                user_api_config = HpcUserApiConfig(
+                    api_url=self.hpc_user_api_url,
+                    client_id=self.hpc_user_client_id,
+                    client_secret=self.hpc_user_client_secret,
+                    oidc_token_url=self.hpc_user_oidc_token_url,
+                    oidc_scope=self.hpc_user_oidc_scope,
+                    socks_proxy=self.hpc_user_socks_proxy,
+                )
+
+            self.hpc_user_client = CSCSHpcUserClient(user_api_config)
             logger.info(
                 "HPC User client initialized with URL: %s", self.hpc_user_api_url
             )

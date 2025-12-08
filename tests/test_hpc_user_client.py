@@ -7,6 +7,7 @@ import httpx
 import pytest
 
 from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
 
 
 class TestCSCSHpcUserClient:
@@ -15,22 +16,22 @@ class TestCSCSHpcUserClient:
     @pytest.fixture
     def client_config(self):
         """Basic client configuration."""
-        return {
-            "api_url": "https://api-user.hpc-user.example.com",
-            "client_id": "test_client",
-            "client_secret": "test_secret",
-            "oidc_token_url": "https://auth.example.com/token",
-            "oidc_scope": "openid profile",
-        }
+        return HpcUserApiConfig(
+            api_url="https://api-user.hpc-user.example.com",
+            client_id="test_client",
+            client_secret="test_secret",
+            oidc_token_url="https://auth.example.com/token",
+            oidc_scope="openid profile",
+        )
 
     @pytest.fixture
     def hpc_user_client(self, client_config):
         """Create HPC User client instance."""
-        return CSCSHpcUserClient(**client_config)
+        return CSCSHpcUserClient(client_config)
 
     def test_init(self, client_config):
         """Test client initialization."""
-        client = CSCSHpcUserClient(**client_config)
+        client = CSCSHpcUserClient(client_config)
 
         assert client.api_url == "https://api-user.hpc-user.example.com"
         assert client.client_id == "test_client"
@@ -42,20 +43,26 @@ class TestCSCSHpcUserClient:
 
     def test_init_strips_trailing_slash(self):
         """Test that API URL trailing slashes are stripped."""
-        client = CSCSHpcUserClient(
+        config = HpcUserApiConfig(
             api_url="https://api-user.hpc-user.example.com/",
             client_id="test_client",
             client_secret="test_secret",
+            oidc_token_url="https://auth.example.com/token",
+            oidc_scope="openid profile",
         )
+        client = CSCSHpcUserClient(config)
         assert client.api_url == "https://api-user.hpc-user.example.com"
 
     def test_init_default_scope(self):
         """Test default OIDC scope is set."""
-        client = CSCSHpcUserClient(
+        config = HpcUserApiConfig(
             api_url="https://api-user.hpc-user.example.com",
             client_id="test_client",
             client_secret="test_secret",
+            oidc_token_url="https://auth.example.com/token",
+            # oidc_scope missing (None)
         )
+        client = CSCSHpcUserClient(config)
         assert client.oidc_scope == "openid"
 
     @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
@@ -126,11 +133,13 @@ class TestCSCSHpcUserClient:
 
     def test_get_auth_token_no_oidc_url(self):
         """Test auth token acquisition when OIDC URL not configured."""
-        client = CSCSHpcUserClient(
+        config = HpcUserApiConfig(
             api_url="https://api-user.hpc-user.example.com",
             client_id="test_client",
             client_secret="test_secret",
+            # oidc_token_url missing (None)
         )
+        client = CSCSHpcUserClient(config)
 
         with pytest.raises(ValueError, match="hpc_user_oidc_token_url not configured"):
             client._get_auth_token()

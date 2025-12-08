@@ -6,6 +6,8 @@ from typing import Any, Optional
 
 import httpx
 
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+
 logger = logging.getLogger(__name__)
 
 HTTP_OK = 200
@@ -14,31 +16,25 @@ HTTP_OK = 200
 class CSCSHpcUserClient:
     """Client for interacting with CSCS HPC User API for project information."""
 
-    def __init__(
-        self,
-        api_url: str,
-        client_id: str,
-        client_secret: str,
-        oidc_token_url: Optional[str] = None,
-        oidc_scope: Optional[str] = None,
-        socks_proxy: Optional[str] = None,
-    ) -> None:
+    def __init__(self, api_config: HpcUserApiConfig) -> None:
         """Initialize CSCS HPC User client.
 
         Args:
-            api_url: Base URL for the CSCS HPC User API
-            client_id: OIDC client ID for authentication
-            client_secret: OIDC client secret for authentication
-            oidc_token_url: OIDC token endpoint URL (required for authentication)
-            oidc_scope: OIDC scope to request (optional)
-            socks_proxy: SOCKS proxy URL (e.g., "socks5://localhost:12345")
+            api_config: Configuration object for HPC User API
         """
-        self.api_url = api_url.rstrip("/")
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.oidc_token_url = oidc_token_url
-        self.oidc_scope = oidc_scope or "openid"
-        self.socks_proxy = socks_proxy
+        if not api_config.api_url:
+            raise ValueError("api_url is required via HpcUserApiConfig")
+        if not api_config.client_id:
+            raise ValueError("client_id is required via HpcUserApiConfig")
+        if not api_config.client_secret:
+            raise ValueError("client_secret is required via HpcUserApiConfig")
+
+        self.api_url = api_config.api_url.rstrip("/")
+        self.client_id = api_config.client_id
+        self.client_secret = api_config.client_secret
+        self.oidc_token_url = api_config.oidc_token_url
+        self.oidc_scope = api_config.oidc_scope or "openid"
+        self.socks_proxy = api_config.socks_proxy
         self._token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
 
