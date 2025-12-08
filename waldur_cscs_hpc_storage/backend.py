@@ -682,6 +682,59 @@ class CscsHpcStorageBackend:
 
         return storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
 
+    def _extract_permissions(self, waldur_resource: WaldurResource) -> str:
+        """Extract permissions from waldur resource attributes and options.
+
+        Extracts permissions from attributes with validation,
+        and applies overrides from options if present.
+
+        Args:
+            waldur_resource: Waldur resource object
+
+        Returns:
+            Permission string (e.g., "775")
+        """
+        permissions = "775"  # default
+
+        # Get permissions from attributes
+        if waldur_resource.attributes:
+            perm_value = waldur_resource.attributes.additional_properties.get(
+                "permissions", permissions
+            )
+            logger.debug(
+                "Raw permissions value: %s (type: %s)", perm_value, type(perm_value)
+            )
+
+            # Validate permissions is a string
+            if perm_value is not None and not isinstance(perm_value, str):
+                error_msg = (
+                    f"Invalid permissions type for resource {waldur_resource.uuid}: "
+                    f"expected string or None, got {type(perm_value).__name__}. "
+                    f"Value: {perm_value!r}"
+                )
+                logger.error(error_msg)
+                raise TypeError(error_msg)
+
+            permissions = perm_value if perm_value else permissions
+            logger.debug("Final permissions from attributes: %s", permissions)
+
+        # Override permissions if provided in options
+        if waldur_resource.options:
+            options_permissions = waldur_resource.options.get("permissions")
+            if options_permissions is not None:
+                if not isinstance(options_permissions, str):
+                    logger.warning(
+                        "Invalid permissions type in options for resource %s: "
+                        "expected string, got %s. Ignoring override.",
+                        waldur_resource.uuid,
+                        type(options_permissions).__name__,
+                    )
+                else:
+                    permissions = options_permissions
+                    logger.debug("Override permissions from options: %s", permissions)
+
+        return permissions
+
     def _render_quotas(
         self,
         storage_quota_soft_tb: float,
@@ -785,35 +838,17 @@ class CscsHpcStorageBackend:
             storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
         )
 
-        # Get permissions and data type from resource attributes first (needed for mount point)
-        permissions = "775"  # default
+        # Extract permissions
+        permissions = self._extract_permissions(waldur_resource)
+
+        # Get data type from resource attributes (needed for mount point)
         storage_data_type = StorageDataType.STORE.value  # default
 
         if waldur_resource.attributes:
             logger.debug(
-                "Processing attributes: %s",
+                "Processing attributes for storage_data_type: %s",
                 waldur_resource.attributes.additional_properties,
             )
-
-            perm_value = waldur_resource.attributes.additional_properties.get(
-                "permissions", permissions
-            )
-            logger.debug(
-                "Raw permissions value: %s (type: %s)", perm_value, type(perm_value)
-            )
-
-            # Validate permissions is a string
-            if perm_value is not None and not isinstance(perm_value, str):
-                error_msg = (
-                    f"Invalid permissions type for resource {waldur_resource.uuid}: "
-                    f"expected string or None, got {type(perm_value).__name__}. "
-                    f"Value: {perm_value!r}"
-                )
-                logger.error(error_msg)
-                raise TypeError(error_msg)
-
-            permissions = perm_value if perm_value else permissions
-            logger.debug("Final permissions: %s", permissions)
 
             storage_type_value = waldur_resource.attributes.additional_properties.get(
                 "storage_data_type", storage_data_type
@@ -851,25 +886,6 @@ class CscsHpcStorageBackend:
             project_id=waldur_resource.project_slug,  # might not be unique
             data_type=storage_data_type,
         )
-
-        # Handle permissions override from options
-        if waldur_resource.options:
-            options_dict = waldur_resource.options
-            logger.debug("Processing options for overrides: %s", options_dict)
-
-            # Override permissions if provided in options
-            options_permissions = options_dict.get("permissions")
-            if options_permissions is not None:
-                if not isinstance(options_permissions, str):
-                    logger.warning(
-                        "Invalid permissions type in options for resource %s: "
-                        "expected string, got %s. Ignoring override.",
-                        waldur_resource.uuid,
-                        type(options_permissions).__name__,
-                    )
-                else:
-                    permissions = options_permissions
-                    logger.debug("Override permissions from options: %s", permissions)
 
         # Get status from waldur resource state
         cscs_status = self._get_target_status_from_waldur_state(waldur_resource)
