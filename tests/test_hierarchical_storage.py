@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
 
 
 @pytest.fixture
@@ -23,8 +24,19 @@ def backend():
 
     backend_components = ["storage"]
 
-    backend = CscsHpcStorageBackend(backend_settings, backend_components)
-    # Inject mock client for testing
+    waldur_api_settings = WaldurApiConfig(
+        api_url="https://example.com", access_token="token"
+    )
+
+    with patch("waldur_cscs_hpc_storage.backend.get_client") as mock_get_client:
+        mock_get_client.return_value = Mock()
+        backend = CscsHpcStorageBackend(
+            backend_settings,
+            backend_components,
+            waldur_api_settings=waldur_api_settings,
+        )
+
+    # Inject mock client for testing if needed (though get_client mock handles it)
     backend._client = Mock()
     return backend
 

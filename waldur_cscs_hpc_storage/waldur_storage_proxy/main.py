@@ -160,11 +160,15 @@ if any(
         socks_proxy=HPC_USER_SOCKS_PROXY,
     )
 
+if waldur_api_settings is None:
+    logger.error("Waldur API settings validation failed: settings not provided")
+    sys.exit(1)
+
 cscs_storage_backend = CscsHpcStorageBackend(
     config.backend_settings,
     config.backend_components,
-    hpc_user_api_settings=hpc_user_api_settings,
     waldur_api_settings=waldur_api_settings,
+    hpc_user_api_settings=hpc_user_api_settings,
 )
 
 # Authentication settings - environment variables override config file

@@ -6,7 +6,10 @@ from uuid import uuid4
 import pytest
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    HpcUserApiConfig,
+    WaldurApiConfig,
+)
 from waldur_cscs_hpc_storage.exceptions import BackendError
 
 
@@ -23,11 +26,25 @@ class TestCscsHpcStorageBackendBase:
             "development_mode": True,  # Enable development mode for tests
         }
         self.backend_components = ["storage"]
-        self.backend = CscsHpcStorageBackend(
-            self.backend_settings, self.backend_components
+
+        self.waldur_api_settings = WaldurApiConfig(
+            api_url="https://example.com", access_token="token"
         )
+        self.backend = self._create_backend()
+
+    def _create_backend(self, hpc_user_api_settings=None):
+        """Helper to create backend instance with mocks."""
+        with patch("waldur_cscs_hpc_storage.backend.get_client") as mock_get_client:
+            mock_get_client.return_value = Mock()
+            backend = CscsHpcStorageBackend(
+                self.backend_settings,
+                self.backend_components,
+                waldur_api_settings=self.waldur_api_settings,
+                hpc_user_api_settings=hpc_user_api_settings,
+            )
         # Inject mock client for testing
-        self.backend._client = Mock()
+        backend._client = Mock()
+        return backend
 
 
 class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
@@ -382,7 +399,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_unset_offering_slug_validation(self):
         """Test that Unset offering_slug raises a clear validation error."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource with Unset offering_slug
         mock_resource = Mock()
@@ -407,7 +424,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_multiple_unset_fields_validation(self):
         """Test validation error when multiple fields are Unset."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource with multiple Unset fields
         mock_resource = Mock()
@@ -430,7 +447,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_invalid_storage_system_type_validation(self):
         """Test that non-string storage_system raises clear validation error."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -476,7 +493,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_pagination_header_case_insensitive(self):
         """Test that pagination header parsing is case-insensitive and pagination info reflects filtered results."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Mock resource
         mock_resource = Mock()
@@ -521,7 +538,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_invalid_attribute_types_validation(self):
         """Test that non-string attribute values raise clear validation errors."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -564,7 +581,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_status_mapping_from_waldur_state(self):
         """Test that Waldur resource state is correctly mapped to CSCS status."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -622,7 +639,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_error_handling_returns_error_status(self):
         """Test that errors return proper error status and code 500."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         with patch(
             "waldur_cscs_hpc_storage.backend.marketplace_resources_list"
@@ -646,7 +663,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_dynamic_target_type_mapping(self):
         """Test that storage data type correctly maps to target type."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -706,7 +723,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_quota_float_consistency(self):
         """Test that quotas use float data type for consistency."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -740,7 +757,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_storage_data_type_validation(self):
         """Test validation of storage_data_type parameter."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -772,7 +789,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_system_identifiers_use_deterministic_uuids(self):
         """Test that system identifiers use deterministic UUIDs generated from their names."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -836,7 +853,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_filtering_by_storage_system(self):
         """Test filtering storage resources by storage system."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create mock storage resources with different storage systems
         mock_resources = [
@@ -872,7 +889,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_filtering_by_data_type(self):
         """Test filtering storage resources by data type."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create mock storage resources with different data types
         mock_resources = [
@@ -908,7 +925,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_filtering_by_status(self):
         """Test filtering storage resources by status."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create mock storage resources with different statuses
         mock_resources = [
@@ -948,7 +965,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_filtering_combined(self):
         """Test filtering storage resources with multiple filter criteria."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create mock storage resources
         mock_resources = [
@@ -999,7 +1016,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_filtering_no_filters_applied(self):
         """Test that no filtering is applied when no filters are provided."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create mock storage resources
         mock_resources = [
@@ -1023,7 +1040,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
     @patch("waldur_cscs_hpc_storage.backend.marketplace_resources_list")
     def test_pagination_info_updated_after_filtering(self, mock_list):
         """Test that pagination info is updated to reflect filtered results, not raw API results."""
-        backend = CscsHpcStorageBackend(self.backend_settings, self.backend_components)
+        backend = self._create_backend()
 
         # Create mock resources with different storage systems
         mock_resource1 = Mock()
@@ -1196,11 +1213,7 @@ class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
             oidc_token_url="https://auth.example.com",
             oidc_scope="scope",
         )
-        self.backend = CscsHpcStorageBackend(
-            self.backend_settings,
-            self.backend_components,
-            hpc_user_api_settings=hpc_user_settings,
-        )
+        self.backend = self._create_backend(hpc_user_api_settings=hpc_user_settings)
         # Mock the hpc_user_client
         self.backend.hpc_user_client = Mock()
 

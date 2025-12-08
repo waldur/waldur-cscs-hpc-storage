@@ -33,16 +33,16 @@ class CscsHpcStorageBackend:
         self,
         backend_settings: dict,
         backend_components: list[str],
+        waldur_api_settings: WaldurApiConfig,
         hpc_user_api_settings: Optional[HpcUserApiConfig] = None,
-        waldur_api_settings: Optional[WaldurApiConfig] = None,
     ) -> None:
         """Initialize CSCS storage backend.
 
         Args:
             backend_settings: Backend-specific configuration settings
             backend_components: List of enabled backend components
+            waldur_api_settings: Waldur API configuration (WaldurApiConfig object)
             hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
-            waldur_api_settings: Optional Waldur API configuration (WaldurApiConfig object)
         """
         self.backend_settings = backend_settings
         self.backend_components = backend_components
@@ -84,16 +84,12 @@ class CscsHpcStorageBackend:
         self._gid_cache: dict[str, int] = {}
         logger.info("Project GID cache initialized (persists until server restart)")
 
-        # Initialize Waldur API client if settings provided
-        self._client = None
-        if waldur_api_settings:
-            # Use a default user agent slightly different from the caller if needed,
-            # or just reuse the logic from utils.
-            self._client = get_client(waldur_api_settings)
-            logger.debug(
-                "Waldur API client initialized for URL: %s",
-                waldur_api_settings.api_url,
-            )
+        # Initialize Waldur API client
+        self._client = get_client(waldur_api_settings)
+        logger.debug(
+            "Waldur API client initialized for URL: %s",
+            waldur_api_settings.api_url,
+        )
 
         # Validate configuration
         self._validate_configuration()
