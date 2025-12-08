@@ -552,6 +552,136 @@ class CscsHpcStorageBackend:
             targetItem=target_item,
         )
 
+    def _calculate_quotas(
+        self, waldur_resource: WaldurResource
+    ) -> tuple[float, float, int, int]:
+        """Calculate storage and inode quotas from waldur resource.
+
+        Extracts storage quota from limits, calculates inode quotas,
+        and applies overrides from options if present.
+
+        Args:
+            waldur_resource: Waldur resource object
+
+        Returns:
+            Tuple of (storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard)
+        """
+        # Extract storage size from resource limits (assuming in terabytes)
+        storage_quota_tb = 0.0
+        if waldur_resource.limits:
+            logger.debug(
+                "Processing limits: %s", waldur_resource.limits.additional_properties
+            )
+            # Only accept 'storage' limit - be strict about supported limits
+            storage_limit = waldur_resource.limits.additional_properties.get("storage")
+            if storage_limit is not None:
+                try:
+                    storage_quota_tb = float(storage_limit)  # Assume already in TB
+                    logger.debug("Found storage limit: %s TB", storage_quota_tb)
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "Invalid storage limit value for resource %s: %s (type: %s). Using 0 TB.",
+                        waldur_resource.uuid,
+                        storage_limit,
+                        type(storage_limit).__name__,
+                    )
+            else:
+                logger.debug("No 'storage' limit found in limits")
+        else:
+            logger.debug("No limits present")
+
+        # Calculate inode quotas
+        inode_soft, inode_hard = self._calculate_inode_quotas(storage_quota_tb)
+
+        # Initialize separate soft and hard storage quota variables
+        storage_quota_soft_tb = storage_quota_tb
+        storage_quota_hard_tb = storage_quota_tb
+
+        # Check for override values in the options field
+        if waldur_resource.options:
+            options_dict = waldur_resource.options
+            logger.debug("Processing options for overrides: %s", options_dict)
+
+            # Override storage quotas if provided in options
+            options_soft_quota = options_dict.get("soft_quota_space")
+            options_hard_quota = options_dict.get("hard_quota_space")
+
+            if options_soft_quota is not None:
+                try:
+                    storage_quota_soft_tb = float(options_soft_quota)
+                    logger.debug(
+                        "Override storage soft quota from options: %s TB",
+                        storage_quota_soft_tb,
+                    )
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "Invalid soft_quota_space type in options for resource %s: "
+                        "expected numeric, got %s. Ignoring override.",
+                        waldur_resource.uuid,
+                        type(options_soft_quota).__name__,
+                    )
+
+            if options_hard_quota is not None:
+                try:
+                    storage_quota_hard_tb = float(options_hard_quota)
+                    logger.debug(
+                        "Override storage hard quota from options: %s TB",
+                        storage_quota_hard_tb,
+                    )
+                except (ValueError, TypeError):
+                    logger.warning(
+                        "Invalid hard_quota_space type in options for resource %s: "
+                        "expected numeric, got %s. Ignoring override.",
+                        waldur_resource.uuid,
+                        type(options_hard_quota).__name__,
+                    )
+
+            # Override inode quotas if provided in options
+            options_soft_inodes = options_dict.get("soft_quota_inodes")
+            options_hard_inodes = options_dict.get("hard_quota_inodes")
+
+            if options_soft_inodes is not None or options_hard_inodes is not None:
+                logger.debug(
+                    "Found inode quota overrides in options - soft: %s, hard: %s",
+                    options_soft_inodes,
+                    options_hard_inodes,
+                )
+
+                # Override calculated inode quotas
+                if options_soft_inodes is not None:
+                    try:
+                        inode_soft = int(float(options_soft_inodes))
+                        logger.debug(
+                            "Override inode soft quota from options: %d", inode_soft
+                        )
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            "Invalid soft_quota_inodes type in options for resource %s: "
+                            "expected numeric, got %s. Ignoring override.",
+                            waldur_resource.uuid,
+                            type(options_soft_inodes).__name__,
+                        )
+
+                if options_hard_inodes is not None:
+                    try:
+                        inode_hard = int(float(options_hard_inodes))
+                        logger.debug(
+                            "Override inode hard quota from options: %d", inode_hard
+                        )
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            "Invalid hard_quota_inodes type in options for resource %s: "
+                            "expected numeric, got %s. Ignoring override.",
+                            waldur_resource.uuid,
+                            type(options_hard_inodes).__name__,
+                        )
+        else:
+            logger.debug(
+                "No options present or no additional_properties, using calculated values"
+            )
+
+        return storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
+
     def _render_quotas(
         self,
         storage_quota_soft_tb: float,
@@ -642,31 +772,18 @@ class CscsHpcStorageBackend:
 
         logger.debug("Final storage_system: %s", storage_system)
 
-        # Extract storage size from resource limits (assuming in terabytes)
-        storage_quota_tb = 0.0
-        if waldur_resource.limits:
-            logger.debug(
-                "Processing limits: %s", waldur_resource.limits.additional_properties
-            )
-            # Only accept 'storage' limit - be strict about supported limits
-            storage_limit = waldur_resource.limits.additional_properties.get("storage")
-            if storage_limit is not None:
-                try:
-                    storage_quota_tb = float(storage_limit)  # Assume already in TB
-                    logger.debug("Found storage limit: %s TB", storage_quota_tb)
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "Invalid storage limit value for resource %s: %s (type: %s). Using 0 TB.",
-                        waldur_resource.uuid,
-                        storage_limit,
-                        type(storage_limit).__name__,
-                    )
-            else:
-                logger.debug("No 'storage' limit found in limits")
-        else:
-            logger.debug("No limits present")
+        # Calculate quotas (storage and inodes) with overrides from options
+        (
+            storage_quota_soft_tb,
+            storage_quota_hard_tb,
+            inode_soft,
+            inode_hard,
+        ) = self._calculate_quotas(waldur_resource)
 
-        inode_soft, inode_hard = self._calculate_inode_quotas(storage_quota_tb)
+        # Render quotas
+        quotas = self._render_quotas(
+            storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
+        )
 
         # Get permissions and data type from resource attributes first (needed for mount point)
         permissions = "775"  # default
@@ -735,11 +852,7 @@ class CscsHpcStorageBackend:
             data_type=storage_data_type,
         )
 
-        # Initialize separate soft and hard storage quota variables
-        storage_quota_soft_tb = storage_quota_tb
-        storage_quota_hard_tb = storage_quota_tb
-
-        # Check for override values in the options field
+        # Handle permissions override from options
         if waldur_resource.options:
             options_dict = waldur_resource.options
             logger.debug("Processing options for overrides: %s", options_dict)
@@ -757,84 +870,6 @@ class CscsHpcStorageBackend:
                 else:
                     permissions = options_permissions
                     logger.debug("Override permissions from options: %s", permissions)
-
-            # Override storage quotas if provided in options
-            options_soft_quota = options_dict.get("soft_quota_space")
-            options_hard_quota = options_dict.get("hard_quota_space")
-
-            if options_soft_quota is not None:
-                try:
-                    storage_quota_soft_tb = float(options_soft_quota)
-                    logger.debug(
-                        "Override storage soft quota from options: %s TB",
-                        storage_quota_soft_tb,
-                    )
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "Invalid soft_quota_space type in options for resource %s: "
-                        "expected numeric, got %s. Ignoring override.",
-                        waldur_resource.uuid,
-                        type(options_soft_quota).__name__,
-                    )
-
-            if options_hard_quota is not None:
-                try:
-                    storage_quota_hard_tb = float(options_hard_quota)
-                    logger.debug(
-                        "Override storage hard quota from options: %s TB",
-                        storage_quota_hard_tb,
-                    )
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "Invalid hard_quota_space type in options for resource %s: "
-                        "expected numeric, got %s. Ignoring override.",
-                        waldur_resource.uuid,
-                        type(options_hard_quota).__name__,
-                    )
-
-            # Override inode quotas if provided in options
-            options_soft_inodes = options_dict.get("soft_quota_inodes")
-            options_hard_inodes = options_dict.get("hard_quota_inodes")
-
-            if options_soft_inodes is not None or options_hard_inodes is not None:
-                logger.debug(
-                    "Found inode quota overrides in options - soft: %s, hard: %s",
-                    options_soft_inodes,
-                    options_hard_inodes,
-                )
-
-                # Override calculated inode quotas
-                if options_soft_inodes is not None:
-                    try:
-                        inode_soft = int(float(options_soft_inodes))
-                        logger.debug(
-                            "Override inode soft quota from options: %d", inode_soft
-                        )
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            "Invalid soft_quota_inodes type in options for resource %s: "
-                            "expected numeric, got %s. Ignoring override.",
-                            waldur_resource.uuid,
-                            type(options_soft_inodes).__name__,
-                        )
-
-                if options_hard_inodes is not None:
-                    try:
-                        inode_hard = int(float(options_hard_inodes))
-                        logger.debug(
-                            "Override inode hard quota from options: %d", inode_hard
-                        )
-                    except (ValueError, TypeError):
-                        logger.warning(
-                            "Invalid hard_quota_inodes type in options for resource %s: "
-                            "expected numeric, got %s. Ignoring override.",
-                            waldur_resource.uuid,
-                            type(options_hard_inodes).__name__,
-                        )
-        else:
-            logger.debug(
-                "No options present or no additional_properties, using calculated values"
-            )
 
         # Get status from waldur resource state
         cscs_status = self._get_target_status_from_waldur_state(waldur_resource)
@@ -854,11 +889,6 @@ class CscsHpcStorageBackend:
                 waldur_resource.uuid,
             )
             return None
-
-        # Render quotas
-        quotas = self._render_quotas(
-            storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
-        )
 
         # Create StorageResource object
         storage_resource = StorageResource(
