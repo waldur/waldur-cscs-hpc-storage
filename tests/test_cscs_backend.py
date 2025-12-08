@@ -219,6 +219,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_order.uuid = order_uuid
         # Set state to PENDING_PROVIDER so that approve/reject URLs are generated
         mock_order.state = OrderState.PENDING_PROVIDER
+        mock_order.url = (
+            f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/"
+        )
         mock_resource.order_in_progress = mock_order
 
         # Configure backend config with base URL
@@ -1079,6 +1082,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         # Set state to PENDING_PROVIDER so that approve/reject URLs are generated
         mock_order.state = OrderState.PENDING_PROVIDER
         mock_order.uuid = order_uuid
+        mock_order.url = (
+            f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/"
+        )
         mock_resource.order_in_progress = mock_order
 
         # Create mock limits and attributes

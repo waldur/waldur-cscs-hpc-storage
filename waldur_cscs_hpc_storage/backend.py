@@ -780,7 +780,7 @@ class CscsHpcStorageBackend:
         try:
             order = waldur_resource.order_in_progress
             order_state = order.state
-            order_uuid = order.uuid
+            order_url = order.url
         except AttributeError:
             return {}
 
@@ -798,19 +798,8 @@ class CscsHpcStorageBackend:
         if order_state == OrderState.DONE:
             allowed_actions.add("set_backend_id")
 
-        # Get base URL from settings
-        base_url = self.waldur_api_config.api_url.rstrip("/")
-
-        # Ensure /api/ is in the URL but don't duplicate it
-        api_path = "/api" if not base_url.endswith("/api") else ""
-
-        # Generate URLs for allowed order actions
-        extra_urls = {}
-        for action in allowed_actions:
-            extra_urls[f"{action}_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/{action}/"
-            )
-        return extra_urls
+        base = order_url.rstrip("/")
+        return {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}
 
     def _create_tenant_storage_resource_json(
         self,
