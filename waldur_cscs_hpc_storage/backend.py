@@ -789,9 +789,6 @@ class CscsHpcStorageBackend:
         if order_state == OrderState.PENDING_PROVIDER:
             allowed_actions.update(["approve_by_provider", "reject_by_provider"])
 
-        if order_state == OrderState.PENDING_PROVIDER:
-            allowed_actions.update(["set_state_executing"])
-
         if order_state == OrderState.EXECUTING:
             allowed_actions.update(["set_state_done", "set_state_erred"])
 
