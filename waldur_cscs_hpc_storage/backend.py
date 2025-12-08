@@ -727,7 +727,7 @@ class CscsHpcStorageBackend:
             )
             return None
 
-        storage_resource = StorageResource(
+        return StorageResource(
             itemId=waldur_resource.uuid.hex,
             status=cscs_status,
             mountPoint=MountPoint(default=mount_point),
@@ -751,12 +751,8 @@ class CscsHpcStorageBackend:
                 path=storage_data_type.lower(),
             ),
             parentItemId=None,
+            extra_fields=self._get_callback_urls(waldur_resource),
         )
-
-        extra_urls = self._get_callback_urls(waldur_resource)
-        storage_resource.extra_fields.update(extra_urls)
-
-        return storage_resource
 
     def _get_callback_urls(self, waldur_resource: WaldurResource) -> dict[str, str]:
         """
