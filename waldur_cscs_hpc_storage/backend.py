@@ -548,7 +548,7 @@ class CscsHpcStorageBackend:
         else:
             target_type = data_type_to_target[data_type_enum]
         logger.debug(
-            "  Mapped storage_data_type '%s' to target_type '%s'",
+            "Mapped storage_data_type '%s' to target_type '%s'",
             storage_data_type,
             target_type,
         )
@@ -577,7 +577,7 @@ class CscsHpcStorageBackend:
             "Creating storage resource JSON for resource %s", waldur_resource.uuid
         )
         logger.debug(
-            "  Input storage_system: %s (type: %s)",
+            "Input storage_system: %s (type: %s)",
             storage_system,
             type(storage_system),
         )
@@ -600,31 +600,31 @@ class CscsHpcStorageBackend:
             logger.error(error_msg)
             raise TypeError(error_msg)
 
-        logger.debug("  Final storage_system: %s", storage_system)
+        logger.debug("Final storage_system: %s", storage_system)
 
         # Extract storage size from resource limits (assuming in terabytes)
         storage_quota_tb = 0.0
         if waldur_resource.limits:
             logger.debug(
-                "  Processing limits: %s", waldur_resource.limits.additional_properties
+                "Processing limits: %s", waldur_resource.limits.additional_properties
             )
             # Only accept 'storage' limit - be strict about supported limits
             storage_limit = waldur_resource.limits.additional_properties.get("storage")
             if storage_limit is not None:
                 try:
                     storage_quota_tb = float(storage_limit)  # Assume already in TB
-                    logger.debug("  Found storage limit: %s TB", storage_quota_tb)
+                    logger.debug("Found storage limit: %s TB", storage_quota_tb)
                 except (ValueError, TypeError):
                     logger.warning(
-                        "  Invalid storage limit value for resource %s: %s (type: %s). Using 0 TB.",
+                        "Invalid storage limit value for resource %s: %s (type: %s). Using 0 TB.",
                         waldur_resource.uuid,
                         storage_limit,
                         type(storage_limit).__name__,
                     )
             else:
-                logger.debug("  No 'storage' limit found in limits")
+                logger.debug("No 'storage' limit found in limits")
         else:
-            logger.debug("  No limits present")
+            logger.debug("No limits present")
 
         inode_soft, inode_hard = self._calculate_inode_quotas(storage_quota_tb)
 
@@ -634,7 +634,7 @@ class CscsHpcStorageBackend:
 
         if waldur_resource.attributes:
             logger.debug(
-                "  Processing attributes: %s",
+                "Processing attributes: %s",
                 waldur_resource.attributes.additional_properties,
             )
 
@@ -642,7 +642,7 @@ class CscsHpcStorageBackend:
                 "permissions", permissions
             )
             logger.debug(
-                "  Raw permissions value: %s (type: %s)", perm_value, type(perm_value)
+                "Raw permissions value: %s (type: %s)", perm_value, type(perm_value)
             )
 
             # Validate permissions is a string
@@ -656,13 +656,13 @@ class CscsHpcStorageBackend:
                 raise TypeError(error_msg)
 
             permissions = perm_value if perm_value else permissions
-            logger.debug("  Final permissions: %s", permissions)
+            logger.debug("Final permissions: %s", permissions)
 
             storage_type_value = waldur_resource.attributes.additional_properties.get(
                 "storage_data_type", storage_data_type
             )
             logger.debug(
-                "  Raw storage_data_type value: %s (type: %s)",
+                "Raw storage_data_type value: %s (type: %s)",
                 storage_type_value,
                 type(storage_type_value),
             )
@@ -682,9 +682,9 @@ class CscsHpcStorageBackend:
             storage_data_type = (
                 storage_type_value if storage_type_value else storage_data_type
             )
-            logger.debug("  Final storage_data_type: %s", storage_data_type)
+            logger.debug("Final storage_data_type: %s", storage_data_type)
         else:
-            logger.debug("  No attributes present, using defaults")
+            logger.debug("No attributes present, using defaults")
 
         # Generate mount point now that we have the storage_data_type
         mount_point = self._generate_mount_point(
@@ -702,21 +702,21 @@ class CscsHpcStorageBackend:
         # Check for override values in the options field
         if waldur_resource.options:
             options_dict = waldur_resource.options
-            logger.debug("  Processing options for overrides: %s", options_dict)
+            logger.debug("Processing options for overrides: %s", options_dict)
 
             # Override permissions if provided in options
             options_permissions = options_dict.get("permissions")
             if options_permissions is not None:
                 if not isinstance(options_permissions, str):
                     logger.warning(
-                        "  Invalid permissions type in options for resource %s: "
+                        "Invalid permissions type in options for resource %s: "
                         "expected string, got %s. Ignoring override.",
                         waldur_resource.uuid,
                         type(options_permissions).__name__,
                     )
                 else:
                     permissions = options_permissions
-                    logger.debug("  Override permissions from options: %s", permissions)
+                    logger.debug("Override permissions from options: %s", permissions)
 
             # Override storage quotas if provided in options
             options_soft_quota = options_dict.get("soft_quota_space")
@@ -726,12 +726,12 @@ class CscsHpcStorageBackend:
                 try:
                     storage_quota_soft_tb = float(options_soft_quota)
                     logger.debug(
-                        "  Override storage soft quota from options: %s TB",
+                        "Override storage soft quota from options: %s TB",
                         storage_quota_soft_tb,
                     )
                 except (ValueError, TypeError):
                     logger.warning(
-                        "  Invalid soft_quota_space type in options for resource %s: "
+                        "Invalid soft_quota_space type in options for resource %s: "
                         "expected numeric, got %s. Ignoring override.",
                         waldur_resource.uuid,
                         type(options_soft_quota).__name__,
@@ -741,12 +741,12 @@ class CscsHpcStorageBackend:
                 try:
                     storage_quota_hard_tb = float(options_hard_quota)
                     logger.debug(
-                        "  Override storage hard quota from options: %s TB",
+                        "Override storage hard quota from options: %s TB",
                         storage_quota_hard_tb,
                     )
                 except (ValueError, TypeError):
                     logger.warning(
-                        "  Invalid hard_quota_space type in options for resource %s: "
+                        "Invalid hard_quota_space type in options for resource %s: "
                         "expected numeric, got %s. Ignoring override.",
                         waldur_resource.uuid,
                         type(options_hard_quota).__name__,
@@ -758,7 +758,7 @@ class CscsHpcStorageBackend:
 
             if options_soft_inodes is not None or options_hard_inodes is not None:
                 logger.debug(
-                    "  Found inode quota overrides in options - soft: %s, hard: %s",
+                    "Found inode quota overrides in options - soft: %s, hard: %s",
                     options_soft_inodes,
                     options_hard_inodes,
                 )
@@ -768,11 +768,11 @@ class CscsHpcStorageBackend:
                     try:
                         inode_soft = int(float(options_soft_inodes))
                         logger.debug(
-                            "  Override inode soft quota from options: %d", inode_soft
+                            "Override inode soft quota from options: %d", inode_soft
                         )
                     except (ValueError, TypeError):
                         logger.warning(
-                            "  Invalid soft_quota_inodes type in options for resource %s: "
+                            "Invalid soft_quota_inodes type in options for resource %s: "
                             "expected numeric, got %s. Ignoring override.",
                             waldur_resource.uuid,
                             type(options_soft_inodes).__name__,
@@ -782,25 +782,25 @@ class CscsHpcStorageBackend:
                     try:
                         inode_hard = int(float(options_hard_inodes))
                         logger.debug(
-                            "  Override inode hard quota from options: %d", inode_hard
+                            "Override inode hard quota from options: %d", inode_hard
                         )
                     except (ValueError, TypeError):
                         logger.warning(
-                            "  Invalid hard_quota_inodes type in options for resource %s: "
+                            "Invalid hard_quota_inodes type in options for resource %s: "
                             "expected numeric, got %s. Ignoring override.",
                             waldur_resource.uuid,
                             type(options_hard_inodes).__name__,
                         )
         else:
             logger.debug(
-                "  No options present or no additional_properties, using calculated values"
+                "No options present or no additional_properties, using calculated values"
             )
 
         # Get status from waldur resource state
         cscs_status = self._get_target_status_from_waldur_state(waldur_resource)
 
         logger.debug(
-            "  Mapped waldur state '%s' to CSCS status '%s'",
+            "Mapped waldur state '%s' to CSCS status '%s'",
             getattr(waldur_resource, "state", "unknown"),
             cscs_status,
         )
@@ -1181,17 +1181,17 @@ class CscsHpcStorageBackend:
                 logger.info(f"Resource {resource.uuid} / {resource.name}")
                 logger.debug("Raw resource data from Waldur SDK:")
                 logger.debug(
-                    "  Slug: %s",
+                    "Slug: %s",
                     resource.slug if not isinstance(resource.slug, Unset) else "Unset",
                 )
                 logger.debug(
-                    "  State: %s",
+                    "State: %s",
                     resource.state
                     if not isinstance(resource.state, Unset)
                     else "Unset",
                 )
                 logger.debug(
-                    "  Customer: slug=%s, name=%s, uuid=%s",
+                    "Customer: slug=%s, name=%s, uuid=%s",
                     resource.customer_slug
                     if not isinstance(resource.customer_slug, Unset)
                     else "Unset",
@@ -1203,7 +1203,7 @@ class CscsHpcStorageBackend:
                     else "Unset",
                 )
                 logger.debug(
-                    "  Project: slug=%s, name=%s, uuid=%s",
+                    "Project: slug=%s, name=%s, uuid=%s",
                     resource.project_slug
                     if not isinstance(resource.project_slug, Unset)
                     else "Unset",
@@ -1215,7 +1215,7 @@ class CscsHpcStorageBackend:
                     else "Unset",
                 )
                 logger.debug(
-                    "  Offering: slug=%s, uuid=%s, type=%s",
+                    "Offering: slug=%s, uuid=%s, type=%s",
                     resource.offering_slug
                     if not isinstance(resource.offering_slug, Unset)
                     else "Unset",
@@ -1229,17 +1229,17 @@ class CscsHpcStorageBackend:
 
                 # Log limits if present
                 if resource.limits and not isinstance(resource.limits, Unset):
-                    logger.debug("  Limits: %s", resource.limits.additional_properties)
+                    logger.debug("Limits: %s", resource.limits.additional_properties)
                 else:
-                    logger.debug("  Limits: None or Unset")
+                    logger.debug("Limits: None or Unset")
 
                 # Log attributes if present
                 if resource.attributes and not isinstance(resource.attributes, Unset):
                     logger.debug(
-                        "  Attributes: %s", resource.attributes.additional_properties
+                        "Attributes: %s", resource.attributes.additional_properties
                     )
                 else:
-                    logger.debug("  Attributes: None or Unset")
+                    logger.debug("Attributes: None or Unset")
 
                 # Validate resource data before processing
                 self._validate_resource_data(resource)
@@ -1247,7 +1247,7 @@ class CscsHpcStorageBackend:
                 # Use offering_slug as the storage system name
                 storage_system_name = resource.offering_slug
                 logger.debug(
-                    "  Using storage_system from offering_slug: %s", storage_system_name
+                    "Using storage_system from offering_slug: %s", storage_system_name
                 )
 
                 # Get storage data type for the resource
@@ -2069,7 +2069,7 @@ class CscsHpcStorageBackend:
                 try:
                     storage_system_name = resource.offering_slug
                     logger.debug(
-                        "  Using storage_system from offering_slug: %s",
+                        "Using storage_system from offering_slug: %s",
                         storage_system_name,
                     )
 
