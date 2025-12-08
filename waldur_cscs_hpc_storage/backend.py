@@ -445,9 +445,9 @@ class CscsHpcStorageBackend:
         target_status_mapping = {
             ResourceState.CREATING: TargetStatus.PENDING,
             ResourceState.OK: TargetStatus.ACTIVE,
-            ResourceState.ERRED: TargetStatus.PENDING,  # Treat errors as pending for target items
+            ResourceState.ERRED: TargetStatus.ERROR,
             ResourceState.TERMINATING: TargetStatus.REMOVING,
-            ResourceState.TERMINATED: TargetStatus.REMOVING,  # Treat terminated as removing for target items
+            ResourceState.TERMINATED: TargetStatus.REMOVED,
             ResourceState.UPDATING: TargetStatus.PENDING,  # Treat updating as pending for target items
         }
 
@@ -832,24 +832,13 @@ class CscsHpcStorageBackend:
                 "  No options present or no additional_properties, using calculated values"
             )
 
-        # Map Waldur resource state to CSCS status
-        status_mapping = {
-            "Creating": "pending",
-            "OK": "active",
-            "Erred": "error",
-            "Terminating": "removing",
-            "Terminated": "removed",
-        }
-
-        # Get status from waldur resource state, default to "pending"
-        waldur_state = getattr(waldur_resource, "state", None)
-        if waldur_state and not isinstance(waldur_state, Unset):
-            cscs_status = status_mapping.get(str(waldur_state), "pending")
-        else:
-            cscs_status = "pending"
+        # Get status from waldur resource state
+        cscs_status = self._get_target_status_from_waldur_state(waldur_resource)
 
         logger.debug(
-            "  Mapped waldur state '%s' to CSCS status '%s'", waldur_state, cscs_status
+            "  Mapped waldur state '%s' to CSCS status '%s'",
+            getattr(waldur_resource, "state", "unknown"),
+            cscs_status,
         )
 
         # Get target data - return None if target creation fails

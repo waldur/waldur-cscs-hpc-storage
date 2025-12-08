@@ -109,9 +109,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         test_cases = [
             ("Creating", "pending", False),
             ("OK", "active", True),
-            ("Erred", "pending", False),
+            ("Erred", "error", False),
             ("Terminating", "removing", False),
-            ("Terminated", "removing", False),
+            ("Terminated", "removed", False),
         ]
 
         for waldur_state, expected_status, expected_active in test_cases:
@@ -584,14 +584,17 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {}
         mock_resource.attributes = mock_attributes
 
+        # Import ResourceState
+        from waldur_api_client.models.resource_state import ResourceState
+
         # Test different state mappings
         test_cases = [
-            ("Creating", "pending"),
-            ("OK", "active"),
-            ("Erred", "error"),
-            ("Terminating", "removing"),
-            ("Terminated", "removed"),
-            ("Unknown", "pending"),  # Default fallback
+            (ResourceState.CREATING, "pending"),
+            (ResourceState.OK, "active"),
+            (ResourceState.ERRED, "error"),
+            (ResourceState.TERMINATING, "removing"),
+            (ResourceState.TERMINATED, "removed"),
+            ("Unknown", "pending"),  # Default fallback for unmapped values
         ]
 
         for waldur_state, expected_status in test_cases:
