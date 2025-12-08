@@ -29,23 +29,17 @@ class Quota:
 
 
 @dataclasses.dataclass
-class BaseStorageItem:
-    """Base class for storage-related items with common fields."""
+class StorageItem:
+    """Represents a storage-related item (system, filesystem, or data type)."""
 
     itemId: str
     key: str
     name: str
     active: bool = True
+    path: str = ""  # Optional path field (used for data type)
 
     def to_dict(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
-
-
-@dataclasses.dataclass
-class StorageItem(BaseStorageItem):
-    """Represents a storage-related item (system, filesystem, or data type)."""
-
-    path: str = ""  # Optional path field (used for data type)
 
 
 @dataclasses.dataclass
