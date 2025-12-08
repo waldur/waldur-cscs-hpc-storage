@@ -8,7 +8,8 @@ from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
 from waldur_api_client.api.marketplace_resources import marketplace_resources_list
-from waldur_api_client.models import OrderState, ResourceState
+from waldur_api_client.models.order_state import OrderState
+from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.resource import Resource as WaldurResource
 from waldur_api_client.types import Unset
 
