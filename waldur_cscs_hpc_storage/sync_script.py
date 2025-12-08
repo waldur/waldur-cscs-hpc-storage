@@ -66,7 +66,7 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
         )
 
         # Initialize backend
-        backend_config = offering_config.get("backend_settings", {})
+        backend_config = offering_config.get("backend_config", {})
         backend_components = offering_config.get("backend_components", {})
 
         # Extract HPC User API settings if present (legacy support)

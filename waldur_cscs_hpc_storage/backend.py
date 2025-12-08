@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 from uuid import NAMESPACE_OID, uuid5
 
-from waldur_api_client.client import AuthenticatedClient
 from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
@@ -159,19 +158,6 @@ class CscsHpcStorageBackend:
         )
 
         return filtered_resources
-
-    def _get_client(self) -> AuthenticatedClient:
-        """Get the authenticated Waldur API client.
-
-        Returns:
-            AuthenticatedClient instance
-
-        Raises:
-            BackendError: If the client was not initialized
-        """
-        if not self._client:
-            raise BackendError("Waldur API client not initialized in backend")
-        return self._client
 
     def _validate_resource_data(self, waldur_resource: WaldurResource) -> None:
         """Validate that required resource data is present and not Unset."""

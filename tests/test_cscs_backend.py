@@ -36,14 +36,12 @@ class TestCscsHpcStorageBackendBase:
 
     def _create_backend(self, hpc_user_api_config=None):
         """Helper to create backend instance with mocks."""
-        with patch("waldur_cscs_hpc_storage.backend.get_client") as mock_get_client:
-            mock_get_client.return_value = Mock()
-            backend = CscsHpcStorageBackend(
-                self.backend_config,
-                self.backend_components,
-                waldur_api_config=self.waldur_api_config,
-                hpc_user_api_config=hpc_user_api_config,
-            )
+        backend = CscsHpcStorageBackend(
+            self.backend_config,
+            self.backend_components,
+            waldur_api_config=self.waldur_api_config,
+            hpc_user_api_config=hpc_user_api_config,
+        )
         # Inject mock client for testing
         backend._client = Mock()
         return backend

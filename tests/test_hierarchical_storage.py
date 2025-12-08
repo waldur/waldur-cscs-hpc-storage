@@ -31,13 +31,11 @@ def backend():
         api_url="https://example.com", access_token="token"
     )
 
-    with patch("waldur_cscs_hpc_storage.backend.get_client") as mock_get_client:
-        mock_get_client.return_value = Mock()
-        backend = CscsHpcStorageBackend(
-            backend_config,
-            backend_components,
-            waldur_api_config=waldur_api_config,
-        )
+    backend = CscsHpcStorageBackend(
+        backend_config,
+        backend_components,
+        waldur_api_config=waldur_api_config,
+    )
 
     # Inject mock client for testing if needed (though get_client mock handles it)
     backend._client = Mock()

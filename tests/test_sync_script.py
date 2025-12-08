@@ -122,7 +122,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": str(uuid4()),
             "backend_type": self.offering_config["backend_type"],
-            "backend_config": self.offering_config["backend_config"],
+            "backend_settings": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -169,7 +169,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": specific_uuid,
             "backend_type": self.offering_config["backend_type"],
-            "backend_config": self.offering_config["backend_config"],
+            "backend_settings": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -179,7 +179,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": "other-uuid",
             "backend_type": self.offering_config["backend_type"],
-            "backend_config": self.offering_config["backend_config"],
+            "backend_settings": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
@@ -191,7 +191,9 @@ class TestSyncScript:
             main()
 
         # Should only sync the specific offering
-        mock_sync_offering.assert_called_once_with(offering1, False)
+        expected_offering = offering1.copy()
+        expected_offering["backend_config"] = expected_offering.pop("backend_settings")
+        mock_sync_offering.assert_called_once_with(expected_offering, False)
 
     @patch("waldur_cscs_hpc_storage.sync_script.load_configuration")
     @patch("waldur_cscs_hpc_storage.sync_script.sync_offering_resources")
@@ -214,7 +216,7 @@ class TestSyncScript:
             "waldur_api_token": self.offering_config["waldur_api_token"],
             "waldur_offering_uuid": offering_uuid,
             "backend_type": self.offering_config["backend_type"],
-            "backend_config": self.offering_config["backend_config"],
+            "backend_settings": self.offering_config["backend_config"],
             "backend_components": self.offering_config["backend_components"],
         }
 
