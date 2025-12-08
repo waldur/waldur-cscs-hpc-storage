@@ -158,7 +158,7 @@ class StorageProxyConfig:
             )
 
         # Parse backend settings
-        backend_settings_data = data.get("backend_config", {})
+        backend_settings_data = data.get("backend_settings", {})
         backend_config = BackendConfig(
             storage_file_system=backend_settings_data.get(
                 "storage_file_system", "lustre"

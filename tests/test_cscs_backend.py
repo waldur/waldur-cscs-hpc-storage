@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from waldur_api_client.types import Unset
+from waldur_api_client.models.order_state import OrderState
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
@@ -213,10 +214,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {"permissions": "2770"}
         mock_resource.attributes = mock_attributes
 
-        # Create mock order_in_progress with UUID
+        # Create mock order_in_progress
         order_uuid = str(uuid4())
         mock_order = Mock()
         mock_order.uuid = order_uuid
+        # Set state to PENDING_PROVIDER so that approve/reject URLs are generated
+        mock_order.state = OrderState.PENDING_PROVIDER
         mock_resource.order_in_progress = mock_order
 
         # Configure backend client with base URL
@@ -1150,9 +1153,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.state = "OK"  # Non-transitional state
 
         # Create mock order_in_progress with any state (shouldn't matter)
+        from waldur_api_client.models.order_state import OrderState
+
         order_uuid = str(uuid4())
         mock_order = Mock()
-        mock_order.state = "executing"
+        # Set state to PENDING_PROVIDER so that approve/reject URLs are generated
+        mock_order.state = OrderState.PENDING_PROVIDER
         mock_order.uuid = order_uuid
         mock_resource.order_in_progress = mock_order
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import NAMESPACE_OID, uuid5
 
-from waldur_api_client import AuthenticatedClient
+from waldur_api_client.client import AuthenticatedClient
 from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
@@ -868,6 +868,11 @@ class CscsHpcStorageBackend:
             "parentItemId": None,  # Will be set for hierarchical resources
         }
 
+        # Determine allowed transitions based on current order and resource states
+        allowed_transitions = self._get_allowed_transitions(
+            waldur_resource, storage_json.get("state")
+        )
+
         # Add provider action URLs if order is available from order_in_progress
         if (
             hasattr(waldur_resource, "order_in_progress")
@@ -884,40 +889,20 @@ class CscsHpcStorageBackend:
             # Ensure /api/ is in the URL but don't duplicate it
             api_path = "/api" if not base_url.endswith("/api") else ""
 
-            # Provider review actions
-            storage_json["approve_by_provider_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/approve_by_provider/"
-            )
-            storage_json["reject_by_provider_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/reject_by_provider/"
-            )
+            # Generate URLs for allowed order actions
+            for action in allowed_transitions:
+                storage_json[f"{action}_url"] = (
+                    f"{base_url}{api_path}/marketplace-orders/{order_uuid}/{action}/"
+                )
 
-            storage_json["set_state_executing_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/set_state_executing/"
-            )
-            storage_json["set_state_done_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/set_state_done/"
-            )
-            storage_json["set_state_erred_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/set_state_erred/"
-            )
-
-            # Provider order management actions
-            storage_json["set_backend_id_url"] = (
-                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/set_backend_id/"
-            )
             logger.debug(
                 "Added provider action URLs to storage resource JSON for resource %s with order %s "
-                "(base_url: %s)",
+                "(base_url: %s, actions: %s)",
                 waldur_resource.uuid,
                 order_uuid,
                 base_url,
+                allowed_transitions,
             )
-
-        # Add allowed transitions based on current order and resource states
-        storage_json["allowed_transitions"] = self._get_allowed_transitions(
-            waldur_resource, storage_json.get("state")
-        )
 
         return storage_json
 
@@ -970,17 +955,7 @@ class CscsHpcStorageBackend:
             if order_state not in terminal_states:
                 allowed_actions.append("set_backend_id")
 
-        # Resource state transitions (based on ResourceStates enum)
-        # End date can be set by provider for active resources
-        valid_states = {
-            ResourceState.CREATING,
-            ResourceState.OK,
-            ResourceState.ERRED,
-            ResourceState.UPDATING,
-        }
-        if resource_state and resource_state in valid_states:
-            allowed_actions.append("set_end_date_by_provider")
-
+        # No resource state transitions currently supported (set_end_date_by_provider removed)
         return list(set(allowed_actions))  # Remove duplicates
 
     def _create_tenant_storage_resource_json(
