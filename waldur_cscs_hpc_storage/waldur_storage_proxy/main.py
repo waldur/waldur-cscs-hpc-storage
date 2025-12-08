@@ -20,7 +20,10 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user, setup_a
 from waldur_cscs_hpc_storage.enums import StorageSystem
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.sync_script import setup_logging
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import StorageProxyConfig
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    HpcUserApiConfig,
+    StorageProxyConfig,
+)
 from waldur_cscs_hpc_storage.sentry_config import initialize_sentry, set_user_context
 
 
@@ -120,8 +123,8 @@ HPC_USER_SOCKS_PROXY = os.getenv("HPC_USER_SOCKS_PROXY")
 if HPC_USER_SOCKS_PROXY is None and config.hpc_user_api:
     HPC_USER_SOCKS_PROXY = config.hpc_user_api.socks_proxy
 
-# Convert HPC User API settings to dict if any values are present
-hpc_user_api_settings = None
+# Convert HPC User API settings to config object if any values are present
+hpc_user_api_settings: Optional[HpcUserApiConfig] = None
 if any(
     [
         HPC_USER_API_URL,
@@ -132,14 +135,14 @@ if any(
         HPC_USER_SOCKS_PROXY,
     ]
 ):
-    hpc_user_api_settings = {
-        "api_url": HPC_USER_API_URL,
-        "client_id": HPC_USER_CLIENT_ID,
-        "client_secret": HPC_USER_CLIENT_SECRET,
-        "oidc_token_url": HPC_USER_OIDC_TOKEN_URL,
-        "oidc_scope": HPC_USER_OIDC_SCOPE,
-        "socks_proxy": HPC_USER_SOCKS_PROXY,
-    }
+    hpc_user_api_settings = HpcUserApiConfig(
+        api_url=HPC_USER_API_URL,
+        client_id=HPC_USER_CLIENT_ID,
+        client_secret=HPC_USER_CLIENT_SECRET,
+        oidc_token_url=HPC_USER_OIDC_TOKEN_URL,
+        oidc_scope=HPC_USER_OIDC_SCOPE,
+        socks_proxy=HPC_USER_SOCKS_PROXY,
+    )
 
 cscs_storage_backend = CscsHpcStorageBackend(
     config.backend_settings,

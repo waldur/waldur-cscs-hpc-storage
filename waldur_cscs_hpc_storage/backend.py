@@ -17,6 +17,7 @@ from waldur_cscs_hpc_storage.hpc_user_client import CSCSHpcUserClient
 from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.enums import StorageDataType, TargetStatus, TargetType
 from waldur_cscs_hpc_storage.exceptions import BackendError
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,7 @@ class CscsHpcStorageBackend:
         self,
         backend_settings: dict,
         backend_components: dict[str, dict],
-        hpc_user_api_settings: Optional[dict] = None,
+        hpc_user_api_settings: Optional[HpcUserApiConfig] = None,
         waldur_api_settings: Optional[dict] = None,
     ) -> None:
         """Initialize CSCS storage backend.
@@ -37,7 +38,7 @@ class CscsHpcStorageBackend:
         Args:
             backend_settings: Backend-specific configuration settings
             backend_components: Component configuration
-            hpc_user_api_settings: Optional HPC User API configuration
+            hpc_user_api_settings: Optional HPC User API configuration (HpcUserApiConfig object)
             waldur_api_settings: Optional Waldur API configuration for internal client
         """
         self.backend_settings = backend_settings
@@ -60,15 +61,16 @@ class CscsHpcStorageBackend:
         self.development_mode = backend_settings.get("development_mode", False)
 
         # HPC User service configuration
-        # Support both new separate section and legacy backend_settings location
+        # Support both new separate section (obj only) and legacy backend_settings location
         if hpc_user_api_settings:
             # Use new separate configuration section
-            self.hpc_user_api_url = hpc_user_api_settings.get("api_url")
-            self.hpc_user_client_id = hpc_user_api_settings.get("client_id")
-            self.hpc_user_client_secret = hpc_user_api_settings.get("client_secret")
-            self.hpc_user_oidc_token_url = hpc_user_api_settings.get("oidc_token_url")
-            self.hpc_user_oidc_scope = hpc_user_api_settings.get("oidc_scope")
-            self.hpc_user_socks_proxy = hpc_user_api_settings.get("socks_proxy")
+            self.hpc_user_api_url = hpc_user_api_settings.api_url
+            self.hpc_user_client_id = hpc_user_api_settings.client_id
+            self.hpc_user_client_secret = hpc_user_api_settings.client_secret
+            self.hpc_user_oidc_token_url = hpc_user_api_settings.oidc_token_url
+            self.hpc_user_oidc_scope = hpc_user_api_settings.oidc_scope
+            self.hpc_user_socks_proxy = hpc_user_api_settings.socks_proxy
+
             if self.hpc_user_socks_proxy:
                 logger.info(
                     "SOCKS proxy configured from hpc_user_api settings: %s",

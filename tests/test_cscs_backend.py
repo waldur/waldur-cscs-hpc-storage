@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
 from waldur_cscs_hpc_storage.exceptions import BackendError
 
 
@@ -1188,13 +1188,13 @@ class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
     def setup_method(self):
         super().setup_method()
         # Initialize backend with HPC User API settings
-        hpc_user_settings = {
-            "api_url": "https://api.example.com",
-            "client_id": "client",
-            "client_secret": "secret",
-            "oidc_token_url": "https://auth.example.com",
-            "oidc_scope": "scope",
-        }
+        hpc_user_settings = HpcUserApiConfig(
+            api_url="https://api.example.com",
+            client_id="client",
+            client_secret="secret",
+            oidc_token_url="https://auth.example.com",
+            oidc_scope="scope",
+        )
         self.backend = CscsHpcStorageBackend(
             self.backend_settings,
             self.backend_components,
