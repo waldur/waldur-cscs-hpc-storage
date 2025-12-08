@@ -1005,7 +1005,6 @@ class CscsHpcStorageBackend:
             filters = {}
             if state:
                 filters["state"] = state
-            filters["exclude_pending_transitional"] = True
 
             # Use sync_detailed to get both content and headers
             response = marketplace_resources_list.sync_detailed(
@@ -1013,6 +1012,7 @@ class CscsHpcStorageBackend:
                 offering_uuid=[offering_uuid],
                 page=page,
                 page_size=page_size,
+                exclude_pending_transitional=True,
                 **filters,
             )
 
@@ -1406,16 +1406,17 @@ class CscsHpcStorageBackend:
             }
 
             # Fetch raw resources filtered by offering slugs
-            filters = {
-                "client": self._client,
-                "page": page,
-                "page_size": page_size,
-                "offering_slug": offering_slugs,
-            }
+            filters = {}
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(**filters)
+            response = marketplace_resources_list.sync_detailed(
+                client=self._client,
+                page=page,
+                page_size=page_size,
+                offering_slug=offering_slugs,
+                **filters,
+            )
 
             raw_resources = []
             total_api_count = int(response.headers.get("x-total-count", "0"))
@@ -1488,16 +1489,17 @@ class CscsHpcStorageBackend:
         """Get raw resource data filtered by offering slug for debugging."""
         try:
             # Fetch resources directly with offering slug filter
-            filters = {
-                "client": self._client,
-                "page": page,
-                "page_size": page_size,
-                "offering_slug": [offering_slug],  # Filter by offering slug
-            }
+            filters = {}
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(**filters)
+            response = marketplace_resources_list.sync_detailed(
+                client=self._client,
+                page=page,
+                page_size=page_size,
+                offering_slug=offering_slug,  # Filter by offering slug
+                **filters,
+            )
 
             if not response.parsed:
                 return {
@@ -1611,18 +1613,16 @@ class CscsHpcStorageBackend:
                 "Fetching resources for offering slugs: %s", ", ".join(offering_slugs)
             )
 
-            filters = {
-                "page": page,
-                "page_size": page_size,
-                "offering_slug": ",".join(
-                    offering_slugs
-                ),  # Comma-separated slugs for Waldur API
-            }
+            filters = {}
             if state:
                 filters["state"] = state
 
             response = marketplace_resources_list.sync_detailed(
-                client=self._client, **filters
+                client=self._client,
+                page=page,
+                page_size=page_size,
+                offering_slug=",".join(offering_slugs),
+                **filters,
             )
 
             all_storage_resources = []
@@ -1828,16 +1828,17 @@ class CscsHpcStorageBackend:
         """Fetch and process resources filtered by offering slug."""
         try:
             # Fetch resources with offering slug filter
-            filters = {
-                "client": self._client,
-                "page": page,
-                "page_size": page_size,
-                "offering_slug": [offering_slug],  # Filter by offering slug
-            }
+            filters = {}
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(**filters)
+            response = marketplace_resources_list.sync_detailed(
+                client=self._client,
+                page=page,
+                page_size=page_size,
+                offering_slug=offering_slug,  # Filter by offering slug,
+                **filters,
+            )
 
             if not response.parsed:
                 return [], {
