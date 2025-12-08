@@ -415,8 +415,7 @@ class CscsHpcStorageBackend:
     def _get_target_status_from_waldur_state(
         self, waldur_resource: WaldurResource
     ) -> TargetStatus:
-        """Map Waldur resource state to target item status (pending, active, removing)."""
-        # Get status from waldur resource state, default to "pending"
+        """Map Waldur resource state to target item status."""
         waldur_state = getattr(waldur_resource, "state", None)
         if waldur_state and not isinstance(waldur_state, Unset):
             return TARGET_STATUS_MAPPING.get(waldur_state, TargetStatus.PENDING)
