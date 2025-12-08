@@ -12,6 +12,7 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     HpcUserApiConfig,
     WaldurApiConfig,
 )
+from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
 
 
 class TestCscsHpcStorageBackendBase:
@@ -66,8 +67,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_generate_mount_point(self):
         """Test mount point generation."""
-        mount_point = self.backend._generate_mount_point(
+        mount_point = generate_project_mount_point(
             storage_system="lustre-fs",
+            data_type="store",
             tenant_id="university",
             customer="physics-dept",
             project_id="climate-sim",

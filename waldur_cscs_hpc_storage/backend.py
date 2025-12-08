@@ -41,6 +41,11 @@ from waldur_cscs_hpc_storage.models import (
     UserPrimaryProject,
     MountPoint,
 )
+from waldur_cscs_hpc_storage.mount_points import (
+    generate_customer_mount_point,
+    generate_project_mount_point,
+    generate_tenant_mount_point,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -243,38 +248,6 @@ class CscsHpcStorageBackend:
                     waldur_limits[component_name] = limit_value
 
         return backend_limits, waldur_limits
-
-    def _generate_mount_point(
-        self,
-        storage_system: str,
-        tenant_id: str,
-        customer: str,
-        project_id: str,
-        data_type: str = StorageDataType.STORE,
-    ) -> str:
-        """Generate mount point path based on hierarchy and storage data type."""
-        return (
-            f"/{storage_system}/{data_type.lower()}/{tenant_id}/{customer}/{project_id}"
-        )
-
-    def _generate_customer_mount_point(
-        self,
-        storage_system: str,
-        tenant_id: str,
-        customer: str,
-        data_type: str = StorageDataType.STORE,
-    ) -> str:
-        """Generate mount point path for customer-level entry."""
-        return f"/{storage_system}/{data_type.lower()}/{tenant_id}/{customer}"
-
-    def _generate_tenant_mount_point(
-        self,
-        storage_system: str,
-        tenant_id: str,
-        data_type: str = StorageDataType.STORE,
-    ) -> str:
-        """Generate mount point path for tenant-level entry."""
-        return f"/{storage_system}/{data_type.lower()}/{tenant_id}"
 
     def _calculate_inode_quotas(self, storage_quota_tb: float) -> tuple[int, int]:
         """Calculate inode quotas based on storage size and coefficients."""
@@ -858,7 +831,7 @@ class CscsHpcStorageBackend:
         storage_data_type = self._get_storage_data_type(waldur_resource)
 
         # Generate mount point now that we have the storage_data_type
-        mount_point = self._generate_mount_point(
+        mount_point = generate_project_mount_point(
             storage_system=storage_system,
             tenant_id=waldur_resource.provider_slug,
             customer=waldur_resource.customer_slug,
@@ -959,7 +932,7 @@ class CscsHpcStorageBackend:
         logger.debug("Creating tenant storage resource JSON for tenant %s", tenant_id)
 
         # Generate tenant mount point
-        mount_point = self._generate_tenant_mount_point(
+        mount_point = generate_tenant_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             data_type=storage_data_type,
@@ -1015,7 +988,7 @@ class CscsHpcStorageBackend:
         )
 
         # Generate customer mount point
-        mount_point = self._generate_customer_mount_point(
+        mount_point = generate_customer_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             customer=customer_info["key"],

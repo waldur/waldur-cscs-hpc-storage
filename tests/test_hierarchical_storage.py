@@ -1,5 +1,8 @@
 """Tests for hierarchical storage resource generation."""
 
+from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.mount_points import generate_customer_mount_point
+from waldur_cscs_hpc_storage.mount_points import generate_tenant_mount_point
 from typing import Optional
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -436,20 +439,20 @@ class TestThreeTierHierarchyGeneration:
         data_type = "store"
 
         # Generate mount points for each level
-        tenant_mount = backend._generate_tenant_mount_point(
+        tenant_mount = generate_tenant_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             data_type=data_type,
         )
 
-        customer_mount = backend._generate_customer_mount_point(
+        customer_mount = generate_customer_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             customer=customer_key,
             data_type=data_type,
         )
 
-        project_mount = backend._generate_mount_point(
+        project_mount = generate_project_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             customer=customer_key,
