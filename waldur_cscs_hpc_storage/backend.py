@@ -903,92 +903,49 @@ class CscsHpcStorageBackend:
             parentItemId=None,
         )
 
-        # Determine allowed transitions based on current order and resource states
-        allowed_transitions = self._get_allowed_transitions(waldur_resource)
-
-        # Add provider action URLs if order is available from order_in_progress
-        if (
-            hasattr(waldur_resource, "order_in_progress")
-            and not isinstance(waldur_resource.order_in_progress, Unset)
-            and waldur_resource.order_in_progress is not None
-            and hasattr(waldur_resource.order_in_progress, "uuid")
-            and not isinstance(waldur_resource.order_in_progress.uuid, Unset)
-        ):
-            order_uuid = waldur_resource.order_in_progress.uuid
-
-            # Get base URL from settings
-            base_url = self.waldur_api_config.api_url.rstrip("/")
-
-            # Ensure /api/ is in the URL but don't duplicate it
-            api_path = "/api" if not base_url.endswith("/api") else ""
-
-            # Generate URLs for allowed order actions
-            extra_urls = {}
-            for action in allowed_transitions:
-                extra_urls[f"{action}_url"] = (
-                    f"{base_url}{api_path}/marketplace-orders/{order_uuid}/{action}/"
-                )
-            storage_resource.extra_fields.update(extra_urls)
-
-            logger.debug(
-                "Added provider action URLs to storage resource JSON for resource %s with order %s "
-                "(base_url: %s, actions: %s)",
-                waldur_resource.uuid,
-                order_uuid,
-                base_url,
-                allowed_transitions,
-            )
+        extra_urls = self._get_callback_urls(waldur_resource)
+        storage_resource.extra_fields.update(extra_urls)
 
         return storage_resource
 
-    def _get_allowed_transitions(self, waldur_resource: WaldurResource) -> list[str]:
-        """Determine allowed transitions based on current order and resource states.
-
-        Args:
-            waldur_resource: Waldur resource object
-
-        Returns:
-            List of allowed action names
+    def _get_callback_urls(self, waldur_resource: WaldurResource) -> dict[str, str]:
         """
-        allowed_actions = []
+        Get callback URLs for the given Waldur resource.
+        """
+        try:
+            order = waldur_resource.order_in_progress
+            order_state = order.state
+            order_uuid = order.uuid
+        except AttributeError:
+            return {}
 
-        # Get order state if available
-        order_state = None
-        if (
-            hasattr(waldur_resource, "order_in_progress")
-            and not isinstance(waldur_resource.order_in_progress, Unset)
-            and waldur_resource.order_in_progress is not None
-            and hasattr(waldur_resource.order_in_progress, "state")
-            and not isinstance(waldur_resource.order_in_progress.state, Unset)
-        ):
-            order_state = waldur_resource.order_in_progress.state
+        allowed_actions = set()
 
-        # Order state transitions (based on OrderStates enum and transition rules)
-        if order_state:
-            # Provider review actions - available for PENDING_PROVIDER state
-            if order_state == OrderState.PENDING_PROVIDER:
-                allowed_actions.extend(["approve_by_provider", "reject_by_provider"])
+        if order_state == OrderState.PENDING_PROVIDER:
+            allowed_actions.update(["approve_by_provider", "reject_by_provider"])
 
-            # Provider can set executing state from pending-provider state
-            if order_state == OrderState.PENDING_PROVIDER:
-                allowed_actions.append("set_state_executing")
+        if order_state == OrderState.PENDING_PROVIDER:
+            allowed_actions.update(["set_state_executing"])
 
-            # Provider can set done/erred from executing state
-            if order_state == OrderState.EXECUTING:
-                allowed_actions.extend(["set_state_done", "set_state_erred"])
+        if order_state == OrderState.EXECUTING:
+            allowed_actions.update(["set_state_done", "set_state_erred"])
 
-            # Backend ID can be set for any non-terminal order
-            terminal_states = {
-                OrderState.DONE,
-                OrderState.ERRED,
-                OrderState.CANCELED,
-                OrderState.REJECTED,
-            }
-            if order_state not in terminal_states:
-                allowed_actions.append("set_backend_id")
+        if order_state == OrderState.DONE:
+            allowed_actions.add("set_backend_id")
 
-        # No resource state transitions currently supported (set_end_date_by_provider removed)
-        return list(set(allowed_actions))  # Remove duplicates
+        # Get base URL from settings
+        base_url = self.waldur_api_config.api_url.rstrip("/")
+
+        # Ensure /api/ is in the URL but don't duplicate it
+        api_path = "/api" if not base_url.endswith("/api") else ""
+
+        # Generate URLs for allowed order actions
+        extra_urls = {}
+        for action in allowed_actions:
+            extra_urls[f"{action}_url"] = (
+                f"{base_url}{api_path}/marketplace-orders/{order_uuid}/{action}/"
+            )
+        return extra_urls
 
     def _create_tenant_storage_resource_json(
         self,
