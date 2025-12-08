@@ -40,8 +40,8 @@ def backend():
         waldur_api_config=waldur_api_config,
     )
 
-    # Inject mock client for testing if needed (though get_client mock handles it)
-    backend._client = Mock()
+    # Inject mock waldur_service for testing
+    backend.waldur_service = Mock()
     return backend
 
 
@@ -299,11 +299,10 @@ class TestProjectLevelGeneration:
 class TestThreeTierHierarchyGeneration:
     """Tests for complete three-tier hierarchy generation."""
 
-    @patch.object(CscsHpcStorageBackend, "_get_offering_customers")
-    def test_full_hierarchy_creation(self, mock_get_customers, backend):
+    def test_full_hierarchy_creation(self, backend):
         """Test creating a complete three-tier hierarchy from resources."""
         # Mock customer data
-        mock_get_customers.return_value = {
+        backend.waldur_service.get_offering_customers.return_value = {
             "mch": {
                 "itemId": "customer-mch-id",
                 "key": "mch",
@@ -376,8 +375,10 @@ class TestThreeTierHierarchyGeneration:
                 f"{resource.customer_slug}-{storage_system_name}-{storage_data_type}"
             )
             if customer_key not in customer_entries:
-                customer_info = mock_get_customers.return_value.get(
-                    resource.customer_slug
+                customer_info = (
+                    backend.waldur_service.get_offering_customers.return_value.get(
+                        resource.customer_slug
+                    )
                 )
                 if customer_info:
                     parent_tenant_id = tenant_entries.get(tenant_key)
@@ -558,42 +559,38 @@ class TestEdgeCases:
 
     def test_resource_without_customer_info(self, backend):
         """Test handling resource when customer info is not available."""
-        with patch.object(backend, "_get_offering_customers", return_value={}):
-            resource = create_mock_resource(customer_slug="unknown-customer")
+        backend.waldur_service.get_offering_customers.return_value = {}
+        resource = create_mock_resource(customer_slug="unknown-customer")
 
-            # Process with empty customer info
-            storage_resources = []
-            tenant_entries = {}
+        # Process with empty customer info
+        storage_resources = []
+        tenant_entries = {}
 
-            tenant_key = "cscs-capstor-store"
-            tenant_resource = backend._create_tenant_storage_resource_json(
-                tenant_id="cscs",
-                tenant_name="CSCS",
-                storage_system="capstor",
-                storage_data_type="store",
-            )
-            storage_resources.append(tenant_resource)
-            tenant_entries[tenant_key] = tenant_resource.itemId
+        tenant_key = "cscs-capstor-store"
+        tenant_resource = backend._create_tenant_storage_resource_json(
+            tenant_id="cscs",
+            tenant_name="CSCS",
+            storage_system="capstor",
+            storage_data_type="store",
+        )
+        storage_resources.append(tenant_resource)
+        tenant_entries[tenant_key] = tenant_resource.itemId
 
-            # Project should still be created but without parent
-            project_resource = backend._create_storage_resource_json(
-                resource, "capstor"
-            )
-            if project_resource:
-                # No parent since customer doesn't exist
-                project_resource.parentItemId = None
-                storage_resources.append(project_resource)
+        # Project should still be created but without parent
+        project_resource = backend._create_storage_resource_json(resource, "capstor")
+        if project_resource:
+            # No parent since customer doesn't exist
+            project_resource.parentItemId = None
+            storage_resources.append(project_resource)
 
-            # Verify results
-            assert len(storage_resources) == 2  # Only tenant and project
-            tenants = [r for r in storage_resources if r.target.targetType == "tenant"]
-            projects = [
-                r for r in storage_resources if r.target.targetType == "project"
-            ]
+        # Verify results
+        assert len(storage_resources) == 2  # Only tenant and project
+        tenants = [r for r in storage_resources if r.target.targetType == "tenant"]
+        projects = [r for r in storage_resources if r.target.targetType == "project"]
 
-            assert len(tenants) == 1
-            assert len(projects) == 1
-            assert projects[0].parentItemId is None
+        assert len(tenants) == 1
+        assert len(projects) == 1
+        assert projects[0].parentItemId is None
 
     def test_duplicate_prevention(self, backend):
         """Test that duplicate entries are not created."""
@@ -637,10 +634,9 @@ class TestEdgeCases:
 class TestIntegrationScenarios:
     """Integration tests for realistic scenarios."""
 
-    @patch.object(CscsHpcStorageBackend, "_get_offering_customers")
-    def test_multi_storage_system_hierarchy(self, mock_get_customers, backend):
+    def test_multi_storage_system_hierarchy(self, backend):
         """Test hierarchy with multiple storage systems."""
-        mock_get_customers.return_value = {
+        backend.waldur_service.get_offering_customers.return_value = {
             "customer1": {
                 "itemId": "c1",
                 "key": "customer1",
@@ -696,7 +692,9 @@ class TestIntegrationScenarios:
             customer_key = f"{resource.customer_slug}-{storage_system}-{data_type}"
             if customer_key not in customer_entries:
                 customer = backend._create_customer_storage_resource_json(
-                    customer_info=mock_get_customers.return_value["customer1"],
+                    customer_info=backend.waldur_service.get_offering_customers.return_value[
+                        "customer1"
+                    ],
                     storage_system=storage_system,
                     storage_data_type=data_type,
                     tenant_id=tenant_id,

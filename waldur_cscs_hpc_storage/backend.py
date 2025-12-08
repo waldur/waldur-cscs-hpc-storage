@@ -2,17 +2,12 @@ import logging
 from datetime import datetime
 from typing import Any, Optional, Sequence, Union
 
-from waldur_api_client.api.marketplace_provider_offerings import (
-    marketplace_provider_offerings_customers_list,
-)
-from waldur_api_client.api.marketplace_resources import marketplace_resources_list
+from waldur_cscs_hpc_storage.gid_service import GidService
+from waldur_cscs_hpc_storage.waldur_service import WaldurService
 from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.resource import Resource as WaldurResource
 from waldur_api_client.types import Unset
-
-from waldur_cscs_hpc_storage.gid_service import GidService
-from waldur_cscs_hpc_storage.utils import get_client
 from waldur_cscs_hpc_storage.enums import (
     EnforcementType,
     QuotaType,
@@ -118,12 +113,8 @@ class CscsHpcStorageBackend:
         else:
             logger.info("HPC User client not configured - using mock unixGid values")
 
-        # Initialize Waldur API client
-        self._client = get_client(waldur_api_config)
-        logger.debug(
-            "Waldur API client initialized for URL: %s",
-            waldur_api_config.api_url,
-        )
+        # Initialize Waldur Service
+        self.waldur_service = WaldurService(waldur_api_config)
 
         # Validate configuration
         self.backend_config.validate()
@@ -282,44 +273,6 @@ class CscsHpcStorageBackend:
             project_slug,
         )
         return mock_gid
-
-    def _get_offering_customers(self, offering_uuid: str) -> dict:
-        """Get customers for a specific offering.
-
-        Args:
-            offering_uuid: UUID of the offering
-
-        Returns:
-            Dictionary mapping customer slugs to customer information
-        """
-        try:
-            response = marketplace_provider_offerings_customers_list.sync_all(
-                uuid=offering_uuid, client=self._client
-            )
-
-            if not response.parsed:
-                logger.warning("No customers found for offering %s", offering_uuid)
-                return {}
-
-            customers = {}
-            for customer in response.parsed:
-                customers[customer.slug] = {
-                    "itemId": customer.uuid.hex,
-                    "key": customer.slug,
-                    "name": customer.name,
-                    "uuid": customer.uuid.hex,
-                }
-
-            logger.debug(
-                "Found %d customers for offering %s", len(customers), offering_uuid
-            )
-            return customers
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch customers for offering %s: %s", offering_uuid, e
-            )
-            return {}
 
     def _get_target_status_from_waldur_state(
         self, waldur_resource: WaldurResource
@@ -1007,12 +960,11 @@ class CscsHpcStorageBackend:
                 filters["state"] = state
 
             # Use sync_detailed to get both content and headers
-            response = marketplace_resources_list.sync_detailed(
-                client=self._client,
-                offering_uuid=[offering_uuid],
+            response = self.waldur_service.list_resources(
+                offering_uuid=offering_uuid,
                 page=page,
                 page_size=page_size,
-                exclude_pending_transitional=True,
+                exclude_pending=True,
                 **filters,
             )
 
@@ -1047,7 +999,9 @@ class CscsHpcStorageBackend:
             }
 
             # Get offering customers for hierarchical resources
-            offering_customers = self._get_offering_customers(offering_uuid)
+            offering_customers = self.waldur_service.get_offering_customers(
+                offering_uuid
+            )
 
             # Convert Waldur resources to storage JSON format
             # We'll create tenant, customer-level and project-level entries (three-tier hierarchy)
@@ -1410,8 +1364,7 @@ class CscsHpcStorageBackend:
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(
-                client=self._client,
+            response = self.waldur_service.list_resources(
                 page=page,
                 page_size=page_size,
                 offering_slug=offering_slugs,
@@ -1493,8 +1446,7 @@ class CscsHpcStorageBackend:
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(
-                client=self._client,
+            response = self.waldur_service.list_resources(
                 page=page,
                 page_size=page_size,
                 offering_slug=offering_slug,  # Filter by offering slug
@@ -1617,11 +1569,10 @@ class CscsHpcStorageBackend:
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(
-                client=self._client,
+            response = self.waldur_service.list_resources(
                 page=page,
                 page_size=page_size,
-                offering_slug=",".join(offering_slugs),
+                offering_slug=offering_slugs,
                 **filters,
             )
 
@@ -1651,7 +1602,9 @@ class CscsHpcStorageBackend:
 
                 all_offering_customers = {}
                 for offering_uuid in offering_uuids:
-                    customers = self._get_offering_customers(offering_uuid)
+                    customers = self.waldur_service.get_offering_customers(
+                        offering_uuid
+                    )
                     all_offering_customers.update(customers)  # Merge all customers
 
                 tenant_entries = {}  # Track unique tenant entries
@@ -1832,8 +1785,7 @@ class CscsHpcStorageBackend:
             if state:
                 filters["state"] = state
 
-            response = marketplace_resources_list.sync_detailed(
-                client=self._client,
+            response = self.waldur_service.list_resources(
                 page=page,
                 page_size=page_size,
                 offering_slug=offering_slug,  # Filter by offering slug,
@@ -1866,7 +1818,7 @@ class CscsHpcStorageBackend:
 
             offering_customers = {}
             if offering_uuid_for_customers:
-                offering_customers = self._get_offering_customers(
+                offering_customers = self.waldur_service.get_offering_customers(
                     offering_uuid_for_customers
                 )
 

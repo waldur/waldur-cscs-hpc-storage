@@ -1,0 +1,90 @@
+import pytest
+from unittest.mock import Mock, patch
+from waldur_cscs_hpc_storage.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
+
+
+class TestWaldurService:
+    @pytest.fixture
+    def waldur_api_config(self):
+        return WaldurApiConfig(api_url="https://example.com", access_token="token")
+
+    @pytest.fixture
+    def service(self, waldur_api_config):
+        with patch(
+            "waldur_cscs_hpc_storage.waldur_service.get_client"
+        ) as mock_get_client:
+            service = WaldurService(waldur_api_config)
+            service.client = Mock()
+            return service
+
+    @patch(
+        "waldur_cscs_hpc_storage.waldur_service.marketplace_provider_offerings_customers_list"
+    )
+    def test_get_offering_customers_success(self, mock_list, service):
+        mock_response = Mock()
+        mock_customer = Mock()
+        mock_customer.slug = "customer-1"
+        mock_customer.name = "Customer 1"
+        mock_customer.uuid.hex = "uuid-1"
+        mock_response.parsed = [mock_customer]
+        mock_list.sync_all.return_value = mock_response
+
+        customers = service.get_offering_customers("offering-uuid")
+
+        assert len(customers) == 1
+        assert customers["customer-1"]["key"] == "customer-1"
+        assert customers["customer-1"]["uuid"] == "uuid-1"
+        mock_list.sync_all.assert_called_once_with(
+            uuid="offering-uuid", client=service.client
+        )
+
+    @patch(
+        "waldur_cscs_hpc_storage.waldur_service.marketplace_provider_offerings_customers_list"
+    )
+    def test_get_offering_customers_empty(self, mock_list, service):
+        mock_response = Mock()
+        mock_response.parsed = []
+        mock_list.sync_all.return_value = mock_response
+
+        customers = service.get_offering_customers("offering-uuid")
+
+        assert customers == {}
+
+    @patch(
+        "waldur_cscs_hpc_storage.waldur_service.marketplace_provider_offerings_customers_list"
+    )
+    def test_get_offering_customers_error(self, mock_list, service):
+        mock_list.sync_all.side_effect = Exception("API Error")
+
+        customers = service.get_offering_customers("offering-uuid")
+
+        assert customers == {}
+
+    @patch("waldur_cscs_hpc_storage.waldur_service.marketplace_resources_list")
+    def test_list_resources_basic(self, mock_list, service):
+        service.list_resources(offering_uuid="uuid", page=1, page_size=10)
+
+        mock_list.sync_detailed.assert_called_once_with(
+            client=service.client, offering_uuid=["uuid"], page=1, page_size=10
+        )
+
+    @patch("waldur_cscs_hpc_storage.waldur_service.marketplace_resources_list")
+    def test_list_resources_with_slug_list(self, mock_list, service):
+        service.list_resources(offering_slug=["slug1", "slug2"])
+
+        mock_list.sync_detailed.assert_called_once_with(
+            client=service.client, offering_slug="slug1,slug2", page=1, page_size=100
+        )
+
+    @patch("waldur_cscs_hpc_storage.waldur_service.marketplace_resources_list")
+    def test_list_resources_exclude_pending(self, mock_list, service):
+        service.list_resources(offering_uuid="uuid", exclude_pending=True)
+
+        mock_list.sync_detailed.assert_called_once_with(
+            client=service.client,
+            offering_uuid=["uuid"],
+            exclude_pending_transitional=True,
+            page=1,
+            page_size=100,
+        )

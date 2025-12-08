@@ -42,8 +42,8 @@ class TestCscsHpcStorageBackendBase:
             waldur_api_config=self.waldur_api_config,
             hpc_user_api_config=hpc_user_api_config,
         )
-        # Inject mock client for testing
-        backend._client = Mock()
+        # Inject mock waldur_service for testing
+        backend.waldur_service = Mock()
         return backend
 
 
@@ -221,11 +221,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_order.state = OrderState.PENDING_PROVIDER
         mock_resource.order_in_progress = mock_order
 
-        # Configure backend client with base URL
-        mock_httpx_client = Mock()
-        mock_httpx_client.base_url = "https://waldur.example.com/api"
+        # Configure backend config with base URL
         self.backend.waldur_api_config.api_url = "https://waldur.example.com/api"
-        self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         storage_json = self.backend._create_storage_resource_json(
             mock_resource, "lustre-fs"
@@ -320,8 +317,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert "approve_by_provider_url" not in storage_json.extra_fields
         assert "reject_by_provider_url" not in storage_json.extra_fields
 
-    @patch("waldur_cscs_hpc_storage.backend.marketplace_resources_list")
-    def test_get_all_storage_resources_with_pagination(self, mock_list):
+    def test_get_all_storage_resources_with_pagination(self):
         """Test fetching all storage resources from API with pagination."""
         # Mock resources
         mock_resource1 = Mock()
@@ -366,13 +362,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_headers = Mock()
         mock_headers.get = Mock(return_value="2")
         mock_response.headers = mock_headers
-        mock_list.sync_detailed.return_value = mock_response
 
-        # Mock API client with base URL
-        # Configure backend client with base URL
-        mock_httpx_client = Mock()
-        mock_httpx_client.base_url = "https://waldur.example.com/api"
-        self.backend._client.get_httpx_client.return_value = mock_httpx_client
+        mock_list = self.backend.waldur_service.list_resources
+        mock_list.return_value = mock_response
+
+        # Mock get_offering_customers
+        self.backend.waldur_service.get_offering_customers.return_value = {}
 
         # Test the method with pagination parameters
         resources, pagination_info = self.backend._get_all_storage_resources(
@@ -392,13 +387,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert pagination_info["pages"] == 1
         assert pagination_info["offset"] == 0
 
-        # Should call the sync_detailed endpoint with pagination
-        mock_list.sync_detailed.assert_called_once_with(
-            client=self.backend._client,
-            offering_uuid=["test-offering-uuid"],
+        # Should call the list_resources method with pagination
+        mock_list.assert_called_once_with(
+            offering_uuid="test-offering-uuid",
             page=1,
             page_size=10,
-            exclude_pending_transitional=True,
+            exclude_pending=True,
         )
 
     def test_invalid_storage_system_type_validation(self):
@@ -469,28 +463,24 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.attributes = mock_attributes
 
         # Test with different header case variations
-        with patch(
-            "waldur_cscs_hpc_storage.backend.marketplace_resources_list"
-        ) as mock_list:
-            mock_response = Mock()
-            mock_response.parsed = [mock_resource]
-            # httpx.Headers is case-insensitive, so we just need to test it returns the right value
-            mock_headers = Mock()
-            mock_headers.get = Mock(return_value="5")
-            mock_response.headers = mock_headers
-            mock_list.sync_detailed.return_value = mock_response
+        mock_response = Mock()
+        mock_response.parsed = [mock_resource]
+        # httpx.Headers is case-insensitive, so we just need to test it returns the right value
+        mock_headers = Mock()
+        mock_headers.get = Mock(return_value="5")
+        mock_response.headers = mock_headers
+        backend.waldur_service.list_resources.return_value = mock_response
+        backend.waldur_service.get_offering_customers.return_value = {}
 
-            resources, pagination_info = backend._get_all_storage_resources(
-                "test-offering-uuid", Mock(), page=1, page_size=10
-            )
+        resources, pagination_info = backend._get_all_storage_resources(
+            "test-offering-uuid", page=1, page_size=10
+        )
 
-            # With hierarchical structure, we get tenant + customer + project entries
-            # For 1 original resource, we get at least the project itself, plus tenant and customer
-            assert (
-                pagination_info["total"] >= 1
-            )  # At minimum we get the project resource
-            # Verify that get was called with lowercase key (httpx normalizes to lowercase)
-            mock_headers.get.assert_called_with("x-result-count")
+        # With hierarchical structure, we get tenant + customer + project entries
+        # For 1 original resource, we get at least the project itself, plus tenant and customer
+        assert pagination_info["total"] >= 1  # At minimum we get the project resource
+        # Verify that get was called with lowercase key (httpx normalizes to lowercase)
+        mock_headers.get.assert_called_with("x-result-count")
 
     def test_invalid_attribute_types_validation(self):
         """Test that non-string attribute values raise clear validation errors."""
@@ -592,23 +582,22 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         """Test that errors return proper error status and code 500."""
         backend = self._create_backend()
 
-        with patch(
-            "waldur_cscs_hpc_storage.backend.marketplace_resources_list"
-        ) as mock_list:
-            # Mock the sync_detailed to raise an exception
-            mock_list.sync_detailed.side_effect = Exception("API connection failed")
+        # Mock the list_resources to raise an exception
+        self.backend.waldur_service.list_resources.side_effect = Exception(
+            "API connection failed"
+        )
 
-            # Test that generate_all_resources_json returns error response
-            result = backend.generate_all_resources_json("test-offering-uuid")
+        # Test that generate_all_resources_json returns error response
+        result = backend.generate_all_resources_json("test-offering-uuid")
 
-            # Verify error response structure
-            assert result["status"] == "error"
-            assert result["code"] == 500
-            assert "Failed to fetch storage resources" in result["message"]
-            assert result["result"]["storageResources"] == []
-            assert result["result"]["paginate"]["total"] == 0
-            assert result["result"]["paginate"]["current"] == 1
-            assert result["result"]["paginate"]["limit"] == 100
+        # Verify error response structure
+        assert result["status"] == "error"
+        assert result["code"] == 500
+        assert "Failed to fetch storage resources" in result["message"]
+        assert result["result"]["storageResources"] == []
+        assert result["result"]["paginate"]["total"] == 0
+        assert result["result"]["paginate"]["current"] == 1
+        assert result["result"]["paginate"]["limit"] == 100
 
     def test_dynamic_target_type_mapping(self):
         """Test that storage data type correctly maps to target type."""
@@ -976,8 +965,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert len(filtered) == 2
         assert filtered == mock_resources
 
-    @patch("waldur_cscs_hpc_storage.backend.marketplace_resources_list")
-    def test_pagination_info_updated_after_filtering(self, mock_list):
+    def test_pagination_info_updated_after_filtering(self):
         """Test that pagination info is updated to reflect filtered results, not raw API results."""
         backend = self._create_backend()
 
@@ -1018,7 +1006,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             return_value="2"
         )  # API says there are 2 total resources
         mock_response.headers = mock_headers
-        mock_list.sync_detailed.return_value = mock_response
+        backend.waldur_service.list_resources.return_value = mock_response
+        backend.waldur_service.get_offering_customers.return_value = {}
 
         # Test filtering by storage_system that matches only 1 resource
         resources, pagination_info = backend._get_all_storage_resources(
@@ -1059,11 +1048,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert pagination_info["limit"] == 10
         assert pagination_info["offset"] == 0
 
-    @patch("waldur_cscs_hpc_storage.backend.marketplace_resources_list")
-    @patch(
-        "waldur_cscs_hpc_storage.backend.marketplace_provider_offerings_customers_list"
-    )
-    def test_non_transitional_resource_always_included(self, mock_customers, mock_list):
+    def test_non_transitional_resource_always_included(self):
         """Test that non-transitional resources are always included regardless of order state."""
         # Mock resource in non-transitional state
         mock_resource = Mock()
@@ -1112,16 +1097,12 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_headers = Mock()
         mock_headers.get = Mock(return_value="1")
         mock_response.headers = mock_headers
-        mock_list.sync_detailed.return_value = mock_response
 
-        # Mock customers response
-        mock_customers.sync_detailed.return_value = Mock(parsed=[])
+        self.backend.waldur_service.list_resources.return_value = mock_response
+        self.backend.waldur_service.get_offering_customers.return_value = {}
 
         # Configure backend client with base URL
-        mock_httpx_client = Mock()
-        mock_httpx_client.base_url = "https://waldur.example.com/api"
         self.backend.waldur_api_config.api_url = "https://waldur.example.com/api"
-        self.backend._client.get_httpx_client.return_value = mock_httpx_client
 
         # Test the method
         resources, _ = self.backend._get_all_storage_resources("test-offering-uuid")
