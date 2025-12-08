@@ -486,17 +486,19 @@ class CscsHpcStorageBackend:
         """Map Waldur resource state to target item status (pending, active, removing)."""
         # Map Waldur resource state to target item status
         target_status_mapping = {
-            "Creating": "pending",
-            "OK": "active",
-            "Erred": "pending",  # Treat errors as pending for target items
-            "Terminating": "removing",
-            "Terminated": "removing",  # Treat terminated as removing for target items
+            ResourceState.CREATING: "pending",
+            ResourceState.OK: "active",
+            ResourceState.ERRED: "pending",  # Treat errors as pending for target items
+            ResourceState.TERMINATING: "removing",
+            ResourceState.TERMINATED: "removing",  # Treat terminated as removing for target items
+            ResourceState.UPDATING: "pending",  # Treat updating as pending for target items
         }
 
         # Get status from waldur resource state, default to "pending"
         waldur_state = getattr(waldur_resource, "state", None)
         if waldur_state and not isinstance(waldur_state, Unset):
-            return target_status_mapping.get(str(waldur_state), "pending")
+            # Check if state is in mapping
+            return target_status_mapping.get(waldur_state, "pending")
         return "pending"
 
     def _get_target_item_data(  # noqa: PLR0911
@@ -1020,13 +1022,13 @@ class CscsHpcStorageBackend:
         return storage_json
 
     def _get_allowed_transitions(
-        self, waldur_resource: WaldurResource, resource_state: Optional[str]
+        self, waldur_resource: WaldurResource, resource_state: Optional[ResourceState]
     ) -> list[str]:
         """Determine allowed transitions based on current order and resource states.
 
         Args:
             waldur_resource: Waldur resource object
-            resource_state: Current resource state string
+            resource_state: Current resource state
 
         Returns:
             List of allowed action names
@@ -1070,7 +1072,13 @@ class CscsHpcStorageBackend:
 
         # Resource state transitions (based on ResourceStates enum)
         # End date can be set by provider for active resources
-        if resource_state and resource_state in {"Creating", "OK", "Erred", "Updating"}:
+        valid_states = {
+            ResourceState.CREATING,
+            ResourceState.OK,
+            ResourceState.ERRED,
+            ResourceState.UPDATING,
+        }
+        if resource_state and resource_state in valid_states:
             allowed_actions.append("set_end_date_by_provider")
 
         return list(set(allowed_actions))  # Remove duplicates
