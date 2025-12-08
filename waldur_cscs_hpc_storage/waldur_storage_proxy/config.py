@@ -57,6 +57,43 @@ class BackendConfig:
     use_mock_target_items: bool = False
     development_mode: bool = False
 
+    def validate(self) -> None:
+        """Validate backend configuration."""
+        if (
+            not isinstance(self.inode_soft_coefficient, (int, float))
+            or self.inode_soft_coefficient <= 0
+        ):
+            msg = "inode_soft_coefficient must be a positive number"
+            raise ValueError(msg)
+
+        if (
+            not isinstance(self.inode_hard_coefficient, (int, float))
+            or self.inode_hard_coefficient <= 0
+        ):
+            msg = "inode_hard_coefficient must be a positive number"
+            raise ValueError(msg)
+
+        if self.inode_hard_coefficient < self.inode_soft_coefficient:
+            msg = (
+                f"inode_hard_coefficient {self.inode_hard_coefficient} must be greater than "
+                f"inode_soft_coefficient {self.inode_soft_coefficient}"
+            )
+            raise ValueError(msg)
+
+        if (
+            not isinstance(self.storage_file_system, str)
+            or not self.storage_file_system.strip()
+        ):
+            msg = "storage_file_system must be a non-empty string"
+            raise ValueError(msg)
+
+        if (
+            not isinstance(self.inode_base_multiplier, (int, float))
+            or self.inode_base_multiplier <= 0
+        ):
+            msg = "inode_base_multiplier must be a positive number"
+            raise ValueError(msg)
+
 
 @dataclass
 class StorageProxyConfig:

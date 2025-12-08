@@ -87,7 +87,7 @@ class CscsHpcStorageBackend:
         )
 
         # Validate configuration
-        self._validate_configuration()
+        self.backend_settings.validate()
 
     def _generate_deterministic_uuid(self, name: str) -> str:
         """Generate a deterministic UUID from a string name."""
@@ -172,43 +172,6 @@ class CscsHpcStorageBackend:
         if not self._client:
             raise BackendError("Waldur API client not initialized in backend")
         return self._client
-
-    def _validate_configuration(self) -> None:
-        """Validate backend configuration settings."""
-        if (
-            not isinstance(self.inode_soft_coefficient, (int, float))
-            or self.inode_soft_coefficient <= 0
-        ):
-            msg = "inode_soft_coefficient must be a positive number"
-            raise ValueError(msg)
-
-        if (
-            not isinstance(self.inode_hard_coefficient, (int, float))
-            or self.inode_hard_coefficient <= 0
-        ):
-            msg = "inode_hard_coefficient must be a positive number"
-            raise ValueError(msg)
-
-        if self.inode_hard_coefficient < self.inode_soft_coefficient:
-            msg = (
-                f"inode_hard_coefficient {self.inode_hard_coefficient} must be greater than "
-                f"inode_soft_coefficient {self.inode_soft_coefficient}"
-            )
-            raise ValueError(msg)
-
-        if (
-            not isinstance(self.storage_file_system, str)
-            or not self.storage_file_system.strip()
-        ):
-            msg = "storage_file_system must be a non-empty string"
-            raise ValueError(msg)
-
-        if (
-            not isinstance(self.inode_base_multiplier, (int, float))
-            or self.inode_base_multiplier <= 0
-        ):
-            msg = "inode_base_multiplier must be a positive number"
-            raise ValueError(msg)
 
     def _validate_resource_data(self, waldur_resource: WaldurResource) -> None:
         """Validate that required resource data is present and not Unset."""
@@ -401,7 +364,7 @@ class CscsHpcStorageBackend:
         """
         try:
             response = marketplace_provider_offerings_customers_list.sync_detailed(
-                uuid=offering_uuid, client=self._get_client()
+                uuid=offering_uuid, client=self._client
             )
 
             if not response.parsed:
@@ -1594,7 +1557,7 @@ class CscsHpcStorageBackend:
 
             # Fetch raw resources filtered by offering slugs
             filters = {
-                "client": self._get_client(),
+                "client": self._client,
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": offering_slugs,
@@ -1676,7 +1639,7 @@ class CscsHpcStorageBackend:
         try:
             # Fetch resources directly with offering slug filter
             filters = {
-                "client": self._get_client(),
+                "client": self._client,
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": [offering_slug],  # Filter by offering slug
@@ -1809,7 +1772,7 @@ class CscsHpcStorageBackend:
                 filters["state"] = state
 
             response = marketplace_resources_list.sync_detailed(
-                client=self._get_client(), **filters
+                client=self._client, **filters
             )
 
             all_storage_resources = []
@@ -2016,7 +1979,7 @@ class CscsHpcStorageBackend:
         try:
             # Fetch resources with offering slug filter
             filters = {
-                "client": self._get_client(),
+                "client": self._client,
                 "page": page,
                 "page_size": page_size,
                 "offering_slug": [offering_slug],  # Filter by offering slug
