@@ -56,11 +56,6 @@ class StorageProxyConfig:
     sentry_environment: Optional[str] = None
     sentry_traces_sample_rate: Optional[float] = None
 
-    @property
-    def offering_slugs(self) -> list[str]:
-        """Get list of offering slugs from storage systems configuration."""
-        return list(self.storage_systems.values())
-
     @classmethod
     def from_yaml(cls, config_path: Union[str, Path]) -> "StorageProxyConfig":
         """Load configuration from YAML file."""
