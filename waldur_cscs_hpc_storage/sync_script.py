@@ -13,7 +13,10 @@ from pathlib import Path
 
 from waldur_cscs_hpc_storage.utils import load_configuration
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+    HpcUserApiConfig,
+    WaldurApiConfig,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,12 +59,12 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
 
     try:
         # Prepare Waldur API settings
-        waldur_api_settings = {
-            "api_url": offering_config["waldur_api_url"],
-            "access_token": offering_config["waldur_api_token"],
-        }
+        # Prepare Waldur API settings
+        waldur_api_settings = WaldurApiConfig(
+            api_url=offering_config["waldur_api_url"],
+            access_token=offering_config["waldur_api_token"],
+        )
 
-        # Initialize backend
         # Initialize backend
         backend_settings = offering_config.get("backend_settings", {})
         backend_components = offering_config.get("backend_components", {})
