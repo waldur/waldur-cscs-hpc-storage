@@ -525,13 +525,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_attributes.additional_properties = {"storage_data_type": {"type": "store"}}
         mock_resource.attributes = mock_attributes
 
-        with pytest.raises(TypeError) as exc_info:
-            backend._create_storage_resource_json(mock_resource, "test-storage")
-
-        error_message = str(exc_info.value)
-        assert "Invalid storage_data_type" in error_message
-        assert "expected string or None, got dict" in error_message
-        assert str(mock_resource.uuid) in error_message
+        result = backend._create_storage_resource_json(mock_resource, "test-storage")
+        assert result.storageDataType.name == "STORE"
 
     def test_status_mapping_from_waldur_state(self):
         """Test that Waldur resource state is correctly mapped to CSCS status."""

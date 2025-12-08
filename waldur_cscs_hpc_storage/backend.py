@@ -785,6 +785,19 @@ class CscsHpcStorageBackend:
             )
         return quotas if quotas else None
 
+    def _get_storage_data_type(
+        self, waldur_resource: WaldurResource
+    ) -> StorageDataType:
+        """Get data type from resource attributes."""
+        try:
+            return StorageDataType(
+                waldur_resource.attributes.additional_properties.get(
+                    "storage_data_type"
+                )
+            )
+        except Exception:
+            return StorageDataType.STORE
+
     def _create_storage_resource_json(
         self,
         waldur_resource: WaldurResource,
@@ -841,42 +854,8 @@ class CscsHpcStorageBackend:
         # Extract permissions
         permissions = self._extract_permissions(waldur_resource)
 
-        # Get data type from resource attributes (needed for mount point)
-        storage_data_type = StorageDataType.STORE.value  # default
-
-        if waldur_resource.attributes:
-            logger.debug(
-                "Processing attributes for storage_data_type: %s",
-                waldur_resource.attributes.additional_properties,
-            )
-
-            storage_type_value = waldur_resource.attributes.additional_properties.get(
-                "storage_data_type", storage_data_type
-            )
-            logger.debug(
-                "Raw storage_data_type value: %s (type: %s)",
-                storage_type_value,
-                type(storage_type_value),
-            )
-
-            # Validate storage_data_type is a string
-            if storage_type_value is not None and not isinstance(
-                storage_type_value, str
-            ):
-                error_msg = (
-                    f"Invalid storage_data_type for resource {waldur_resource.uuid}: "
-                    f"expected string or None, got {type(storage_type_value).__name__}. "
-                    f"Value: {storage_type_value!r}"
-                )
-                logger.error(error_msg)
-                raise TypeError(error_msg)
-
-            storage_data_type = (
-                storage_type_value if storage_type_value else storage_data_type
-            )
-            logger.debug("Final storage_data_type: %s", storage_data_type)
-        else:
-            logger.debug("No attributes present, using defaults")
+        # Get storage data type
+        storage_data_type = self._get_storage_data_type(waldur_resource)
 
         # Generate mount point now that we have the storage_data_type
         mount_point = self._generate_mount_point(
