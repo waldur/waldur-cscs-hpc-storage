@@ -59,7 +59,6 @@ def sync_offering_resources(offering_config: dict, dry_run: bool = False) -> boo
 
     try:
         # Prepare Waldur API settings
-        # Prepare Waldur API settings
         waldur_api_settings = WaldurApiConfig(
             api_url=offering_config["waldur_api_url"],
             access_token=offering_config["waldur_api_token"],
