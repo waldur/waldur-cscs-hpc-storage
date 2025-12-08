@@ -37,6 +37,7 @@ class CSCSHpcUserClient:
         self.socks_proxy = api_config.socks_proxy
         self._token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
+        self._gid_cache: dict[str, int] = {}
 
     def _get_auth_token(self) -> str:
         """Get or refresh OIDC authentication token.
@@ -173,6 +174,14 @@ class CSCSHpcUserClient:
         Returns:
             unixGid if found, None otherwise
         """
+        if project_slug in self._gid_cache:
+            logger.debug(
+                "Found cached unixGid %d for project %s",
+                self._gid_cache[project_slug],
+                project_slug,
+            )
+            return self._gid_cache[project_slug]
+
         try:
             projects_data = self.get_projects([project_slug])
             if len(projects_data) > 1:
@@ -185,7 +194,10 @@ class CSCSHpcUserClient:
                 return None
             project = projects_data[0]
             if project.get("posixName") == project_slug:
-                return project.get("unixGid")
+                unix_gid = project.get("unixGid")
+                if unix_gid is not None:
+                    self._gid_cache[project_slug] = unix_gid
+                    return unix_gid
 
             logger.warning(
                 "Project %s not found in HPC User API response", project_slug

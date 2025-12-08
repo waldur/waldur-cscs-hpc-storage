@@ -125,10 +125,6 @@ class CscsHpcStorageBackend:
         else:
             logger.info("HPC User client not configured - using mock unixGid values")
 
-        # Initialize GID cache (persists until server restart)
-        self._gid_cache: dict[str, int] = {}
-        logger.info("Project GID cache initialized (persists until server restart)")
-
         # Initialize Waldur API client
         self._client = get_client(waldur_api_config)
         logger.debug(
@@ -256,60 +252,25 @@ class CscsHpcStorageBackend:
         Returns:
             unixGid value from service, mock value (dev mode), or None (prod mode on failure)
         """
-        # Check cache first
-        if project_slug in self._gid_cache:
-            cached_gid = self._gid_cache[project_slug]
-            logger.debug(
-                "Found cached unixGid %d for project %s", cached_gid, project_slug
-            )
-            return cached_gid
-
         # Try to fetch from HPC User service
         if self.hpc_user_client:
-            try:
-                unix_gid = self.hpc_user_client.get_project_unix_gid(project_slug)
-                if unix_gid is not None:
-                    # Cache the successful result
-                    self._gid_cache[project_slug] = unix_gid
-                    logger.debug(
-                        "Found and cached unixGid %d for project %s from HPC User service",
-                        unix_gid,
-                        project_slug,
-                    )
-                    return unix_gid
+            unix_gid = self.hpc_user_client.get_project_unix_gid(project_slug)
+            if unix_gid is not None:
+                return unix_gid
 
-                # Project not found in service
-                if self.development_mode:
-                    logger.warning(
-                        "Project %s not found in HPC User service, using mock value (dev mode)",
-                        project_slug,
-                    )
-                else:
-                    logger.error(
-                        "Project %s not found in HPC User service, "
-                        "skipping resource (production mode)",
-                        project_slug,
-                    )
-                    return None
-
-            except Exception as e:
-                logger.error(
-                    "Failed to fetch unixGid for project %s from HPC User service: %s",
+            # Project not found in service
+            if self.development_mode:
+                logger.warning(
+                    "Project %s not found in HPC User service, using mock value (dev mode)",
                     project_slug,
-                    e,
                 )
-                if self.development_mode:
-                    logger.info(
-                        "Falling back to mock unixGid for project %s (dev mode)",
-                        project_slug,
-                    )
-                else:
-                    logger.error(
-                        "HPC User service unavailable for project %s, "
-                        "skipping resource (production mode)",
-                        project_slug,
-                    )
-                    return None
+            else:
+                logger.error(
+                    "Project %s not found in HPC User service, "
+                    "skipping resource (production mode)",
+                    project_slug,
+                )
+                return None
 
         # No HPC User client configured - use development mode behavior
         if not self.development_mode:
@@ -320,11 +281,10 @@ class CscsHpcStorageBackend:
             )
             return None
 
-        # Development mode or no HPC client: use mock value and cache it
+        # Development mode or no HPC client: use mock value
         mock_gid = 30000 + hash(project_slug) % 10000
-        self._gid_cache[project_slug] = mock_gid
         logger.debug(
-            "Using and caching mock unixGid %d for project %s (dev mode)",
+            "Using mock unixGid %d for project %s (dev mode)",
             mock_gid,
             project_slug,
         )

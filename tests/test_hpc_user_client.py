@@ -265,6 +265,26 @@ class TestCSCSHpcUserClient:
 
         assert result == 30001
 
+        assert result == 30001
+
+        # Verify it cached the result
+        assert hpc_user_client._gid_cache["project1"] == 30001
+
+    @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
+    def test_get_project_unix_gid_uses_cache(self, mock_client_class, hpc_user_client):
+        """Test that get_project_unix_gid uses cached value if available."""
+        # Pre-populate cache
+        hpc_user_client._gid_cache["cached_project"] = 12345
+
+        # Call method
+        result = hpc_user_client.get_project_unix_gid("cached_project")
+
+        # Should return cached value
+        assert result == 12345
+
+        # Should NOT make any API calls
+        mock_client_class.assert_not_called()
+
     @patch("waldur_cscs_hpc_storage.hpc_user_client.httpx.Client")
     def test_get_project_unix_gid_not_found(self, mock_client_class, hpc_user_client):
         """Test unixGid lookup for non-existent project."""

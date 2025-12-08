@@ -1169,27 +1169,11 @@ class TestHpcUserGidLookup(TestCscsHpcStorageBackendBase):
             "test-project"
         )
 
-    def test_get_project_unix_gid_cache(self):
-        """Test GID caching."""
-        self.backend.hpc_user_client.get_project_unix_gid.return_value = 30042
-
-        # First call
-        gid1 = self.backend._get_project_unix_gid("test-project")
-        assert gid1 == 30042
-
-        # Second call should use cache
-        gid2 = self.backend._get_project_unix_gid("test-project")
-        assert gid2 == 30042
-
-        # Client called only once
-        self.backend.hpc_user_client.get_project_unix_gid.assert_called_once()
-
     def test_get_project_unix_gid_prod_failure(self):
         """Test lookup failure in production mode returns None."""
         self.backend.development_mode = False
-        self.backend.hpc_user_client.get_project_unix_gid.side_effect = Exception(
-            "API Error"
-        )
+        # The client catches exceptions and returns None, so we simulate that
+        self.backend.hpc_user_client.get_project_unix_gid.return_value = None
 
         gid = self.backend._get_project_unix_gid("test-project")
         assert gid is None
