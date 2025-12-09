@@ -2,6 +2,7 @@ import logging
 from typing import Any, Callable, Optional, Union
 
 from waldur_cscs_hpc_storage.gid_service import GidService
+from waldur_cscs_hpc_storage.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.waldur_service import WaldurService
 from waldur_api_client.models.resource_state import ResourceState
 
@@ -118,35 +119,28 @@ class CscsHpcStorageBackend:
         self.use_mock_target_items = backend_config.use_mock_target_items
         self.development_mode = backend_config.development_mode
 
-        self.gid_service: Optional[GidService] = None
+        # Initialize GID service (real or mock)
+        self.gid_service: Union[GidService, MockGidService]
         if hpc_user_api_config:
+            # Pass development_mode to the service for fallback behavior
+            hpc_user_api_config.development_mode = backend_config.development_mode
             self.gid_service = GidService(hpc_user_api_config)
+            logger.info("HPC User API configured: %s", self.gid_service.api_url)
+            hpc_user_available = self.gid_service.ping()
+            logger.info("HPC User API accessible: %s", hpc_user_available)
         else:
-            logger.info("HPC User client not configured - using mock unixGid values")
+            logger.info("HPC User client not configured - using MockGidService")
+            self.gid_service = MockGidService(backend_config.development_mode)
 
         self.waldur_service = WaldurService(waldur_api_config)
 
         self.backend_config.validate()
 
-        # HPC User client diagnostics
-        if self.gid_service:
-            logger.info("HPC User API configured: %s", self.gid_service.api_url)
-            hpc_user_available = self.gid_service.ping()
-            logger.info("HPC User API accessible: %s", hpc_user_available)
-            if not hpc_user_available:
-                logger.warning(
-                    "HPC User API not accessible, falling back to mock unixGid values"
-                )
-        else:
-            logger.info("HPC User API: Not configured (using mock unixGid values)")
-
     def _get_project_unix_gid(self, project_slug: str) -> Optional[int]:
-        """Get unixGid for project from HPC User service with caching.
+        """Get unixGid for project from GID service.
 
-        Cache persists until server restart. No TTL-based expiration.
-
-        In production mode: Returns None if service fails (resource should be skipped)
-        In development mode: Falls back to mock values if service fails
+        Delegates to the configured GID service (real or mock).
+        The service handles caching and fallback behavior internally.
 
         Args:
             project_slug: Project slug to look up
@@ -154,43 +148,7 @@ class CscsHpcStorageBackend:
         Returns:
             unixGid value from service, mock value (dev mode), or None (prod mode on failure)
         """
-        # Try to fetch from HPC User service
-        if self.gid_service:
-            unix_gid = self.gid_service.get_project_unix_gid(project_slug)
-            if unix_gid is not None:
-                return unix_gid
-
-            # Project not found in service
-            if self.development_mode:
-                logger.warning(
-                    "Project %s not found in HPC User service, using mock value (dev mode)",
-                    project_slug,
-                )
-            else:
-                logger.error(
-                    "Project %s not found in HPC User service, "
-                    "skipping resource (production mode)",
-                    project_slug,
-                )
-                return None
-
-        # No HPC User client configured - use development mode behavior
-        if not self.development_mode:
-            logger.error(
-                "HPC User service not configured for project %s, "
-                "skipping resource (production mode)",
-                project_slug,
-            )
-            return None
-
-        # Development mode or no HPC client: use mock value
-        mock_gid = 30000 + hash(project_slug) % 10000
-        logger.debug(
-            "Using mock unixGid %d for project %s (dev mode)",
-            mock_gid,
-            project_slug,
-        )
-        return mock_gid
+        return self.gid_service.get_project_unix_gid(project_slug)
 
     def _get_target_item_data(  # noqa: PLR0911
         self,

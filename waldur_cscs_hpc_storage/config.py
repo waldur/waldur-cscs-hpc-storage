@@ -33,6 +33,7 @@ class HpcUserApiConfig:
     socks_proxy: Optional[str] = (
         None  # SOCKS proxy URL (e.g., "socks5://localhost:12345")
     )
+    development_mode: bool = False  # Enable mock fallback when API lookup fails
 
 
 @dataclass

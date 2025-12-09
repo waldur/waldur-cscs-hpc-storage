@@ -35,6 +35,7 @@ class GidService:
         self.oidc_token_url = api_config.oidc_token_url
         self.oidc_scope = api_config.oidc_scope or "openid"
         self.socks_proxy = api_config.socks_proxy
+        self.development_mode = api_config.development_mode
         self._token: Optional[str] = None
         self._token_expires_at: Optional[datetime] = None
         self._gid_cache: dict[str, int] = {}
@@ -45,8 +46,9 @@ class GidService:
                 self.socks_proxy,
             )
         logger.info(
-            "HPC User client initialized with URL: %s",
+            "HPC User client initialized with URL: %s (dev_mode: %s)",
             self.api_url,
+            self.development_mode,
         )
 
     def _get_auth_token(self) -> str:
@@ -136,7 +138,7 @@ class GidService:
                 "Successfully acquired OIDC token, expires in %d seconds", expires_in
             )
 
-            return self._token
+            return access_token
 
     def get_projects(self, project_slugs: list[str]) -> list[dict[str, Any]]:
         """Get project information for multiple project slugs.
@@ -175,14 +177,28 @@ class GidService:
             response.raise_for_status()
             return response.json()["projects"]
 
+    def _generate_mock_gid(self, project_slug: str) -> int:
+        """Generate a deterministic mock GID for development/testing.
+
+        Args:
+            project_slug: Project slug to generate mock GID for
+
+        Returns:
+            Mock GID value (30000 + hash-based offset)
+        """
+        return 30000 + hash(project_slug) % 10000
+
     def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for a specific project slug.
+
+        In development mode, returns a mock GID if the API lookup fails.
+        In production mode, returns None if the lookup fails.
 
         Args:
             project_slug: Project slug to look up
 
         Returns:
-            unixGid if found, None otherwise
+            unixGid if found, mock value (dev mode), or None (prod mode on failure)
         """
         if project_slug in self._gid_cache:
             logger.debug(
@@ -196,12 +212,14 @@ class GidService:
             projects_data = self.get_projects([project_slug])
             if len(projects_data) > 1:
                 logger.error("Multiple projects found for slug: %s", project_slug)
-                return None
+                return self._handle_lookup_failure(
+                    project_slug, "multiple projects found"
+                )
             if len(projects_data) == 0:
                 logger.warning(
                     "Project %s not found in HPC User API response", project_slug
                 )
-                return None
+                return self._handle_lookup_failure(project_slug, "project not found")
             project = projects_data[0]
             if project.get("posixName") == project_slug:
                 unix_gid = project.get("unixGid")
@@ -212,9 +230,36 @@ class GidService:
             logger.warning(
                 "Project %s not found in HPC User API response", project_slug
             )
-            return None
+            return self._handle_lookup_failure(project_slug, "project not found")
         except Exception:
             logger.exception("Failed to fetch unixGid for project %s", project_slug)
+            return self._handle_lookup_failure(project_slug, "API error")
+
+    def _handle_lookup_failure(self, project_slug: str, reason: str) -> Optional[int]:
+        """Handle GID lookup failure based on development mode.
+
+        Args:
+            project_slug: Project slug that failed lookup
+            reason: Reason for the failure
+
+        Returns:
+            Mock GID in development mode, None in production mode
+        """
+        if self.development_mode:
+            mock_gid = self._generate_mock_gid(project_slug)
+            logger.warning(
+                "Using mock unixGid %d for project %s (%s, dev mode)",
+                mock_gid,
+                project_slug,
+                reason,
+            )
+            return mock_gid
+        else:
+            logger.error(
+                "Project %s lookup failed (%s), skipping resource (production mode)",
+                project_slug,
+                reason,
+            )
             return None
 
     def ping(self) -> bool:
