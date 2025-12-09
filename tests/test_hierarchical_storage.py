@@ -3,6 +3,8 @@
 from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
 from waldur_cscs_hpc_storage.mount_points import generate_customer_mount_point
 from waldur_cscs_hpc_storage.mount_points import generate_tenant_mount_point
+from waldur_cscs_hpc_storage.models import Quota
+from waldur_cscs_hpc_storage.enums import QuotaType, QuotaUnit, EnforcementType
 from typing import Optional
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -112,6 +114,36 @@ def create_mock_resource(
         int(storage_limit * 1000 * 1000 * 2.0),
     )
     resource.effective_permissions = "2770"
+
+    # Mock render_quotas to return proper Quota objects
+    soft_inode = int(storage_limit * 1000 * 1000 * 1.5)
+    hard_inode = int(storage_limit * 1000 * 1000 * 2.0)
+    resource.render_quotas.return_value = [
+        Quota(
+            type=QuotaType.SPACE,
+            quota=float(storage_limit),
+            unit=QuotaUnit.TERA,
+            enforcementType=EnforcementType.SOFT,
+        ),
+        Quota(
+            type=QuotaType.SPACE,
+            quota=float(storage_limit),
+            unit=QuotaUnit.TERA,
+            enforcementType=EnforcementType.HARD,
+        ),
+        Quota(
+            type=QuotaType.INODES,
+            quota=float(soft_inode),
+            unit=QuotaUnit.NONE,
+            enforcementType=EnforcementType.SOFT,
+        ),
+        Quota(
+            type=QuotaType.INODES,
+            quota=float(hard_inode),
+            unit=QuotaUnit.NONE,
+            enforcementType=EnforcementType.HARD,
+        ),
+    ]
 
     return resource
 

@@ -5,8 +5,14 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.order_state import OrderState
 
 # Re-importing Enums from your existing structure to ensure compatibility
-from waldur_cscs_hpc_storage.enums import StorageDataType
+from waldur_cscs_hpc_storage.enums import (
+    EnforcementType,
+    QuotaType,
+    QuotaUnit,
+    StorageDataType,
+)
 from waldur_cscs_hpc_storage.models import (
+    Quota,
     TenantTargetItem,
     CustomerTargetItem,
     ProjectTargetItem,
@@ -199,6 +205,66 @@ class ParsedWaldurResource(BaseModel):
         )
 
         return soft, hard
+
+    def render_quotas(
+        self,
+        inode_base_multiplier: float,
+        inode_soft_coefficient: float,
+        inode_hard_coefficient: float,
+    ) -> Optional[list[Quota]]:
+        """Calculate and render quota objects.
+
+        Args:
+            inode_base_multiplier: Multiplier for base inode calculation (e.g., 1_000_000)
+            inode_soft_coefficient: Coefficient for soft inode quota (e.g., 0.9)
+            inode_hard_coefficient: Coefficient for hard inode quota (e.g., 1.0)
+
+        Returns:
+            List of Quota objects, or None if no quotas are set
+        """
+        # Base calculations
+        storage_quota_tb = self.limits.storage or 0.0
+        base_inodes = storage_quota_tb * inode_base_multiplier
+        base_soft_inode = int(base_inodes * inode_soft_coefficient)
+        base_hard_inode = int(base_inodes * inode_hard_coefficient)
+
+        # Apply overrides
+        storage_quota_soft_tb, storage_quota_hard_tb = (
+            self.get_effective_storage_quotas()
+        )
+        inode_soft, inode_hard = self.get_effective_inode_quotas(
+            base_soft_inode, base_hard_inode
+        )
+
+        if storage_quota_soft_tb <= 0 and storage_quota_hard_tb <= 0:
+            return None
+
+        return [
+            Quota(
+                type=QuotaType.SPACE,
+                quota=float(storage_quota_soft_tb),
+                unit=QuotaUnit.TERA,
+                enforcementType=EnforcementType.SOFT,
+            ),
+            Quota(
+                type=QuotaType.SPACE,
+                quota=float(storage_quota_hard_tb),
+                unit=QuotaUnit.TERA,
+                enforcementType=EnforcementType.HARD,
+            ),
+            Quota(
+                type=QuotaType.INODES,
+                quota=float(inode_soft),
+                unit=QuotaUnit.NONE,
+                enforcementType=EnforcementType.SOFT,
+            ),
+            Quota(
+                type=QuotaType.INODES,
+                quota=float(inode_hard),
+                unit=QuotaUnit.NONE,
+                enforcementType=EnforcementType.HARD,
+            ),
+        ]
 
     @property
     def callback_urls(self) -> dict[str, str]:

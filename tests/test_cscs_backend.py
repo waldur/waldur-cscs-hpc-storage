@@ -12,7 +12,13 @@ from waldur_cscs_hpc_storage.schemas import (
     ParsedWaldurResource,
     ResourceAttributes,
 )
-from waldur_cscs_hpc_storage.enums import StorageDataType
+from waldur_cscs_hpc_storage.enums import (
+    EnforcementType,
+    QuotaType,
+    QuotaUnit,
+    StorageDataType,
+)
+from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
@@ -21,6 +27,38 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
 )
 from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
 from waldur_api_client.models.resource_state import ResourceState
+
+
+def create_mock_quotas(storage_limit: float = 150.0) -> list[Quota]:
+    """Create a list of mock Quota objects for testing."""
+    soft_inode = int(storage_limit * 1000 * 1000 * 1.5)
+    hard_inode = int(storage_limit * 1000 * 1000 * 2.0)
+    return [
+        Quota(
+            type=QuotaType.SPACE,
+            quota=float(storage_limit),
+            unit=QuotaUnit.TERA,
+            enforcementType=EnforcementType.SOFT,
+        ),
+        Quota(
+            type=QuotaType.SPACE,
+            quota=float(storage_limit),
+            unit=QuotaUnit.TERA,
+            enforcementType=EnforcementType.HARD,
+        ),
+        Quota(
+            type=QuotaType.INODES,
+            quota=float(soft_inode),
+            unit=QuotaUnit.NONE,
+            enforcementType=EnforcementType.SOFT,
+        ),
+        Quota(
+            type=QuotaType.INODES,
+            quota=float(hard_inode),
+            unit=QuotaUnit.NONE,
+            enforcementType=EnforcementType.HARD,
+        ),
+    ]
 
 
 class TestCscsHpcStorageBackendBase:
@@ -182,6 +220,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             int(150 * 1000 * 1000 * 2.0),
         )
         mock_resource.effective_permissions = "2770"
+        mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
         storage_json = self.backend._create_storage_resource_json(
             mock_resource, "lustre-fs"
@@ -750,6 +789,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.get_effective_storage_quotas.return_value = (42.5, 42.5)
         mock_resource.get_effective_inode_quotas.return_value = (100, 200)
         mock_resource.effective_permissions = "775"
+        mock_resource.render_quotas.return_value = create_mock_quotas(42.5)
 
         result = backend._create_storage_resource_json(mock_resource, "test-storage")
 

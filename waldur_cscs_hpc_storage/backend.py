@@ -9,9 +9,6 @@ from waldur_api_client.models.order_state import OrderState
 
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.enums import (
-    EnforcementType,
-    QuotaType,
-    QuotaUnit,
     StorageDataType,
     TargetStatus,
     TargetType,
@@ -23,7 +20,6 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
 )
 from waldur_cscs_hpc_storage.models import (
     Permission,
-    Quota,
     StorageItem,
     StorageResource,
     Target,
@@ -375,84 +371,6 @@ class CscsHpcStorageBackend:
             targetItem=target_item,
         )
 
-    def _calculate_quotas(
-        self, waldur_resource: ParsedWaldurResource
-    ) -> tuple[float, float, int, int]:
-        """Calculate storage and inode quotas from waldur resource.
-
-        Extracts storage quota from limits, calculates inode quotas,
-        and applies overrides from options if present.
-
-        Args:
-            waldur_resource: Waldur resource object
-
-        Returns:
-            Tuple of (storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard)
-        """
-        # 1. Base Calculations
-        storage_quota_tb = waldur_resource.limits.storage or 0.0
-        base_inodes = storage_quota_tb * self.inode_base_multiplier
-        base_soft_inode = int(base_inodes * self.inode_soft_coefficient)
-        base_hard_inode = int(base_inodes * self.inode_hard_coefficient)
-
-        # 2. Apply Overrides (declarative logic in the model)
-        soft_tb, hard_tb = waldur_resource.get_effective_storage_quotas()
-        soft_inode, hard_inode = waldur_resource.get_effective_inode_quotas(
-            base_soft_inode, base_hard_inode
-        )
-
-        return soft_tb, hard_tb, soft_inode, hard_inode
-
-    def _render_quotas(
-        self,
-        storage_quota_soft_tb: float,
-        storage_quota_hard_tb: float,
-        inode_soft: int,
-        inode_hard: int,
-    ) -> Optional[list[Quota]]:
-        """Render quota objects from storage and inode quota values.
-
-        Args:
-            storage_quota_soft_tb: Soft storage quota in terabytes
-            storage_quota_hard_tb: Hard storage quota in terabytes
-            inode_soft: Soft inode quota
-            inode_hard: Hard inode quota
-
-        Returns:
-            List of Quota objects, or None if no quotas are set
-        """
-        quotas = []
-        if storage_quota_soft_tb > 0 or storage_quota_hard_tb > 0:
-            quotas.extend(
-                [
-                    Quota(
-                        type=QuotaType.SPACE,
-                        quota=float(storage_quota_soft_tb),
-                        unit=QuotaUnit.TERA,
-                        enforcementType=EnforcementType.SOFT,
-                    ),
-                    Quota(
-                        type=QuotaType.SPACE,
-                        quota=float(storage_quota_hard_tb),
-                        unit=QuotaUnit.TERA,
-                        enforcementType=EnforcementType.HARD,
-                    ),
-                    Quota(
-                        type=QuotaType.INODES,
-                        quota=float(inode_soft),
-                        unit=QuotaUnit.NONE,
-                        enforcementType=EnforcementType.SOFT,
-                    ),
-                    Quota(
-                        type=QuotaType.INODES,
-                        quota=float(inode_hard),
-                        unit=QuotaUnit.NONE,
-                        enforcementType=EnforcementType.HARD,
-                    ),
-                ]
-            )
-        return quotas if quotas else None
-
     def _create_storage_resource_json(
         self,
         waldur_resource: ParsedWaldurResource,
@@ -493,17 +411,11 @@ class CscsHpcStorageBackend:
 
         logger.debug("Final storage_system: %s", storage_system)
 
-        # Calculate quotas (storage and inodes) with overrides from options
-        (
-            storage_quota_soft_tb,
-            storage_quota_hard_tb,
-            inode_soft,
-            inode_hard,
-        ) = self._calculate_quotas(waldur_resource)
-
-        # Render quotas
-        quotas = self._render_quotas(
-            storage_quota_soft_tb, storage_quota_hard_tb, inode_soft, inode_hard
+        # Calculate and render quotas (storage and inodes) with overrides from options
+        quotas = waldur_resource.render_quotas(
+            self.inode_base_multiplier,
+            self.inode_soft_coefficient,
+            self.inode_hard_coefficient,
         )
 
         # Extract permissions
