@@ -295,9 +295,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             "approve_by_provider_url": f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/",
             "reject_by_provider_url": f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/reject_by_provider/",
         }
-
-        # Configure backend config with base URL
-        self.backend.waldur_api_config.api_url = "https://waldur.example.com/api"
+        mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
         storage_json = self.backend._create_storage_resource_json(
             mock_resource, "lustre-fs"
