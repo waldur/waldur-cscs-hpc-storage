@@ -145,7 +145,7 @@ graph TD
 ```bash
 DEBUG=true DISABLE_AUTH=true PYTHONUNBUFFERED=1 \
 WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH=/path/to/config.yaml \
-uvicorn waldur_cscs_hpc_storage.waldur_storage_proxy.main:app \
+uvicorn waldur_cscs_hpc_storage.api.main:app \
 --host 0.0.0.0 --port 8080 --reload
 ```
 

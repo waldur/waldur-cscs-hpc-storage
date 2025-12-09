@@ -24,17 +24,14 @@ class TestWaldurService:
         "waldur_cscs_hpc_storage.services.waldur_service.marketplace_provider_offerings_customers_list"
     )
     async def test_get_offering_customers_success(self, mock_list, service):
-        mock_response = Mock()
         mock_customer = Mock()
         mock_customer.slug = "customer-1"
         mock_customer.name = "Customer 1"
         mock_customer.uuid.hex = "uuid-1"
-        mock_response.parsed = [mock_customer]
-        mock_list.asyncio_all = AsyncMock(return_value=mock_response)
+        mock_list.asyncio_all = AsyncMock(return_value=[mock_customer])
 
         customers = await service.get_offering_customers("offering-uuid")
 
-        assert len(customers) == 1
         assert len(customers) == 1
         assert customers["customer-1"].key == "customer-1"
         assert customers["customer-1"].itemId == "uuid-1"
@@ -47,9 +44,7 @@ class TestWaldurService:
         "waldur_cscs_hpc_storage.services.waldur_service.marketplace_provider_offerings_customers_list"
     )
     async def test_get_offering_customers_empty(self, mock_list, service):
-        mock_response = Mock()
-        mock_response.parsed = []
-        mock_list.asyncio_all = AsyncMock(return_value=mock_response)
+        mock_list.asyncio_all = AsyncMock(return_value=[])
 
         customers = await service.get_offering_customers("offering-uuid")
 

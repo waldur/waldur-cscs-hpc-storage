@@ -40,7 +40,7 @@ class ResourceLimits(BaseModel):
     Validates the 'limits' field from WaldurResource.
     """
 
-    storage: Optional[int] = Field(
+    storage: Optional[float] = Field(
         default=0, ge=0, description="Storage limit in Terabytes"
     )
 
@@ -176,12 +176,20 @@ class ParsedWaldurResource(BaseModel):
                 and not isinstance(resource.provider_name, Unset)
                 else ""
             ),
-            limits=ResourceLimits(**resource.limits.additional_properties),
-            attributes=ResourceAttributes(**resource.attributes.additional_properties),
-            options=ResourceOptions(**resource.options.additional_properties),
-            backend_metadata=ResourceBackendMetadata(
+            limits=resource.limits
+            and ResourceLimits(**resource.limits.additional_properties)
+            or ResourceLimits(),
+            attributes=resource.attributes
+            and ResourceAttributes(**resource.attributes.additional_properties)
+            or ResourceAttributes(),
+            options=resource.options
+            and ResourceOptions(**resource.options.additional_properties)
+            or ResourceOptions(),
+            backend_metadata=resource.backend_metadata
+            and ResourceBackendMetadata(
                 **resource.backend_metadata.additional_properties
-            ),
+            )
+            or ResourceBackendMetadata(),
             order_in_progress=resource.order_in_progress,
         )
 

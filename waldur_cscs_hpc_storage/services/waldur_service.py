@@ -69,12 +69,12 @@ class WaldurService:
             logger.exception(msg)
             raise WaldurClientError(msg, original_error=e) from e
 
-        if not response.parsed:
+        if not response:
             logger.warning("No customers found for offering %s", offering_uuid)
             return {}
 
         customers = {}
-        for customer in response.parsed:
+        for customer in response:
             customers[customer.slug] = CustomerInfo(
                 itemId=customer.uuid.hex,
                 key=customer.slug,
