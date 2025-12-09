@@ -7,7 +7,10 @@ import pytest
 from pydantic import ValidationError
 from waldur_api_client.types import Unset
 from waldur_api_client.models.order_state import OrderState
-from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
+from waldur_cscs_hpc_storage.backend import (
+    CscsHpcStorageBackend,
+    make_storage_resource_predicate,
+)
 from waldur_cscs_hpc_storage.base.schemas import (
     ParsedWaldurResource,
     ResourceAttributes,
@@ -17,6 +20,7 @@ from waldur_cscs_hpc_storage.base.enums import (
     QuotaType,
     QuotaUnit,
     StorageDataType,
+    TargetStatus,
 )
 from waldur_cscs_hpc_storage.base.models import Quota
 from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
@@ -756,45 +760,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         target_item2 = result2.target.targetItem
         assert target_item.itemId == target_item2.itemId
 
-    def test_filtering_by_storage_system(self):
-        """Test filtering storage resources by storage system."""
-        backend = self._create_backend()
-
-        # Create mock storage resources with different storage systems
-        r1 = Mock()
-        r1.storageSystem.key = "capstor"
-        r1.storageDataType.key = "store"
-        r1.status = "active"
-
-        r2 = Mock()
-        r2.storageSystem.key = "vast"
-        r2.storageDataType.key = "users"
-        r2.status = "pending"
-
-        r3 = Mock()
-        r3.storageSystem.key = "iopsstor"
-        r3.storageDataType.key = "archive"
-        r3.status = "active"
-
-        mock_resources = [r1, r2, r3]
-
-        # Test filtering by storage_system
-        filtered = backend._apply_filters(mock_resources, storage_system="capstor")
-        assert len(filtered) == 1
-        assert filtered[0].storageSystem.key == "capstor"
-
-        filtered = backend._apply_filters(mock_resources, storage_system="vast")
-        assert len(filtered) == 1
-        assert filtered[0].storageSystem.key == "vast"
-
-        # Test with non-existent storage system
-        filtered = backend._apply_filters(mock_resources, storage_system="nonexistent")
-        assert len(filtered) == 0
-
     def test_filtering_by_data_type(self):
         """Test filtering storage resources by data type."""
-        backend = self._create_backend()
-
         # Create mock storage resources with different data types
         r1 = Mock()
         r1.storageSystem.key = "capstor"
@@ -814,22 +781,23 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2, r3]
 
         # Test filtering by data_type
-        filtered = backend._apply_filters(mock_resources, data_type="store")
+        predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 1
         assert filtered[0].storageDataType.key == "store"
 
-        filtered = backend._apply_filters(mock_resources, data_type="users")
+        predicate = make_storage_resource_predicate(data_type=StorageDataType.USERS)
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 1
         assert filtered[0].storageDataType.key == "users"
 
-        # Test with non-existent data type
-        filtered = backend._apply_filters(mock_resources, data_type="nonexistent")
-        assert len(filtered) == 0
+        predicate = make_storage_resource_predicate(data_type=StorageDataType.SCRATCH)
+        filtered = list(filter(predicate, mock_resources))
+        assert len(filtered) == 1
+        assert filtered[0].storageDataType.key == "scratch"
 
     def test_filtering_by_status(self):
         """Test filtering storage resources by status."""
-        backend = self._create_backend()
-
         # Create mock storage resources with different statuses
         r1 = Mock()
         r1.storageSystem.key = "capstor"
@@ -849,26 +817,23 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2, r3]
 
         # Test filtering by status
-        filtered = backend._apply_filters(mock_resources, status="active")
+        predicate = make_storage_resource_predicate(status=TargetStatus.ACTIVE)
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 1
         assert filtered[0].status == "active"
 
-        filtered = backend._apply_filters(mock_resources, status="pending")
+        predicate = make_storage_resource_predicate(status=TargetStatus.PENDING)
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 1
         assert filtered[0].status == "pending"
 
-        filtered = backend._apply_filters(mock_resources, status="removing")
+        predicate = make_storage_resource_predicate(status=TargetStatus.REMOVING)
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 1
         assert filtered[0].status == "removing"
 
-        # Test with non-existent status
-        filtered = backend._apply_filters(mock_resources, status="nonexistent")
-        assert len(filtered) == 0
-
     def test_filtering_combined(self):
         """Test filtering storage resources with multiple filter criteria."""
-        backend = self._create_backend()
-
         # Create mock storage resources
         r1 = Mock()
         r1.storageSystem.key = "capstor"
@@ -892,33 +857,30 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         mock_resources = [r1, r2, r3, r4]
 
-        # Test combined filtering: capstor + store + active
-        filtered = backend._apply_filters(
-            mock_resources, storage_system="capstor", data_type="store", status="active"
+        # Test combined filtering: store + active
+        predicate = make_storage_resource_predicate(
+            data_type=StorageDataType.STORE, status=TargetStatus.ACTIVE
         )
-        assert len(filtered) == 1
-        assert filtered[0].storageSystem.key == "capstor"
-        assert filtered[0].storageDataType.key == "store"
-        assert filtered[0].status == "active"
-
-        # Test combined filtering: capstor + store (should return 2)
-        filtered = backend._apply_filters(
-            mock_resources, storage_system="capstor", data_type="store"
-        )
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 2
-        assert all(r.storageSystem.key == "capstor" for r in filtered)
+        assert all(r.storageDataType.key == "store" for r in filtered)
+        assert all(r.status == "active" for r in filtered)
+
+        # Test combined filtering: store only (should return 3)
+        predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
+        filtered = list(filter(predicate, mock_resources))
+        assert len(filtered) == 3
         assert all(r.storageDataType.key == "store" for r in filtered)
 
         # Test combined filtering that returns no results
-        filtered = backend._apply_filters(
-            mock_resources, storage_system="vast", data_type="users"
+        predicate = make_storage_resource_predicate(
+            data_type=StorageDataType.USERS, status=TargetStatus.PENDING
         )
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 0
 
     def test_filtering_no_filters_applied(self):
         """Test that no filtering is applied when no filters are provided."""
-        backend = self._create_backend()
-
         # Create mock storage resources
         r1 = Mock()
         r1.storageSystem.key = "capstor"
@@ -933,7 +895,8 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2]
 
         # Test no filtering (should return all resources)
-        filtered = backend._apply_filters(mock_resources)
+        predicate = make_storage_resource_predicate()
+        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 2
         assert filtered == mock_resources
 

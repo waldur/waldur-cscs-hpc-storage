@@ -354,11 +354,11 @@ def storage_resources(
 
     storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
         offering_slugs=offering_slugs,
-        state=state.value if state else None,
+        state=state,
         page=page,
         page_size=page_size,
-        data_type=data_type.value if data_type else None,
-        status=status.value if status else None,
+        data_type=data_type,
+        status=status,
     )
 
     # Return appropriate HTTP status code based on response status

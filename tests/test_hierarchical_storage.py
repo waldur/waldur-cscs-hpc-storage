@@ -4,7 +4,12 @@ from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_poi
 from waldur_cscs_hpc_storage.base.mount_points import generate_customer_mount_point
 from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_point
 from waldur_cscs_hpc_storage.base.models import Quota
-from waldur_cscs_hpc_storage.base.enums import QuotaType, QuotaUnit, EnforcementType
+from waldur_cscs_hpc_storage.base.enums import (
+    QuotaType,
+    QuotaUnit,
+    EnforcementType,
+    StorageDataType,
+)
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from typing import Optional
 from unittest.mock import Mock, patch
@@ -12,7 +17,10 @@ from uuid import uuid4
 
 import pytest
 
-from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
+from waldur_cscs_hpc_storage.backend import (
+    CscsHpcStorageBackend,
+    make_storage_resource_predicate,
+)
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
     WaldurApiConfig,
@@ -535,20 +543,20 @@ class TestHierarchyFiltering:
     """Tests for filtering hierarchical resources."""
 
     def test_filter_maintains_hierarchy(self, backend):
-        """Test that filtering by storage system maintains the hierarchy."""
-        # Use two separate HierarchyBuilders for different storage systems
-        builder_capstor = HierarchyBuilder(storage_file_system="lustre")
-        builder_vast = HierarchyBuilder(storage_file_system="lustre")
+        """Test that filtering by data_type maintains the hierarchy."""
+        # Use two separate HierarchyBuilders for different data types
+        builder_store = HierarchyBuilder(storage_file_system="lustre")
+        builder_scratch = HierarchyBuilder(storage_file_system="lustre")
 
-        # Add capstor resources
-        builder_capstor.get_or_create_tenant(
+        # Add store resources
+        builder_store.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
         )
 
-        builder_capstor.get_or_create_customer(
+        builder_store.get_or_create_customer(
             customer_info={
                 "itemId": "cust1",
                 "key": "mch",
@@ -560,53 +568,50 @@ class TestHierarchyFiltering:
             tenant_id="cscs",
         )
 
-        # Add vast resources
-        builder_vast.get_or_create_tenant(
+        # Add scratch resources
+        builder_scratch.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
-            storage_system="vast",
+            storage_system="capstor",
             storage_data_type="scratch",
         )
 
-        builder_vast.get_or_create_customer(
+        builder_scratch.get_or_create_customer(
             customer_info={
                 "itemId": "cust2",
                 "key": "eth",
                 "name": "ETH",
                 "uuid": "cust2",
             },
-            storage_system="vast",
+            storage_system="capstor",
             storage_data_type="scratch",
             tenant_id="cscs",
         )
 
         # Combine all resources
         all_resources = (
-            builder_capstor.get_hierarchy_resources()
-            + builder_vast.get_hierarchy_resources()
+            builder_store.get_hierarchy_resources()
+            + builder_scratch.get_hierarchy_resources()
         )
 
-        # Filter by storage system
-        capstor_resources = backend._apply_filters(
-            all_resources, storage_system="capstor", data_type=None, status=None
-        )
+        # Filter by data_type
+        predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
+        store_resources = list(filter(predicate, all_resources))
 
-        # Verify only capstor resources returned
-        assert len(capstor_resources) == 2
-        for resource in capstor_resources:
-            assert resource.storageSystem.key == "capstor"
+        # Verify only store resources returned
+        assert len(store_resources) == 2
+        for resource in store_resources:
+            assert resource.storageDataType.key == "store"
 
         # Verify hierarchy is maintained
-        capstor_tenants = [
-            r for r in capstor_resources if r.target.targetType == "tenant"
-        ]
-        capstor_customers = [
-            r for r in capstor_resources if r.target.targetType == "customer"
+        store_tenants = [r for r in store_resources if r.target.targetType == "tenant"]
+        store_customers = [
+            r for r in store_resources if r.target.targetType == "customer"
         ]
 
-        assert len(capstor_tenants) == 1
-        assert len(capstor_customers) == 1
-        assert capstor_customers[0].parentItemId == capstor_tenants[0].itemId
+        assert len(store_tenants) == 1
+        assert len(store_customers) == 1
+        assert store_customers[0].parentItemId == store_tenants[0].itemId
 
 
 class TestEdgeCases:

@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Union
 
 from waldur_cscs_hpc_storage.gid_service import GidService
 from waldur_cscs_hpc_storage.waldur_service import WaldurService
@@ -52,6 +52,41 @@ from waldur_cscs_hpc_storage.base.serializers import JsonSerializer
 logger = logging.getLogger(__name__)
 
 
+def make_storage_resource_predicate(
+    data_type: Optional[StorageDataType] = None,
+    status: Optional[TargetStatus] = None,
+) -> Callable[[StorageResource], bool]:
+    """Create a predicate function for filtering storage resources.
+
+    Args:
+        data_type: Optional filter for data type (StorageDataType enum)
+        status: Optional filter for status (TargetStatus enum)
+
+    Returns:
+        A predicate function that returns True if a resource matches all criteria
+    """
+
+    def predicate(resource: StorageResource) -> bool:
+        # Check data_type filter
+        if data_type:
+            if resource.storageDataType.key != data_type.value:
+                return False
+
+        # Check status filter
+        if status:
+            resource_status = (
+                resource.status.value
+                if hasattr(resource.status, "value")
+                else str(resource.status)
+            )
+            if resource_status != status.value:
+                return False
+
+        return True
+
+    return predicate
+
+
 class CscsHpcStorageBackend:
     """CSCS HPC Storage backend for JSON file generation."""
 
@@ -93,81 +128,17 @@ class CscsHpcStorageBackend:
 
         self.backend_config.validate()
 
-    def _apply_filters(
-        self,
-        storage_resources: Sequence[Union[StorageResource, dict[str, Any]]],
-        storage_system: Optional[str] = None,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> list[Union[StorageResource, dict[str, Any]]]:
-        """Apply filtering to storage resources list.
-
-        Args:
-            storage_resources: List of storage resource objects or dicts
-            storage_system: Optional filter for storage system
-            data_type: Optional filter for data type
-            status: Optional filter for status
-
-        Returns:
-            Filtered list of storage resources
-        """
-        logger.debug(
-            "Applying filters: storage_system=%s, data_type=%s, status=%s on %d resources",
-            storage_system,
-            data_type,
-            status,
-            len(storage_resources),
-        )
-        filtered_resources: list[Union[StorageResource, dict[str, Any]]] = []
-
-        for resource in storage_resources:
-            # Handle both StorageResource objects and dicts
-            if isinstance(resource, dict):
-                resource_storage_system = resource.get("storageSystem", {}).get("key")
-                resource_data_type = resource.get("storageDataType", {}).get("key")
-                resource_status = resource.get("status")
-            else:
-                resource_storage_system = resource.storageSystem.key
-                resource_data_type = resource.storageDataType.key
-                resource_status = (
-                    resource.status.value
-                    if hasattr(resource.status, "value")
-                    else str(resource.status)
+        # HPC User client diagnostics
+        if self.gid_service:
+            logger.info("HPC User API configured: %s", self.gid_service.api_url)
+            hpc_user_available = self.gid_service.ping()
+            logger.info("HPC User API accessible: %s", hpc_user_available)
+            if not hpc_user_available:
+                logger.warning(
+                    "HPC User API not accessible, falling back to mock unixGid values"
                 )
-
-            # Optional storage_system filter
-            if storage_system:
-                if resource_storage_system != storage_system:
-                    continue
-
-            # Optional data_type filter
-            if data_type:
-                logger.debug(
-                    "Comparing data_type filter '%s' with resource data_type '%s'",
-                    data_type,
-                    resource_data_type,
-                )
-                if resource_data_type != data_type:
-                    continue
-
-            # Optional status filter
-            if status:
-                if resource_status != status:
-                    continue
-
-            filtered_resources.append(resource)
-
-        logger.debug(
-            "Applied filters: storage_system=%s, data_type=%s, status=%s. "
-            "Filtered %d resources from %d total",
-            storage_system,
-            data_type,
-            status,
-            len(filtered_resources),
-            len(storage_resources),
-        )
-
-        return filtered_resources
+        else:
+            logger.info("HPC User API: Not configured (using mock unixGid values)")
 
     def _get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for project from HPC User service with caching.
@@ -422,9 +393,8 @@ class CscsHpcStorageBackend:
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-        storage_system_filter: Optional[str] = None,
+        data_type: Optional[StorageDataType] = None,
+        status: Optional[TargetStatus] = None,
     ) -> dict:
         """Generate JSON with resources filtered by offering slug(s).
 
@@ -433,9 +403,8 @@ class CscsHpcStorageBackend:
             state: Optional resource state filter.
             page: Page number (1-based).
             page_size: Number of items per page.
-            data_type: Optional data type filter.
-            status: Optional status filter.
-            storage_system_filter: Optional storage system filter.
+            data_type: Optional data type filter (StorageDataType enum).
+            status: Optional status filter (TargetStatus enum).
 
         Returns:
             Dictionary with status, resources, pagination, and filters_applied.
@@ -453,7 +422,6 @@ class CscsHpcStorageBackend:
                 page_size=page_size,
                 data_type=data_type,
                 status=status,
-                storage_system_filter=storage_system_filter,
             )
 
             # Serialize storage resources to dicts for JSON response
@@ -465,9 +433,8 @@ class CscsHpcStorageBackend:
                 "pagination": pagination_info,
                 "filters_applied": {
                     "offering_slugs": slugs_list,
-                    "storage_system": storage_system_filter,
-                    "data_type": data_type,
-                    "status": status,
+                    "data_type": data_type.value if data_type else None,
+                    "status": status.value if status else None,
                     "state": state.value if state else None,
                 },
             }
@@ -488,22 +455,10 @@ class CscsHpcStorageBackend:
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-        storage_system_filter: Optional[str] = None,
+        data_type: Optional[StorageDataType] = None,
+        status: Optional[TargetStatus] = None,
     ) -> tuple[list[StorageResource], dict[str, Any]]:
         """Fetch and process resources filtered by multiple offering slugs."""
-        # HPC User client diagnostics
-        if self.gid_service:
-            logger.info("HPC User API configured: %s", self.gid_service.api_url)
-            hpc_user_available = self.gid_service.ping()
-            logger.info("HPC User API accessible: %s", hpc_user_available)
-            if not hpc_user_available:
-                logger.warning(
-                    "HPC User API not accessible, falling back to mock unixGid values"
-                )
-        else:
-            logger.info("HPC User API: Not configured (using mock unixGid values)")
         logger.debug(
             "_get_resources_by_offering_slugs called with data_type=%s", data_type
         )
@@ -559,16 +514,6 @@ class CscsHpcStorageBackend:
                 )
                 for resource in response.resources:
                     try:
-                        # Apply storage_system filter if provided
-                        if (
-                            storage_system_filter
-                            and resource.offering_slug != storage_system_filter
-                        ):
-                            logger.debug(
-                                "Skipping resource due to storage_system filter"
-                            )
-                            continue
-
                         # Note: Additional filters (data_type, status) are applied
                         # after serialization
 
@@ -654,10 +599,10 @@ class CscsHpcStorageBackend:
             logger.debug(
                 "About to apply filters on %d resources", len(storage_resources)
             )
-            filtered_resources = self._apply_filters(  # type: ignore[arg-type]
-                storage_resources, None, data_type, status
+            predicate = make_storage_resource_predicate(
+                data_type=data_type, status=status
             )
-            storage_resources = filtered_resources  # type: ignore[assignment]
+            storage_resources = list(filter(predicate, storage_resources))
 
             # Calculate pagination based on filtered results
             total_pages = (
