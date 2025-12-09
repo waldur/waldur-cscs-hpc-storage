@@ -364,7 +364,6 @@ GET /api/storage-resources/
 | `state` | ResourceState | No | Filter by Waldur resource state | `Creating`, `OK`, `Erred` |
 | `page` | integer | No | Page number (≥1) | `1`, `2`, `3` |
 | `page_size` | integer | No | Items per page (1-500) | `50`, `100`, `200` |
-| `debug` | boolean | No | Return raw Waldur data for debugging | `true`, `false` |
 
 ### Example API Calls
 
@@ -396,12 +395,6 @@ curl "/api/storage-resources/?storage_system=iopsstor&data_type=store&status=act
 
 ```bash
 curl "/api/storage-resources/?storage_system=capstor&page=2&page_size=50"
-```
-
-**Debug mode for troubleshooting:**
-
-```bash
-curl "/api/storage-resources/?storage_system=capstor&debug=true"
 ```
 
 ### Filter Behavior
@@ -460,94 +453,6 @@ multiple storage systems simultaneously.
   }]
 }
 ```
-
-### Debug Mode
-
-When `debug=true` is specified, the API returns raw Waldur data without translation to the CSCS
-storage JSON format. This is useful for troubleshooting and understanding the source data.
-
-**Debug Response Format:**
-
-```json
-{
-  "status": "success",
-  "debug_mode": true,
-  "agent_offering_config": {
-    "uuid": "...",
-    "api_url": "...",
-    "backend_type": "cscs-hpc-storage",
-    "backend_settings": {...},
-  },
-  "waldur_offering_details": {
-    "uuid": "...",
-    "name": "CSCS Storage Offering",
-    "slug": "capstor",
-    "description": "CSCS Storage System",
-    "type": "cscs-hpc-storage",
-    "state": "Active",
-    "category_title": "Storage",
-    "customer_name": "CSCS",
-    "customer_slug": "cscs",
-    "options": {...},
-    "attributes": {...},
-    "components": {...},
-    "created": "2024-01-01T00:00:00Z",
-    "modified": "2024-01-01T00:00:00Z"
-  },
-  "raw_resources": {
-    "resources": [
-      {
-        "uuid": "abc123...",
-        "name": "Storage Resource Name",
-        "slug": "resource-slug",
-        "state": "OK",
-        "customer_slug": "customer",
-        "customer_name": "Customer Name",
-        "project_slug": "project",
-        "project_name": "Project Name",
-        "offering_slug": "capstor",
-        "offering_type": "cscs-hpc-storage",
-        "limits": {"storage": 100},
-        "attributes": {
-          "permissions": "775",
-          "storage_data_type": "store"
-        },
-        "backend_metadata": {},
-        "created": "2024-01-01T00:00:00Z",
-        "modified": "2024-01-01T00:00:00Z"
-      }
-    ],
-    "pagination": {
-      "current": 1,
-      "limit": 100,
-      "offset": 0,
-      "pages": 1,
-      "total": 1
-    },
-    "filters_applied": {
-      "storage_system": "capstor",
-      "data_type": null,
-      "status": null,
-      "state": null
-    }
-  }
-}
-```
-
-**Debug Mode Features:**
-
-- **Separate configurations**: Shows both agent's offering config and live Waldur offering details
-- **Agent offering config**: Configuration from the agent's YAML file (excludes `secret_options`)
-- **Waldur offering details**: Complete live offering data from Waldur API with all available attributes
-- **Complete attribute exposure**: All `ProviderOfferingDetails` attributes are included dynamically
-- **Raw resource data**: Unprocessed Waldur resource data with all fields
-- **Filter transparency**: Shows which filters were applied to the results
-- **Security**: Only `secret_options` is explicitly excluded for security
-- **Smart serialization**: Automatically handles UUIDs, dates, and complex nested objects
-- **Error handling**: Shows errors if offering lookup fails, continues with other attributes
-- **Useful for debugging**: Compare agent config vs Waldur state, see all available offering data
-
-## Recent Improvements
 
 ### Storage Hierarchy Mapping Update
 
@@ -674,7 +579,6 @@ Resolved data_type filtering issues that affected multi-storage-system queries:
 
 - Ensure you're using lowercase values: `data_type=archive` not `data_type=Archive`
 - Check that the storage system has resources with the specified data type
-- Use `debug=true` to inspect raw data and verify data type values
 
 **GID not found errors:**
 
@@ -691,7 +595,6 @@ Resolved data_type filtering issues that affected multi-storage-system queries:
 **Empty filter results:**
 
 - Verify filter values match exactly (case-sensitive)
-- Use `debug=true` to see available values in raw data
 - Check that storage system configuration matches offering slugs
 
 ### Performance Considerations
