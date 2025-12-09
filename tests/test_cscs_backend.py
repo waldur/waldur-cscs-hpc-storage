@@ -109,7 +109,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert self.backend.storage_file_system == "lustre"
         assert self.backend.inode_soft_coefficient == 1.5
         assert self.backend.inode_hard_coefficient == 2.0
-        assert self.backend.use_mock_target_items is True
 
     def test_generate_mount_point(self):
         """Test mount point generation."""

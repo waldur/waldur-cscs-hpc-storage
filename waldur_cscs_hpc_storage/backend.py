@@ -71,14 +71,12 @@ class CscsHpcStorageBackend:
             waldur_api_config: Waldur API configuration (WaldurApiConfig object)
             hpc_user_api_config: Optional HPC User API configuration (HpcUserApiConfig object)
         """
-        self.backend_config = backend_config
         self.serializer = JsonSerializer()
 
         # Configuration
         self.storage_file_system = backend_config.storage_file_system
         self.inode_soft_coefficient = backend_config.inode_soft_coefficient
         self.inode_hard_coefficient = backend_config.inode_hard_coefficient
-        self.use_mock_target_items = backend_config.use_mock_target_items
 
         # Initialize services
         self.waldur_service = WaldurService(waldur_api_config)
