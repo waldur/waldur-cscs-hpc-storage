@@ -99,27 +99,3 @@ def initialize_sentry(
     except Exception as e:
         logger.error("Failed to initialize Sentry: %s", e, exc_info=True)
         raise
-
-
-def set_user_context(
-    user_id: str, username: Optional[str] = None, email: Optional[str] = None
-) -> None:
-    """Set user context for Sentry events.
-
-    Args:
-        user_id: Unique user identifier
-        username: Optional username
-        email: Optional email address
-    """
-    try:
-        import sentry_sdk
-
-        sentry_sdk.set_user(
-            {
-                "id": user_id,
-                "username": username,
-                "email": email,
-            }
-        )
-    except ImportError:
-        pass  # Sentry not installed or not initialized

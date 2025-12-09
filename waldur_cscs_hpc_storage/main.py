@@ -26,7 +26,7 @@ from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.sentry_config import initialize_sentry, set_user_context
+from waldur_cscs_hpc_storage.sentry_config import initialize_sentry
 
 
 # Set up logging
@@ -314,13 +314,6 @@ def storage_resources(
         storage_system,
         data_type,
         status,
-    )
-
-    # Set Sentry user context for error tracking
-    set_user_context(
-        user_id=getattr(user, "sub", "unknown"),
-        username=user.preferred_username,
-        email=getattr(user, "email", None),
     )
 
     # Validate that storage_system is one of the configured storage systems (if provided)
