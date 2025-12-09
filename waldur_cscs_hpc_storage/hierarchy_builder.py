@@ -69,6 +69,7 @@ class HierarchyBuilder:
         storage_system: str,
         storage_data_type: str,
         offering_uuid: Optional[str] = None,
+        active: bool = False,
     ) -> str:
         """Create or retrieve a tenant entry.
 
@@ -81,6 +82,7 @@ class HierarchyBuilder:
             storage_system: Storage system name (e.g., 'capstor')
             storage_data_type: Data type (e.g., 'store', 'scratch')
             offering_uuid: Optional offering UUID to use as the itemId
+            active: Whether the tenant should be marked as active
 
         Returns:
             The itemId of the tenant entry
@@ -109,9 +111,11 @@ class HierarchyBuilder:
             )
         )
 
+        status = TargetStatus.ACTIVE if active else TargetStatus.PENDING
+
         tenant_resource = StorageResource(
             itemId=tenant_item_id,
-            status=TargetStatus.PENDING,
+            status=status,
             mountPoint=MountPoint(default=mount_point),
             permission=Permission(value="775"),
             quotas=None,
@@ -158,6 +162,7 @@ class HierarchyBuilder:
         storage_system: str,
         storage_data_type: str,
         tenant_id: str,
+        active: bool = False,
     ) -> Optional[str]:
         """Create or retrieve a customer entry.
 
@@ -169,6 +174,7 @@ class HierarchyBuilder:
             storage_system: Storage system name
             storage_data_type: Data type
             tenant_id: The parent tenant identifier
+            active: Whether the customer should be marked as active
 
         Returns:
             The itemId of the customer entry, or None if customer_info is invalid
@@ -201,10 +207,11 @@ class HierarchyBuilder:
         )
 
         customer_item_id = customer_info.get("itemId", "")
+        status = TargetStatus.ACTIVE if active else TargetStatus.PENDING
 
         customer_resource = StorageResource(
             itemId=customer_item_id,
-            status=TargetStatus.PENDING,
+            status=status,
             mountPoint=MountPoint(default=mount_point),
             permission=Permission(value="775"),
             quotas=None,
@@ -245,7 +252,7 @@ class HierarchyBuilder:
 
         return customer_item_id
 
-    def get_customer_id(
+    def get_customer_uuid(
         self,
         customer_slug: str,
         storage_system: str,
@@ -281,7 +288,7 @@ class HierarchyBuilder:
             storage_system: Storage system name
             storage_data_type: Data type
         """
-        customer_id = self.get_customer_id(
+        customer_id = self.get_customer_uuid(
             customer_slug, storage_system, storage_data_type
         )
         if customer_id:

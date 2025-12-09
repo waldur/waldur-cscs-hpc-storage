@@ -182,7 +182,7 @@ class TestHierarchyBuilder:
         # Only tenant should exist
         assert len(builder.get_hierarchy_resources()) == 1
 
-    def test_get_customer_id(self, builder):
+    def test_get_customer_uuid(self, builder):
         """Test retrieving customer ID."""
         builder.get_or_create_tenant(
             tenant_id="cscs",
@@ -206,7 +206,7 @@ class TestHierarchyBuilder:
         )
 
         # Test retrieving existing customer
-        customer_id = builder.get_customer_id(
+        customer_id = builder.get_customer_uuid(
             customer_slug="ethz",
             storage_system="capstor",
             storage_data_type="store",
@@ -214,7 +214,7 @@ class TestHierarchyBuilder:
         assert customer_id == "customer-uuid-123"
 
         # Test retrieving non-existent customer
-        non_existent = builder.get_customer_id(
+        non_existent = builder.get_customer_uuid(
             customer_slug="unknown",
             storage_system="capstor",
             storage_data_type="store",
@@ -354,7 +354,7 @@ class TestHierarchyBuilder:
         builder.reset()
 
         assert len(builder.get_hierarchy_resources()) == 0
-        assert builder.get_customer_id("ethz", "capstor", "store") is None
+        assert builder.get_customer_uuid("ethz", "capstor", "store") is None
 
     def test_tenant_without_offering_uuid_generates_deterministic_id(self, builder):
         """Test that tenant without offering_uuid generates a deterministic ID."""

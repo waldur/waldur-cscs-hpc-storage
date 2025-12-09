@@ -62,9 +62,9 @@ def hierarchy_builder():
 @pytest.fixture(autouse=True)
 def mock_gid_lookup():
     """Mock GID lookup for all tests in this module."""
-    with patch.object(
-        CscsHpcStorageBackend, "_get_project_unix_gid", return_value=30000
-    ):
+    from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+
+    with patch.object(MockGidService, "get_project_unix_gid", return_value=30000):
         yield
 
 
@@ -334,7 +334,7 @@ class TestProjectLevelGeneration:
             storage_limit=150.0,
         )
 
-        result = backend._create_storage_resource_json(resource, "capstor")
+        result = backend.mapper.map_resource(resource, "capstor")
 
         # Verify structure
         assert result.target.targetType == "project"
@@ -363,7 +363,7 @@ class TestProjectLevelGeneration:
         resource.attributes.permissions = "0755"
         resource.effective_permissions = "0755"
 
-        result = backend._create_storage_resource_json(resource, "capstor")
+        result = backend.mapper.map_resource(resource, "capstor")
 
         assert result.permission.value == "0755"
 
@@ -449,7 +449,7 @@ class TestThreeTierHierarchyGeneration:
                 )
 
             # Create project entry
-            project_resource = backend._create_storage_resource_json(
+            project_resource = backend.mapper.map_resource(
                 resource, storage_system_name
             )
             if project_resource:
@@ -630,7 +630,7 @@ class TestEdgeCases:
         )
 
         # Project should still be created but without parent
-        project_resource = backend._create_storage_resource_json(resource, "capstor")
+        project_resource = backend.mapper.map_resource(resource, "capstor")
         if project_resource:
             hierarchy_builder.assign_parent_to_project(
                 project_resource=project_resource,
@@ -751,7 +751,7 @@ class TestIntegrationScenarios:
             )
 
             # Create project
-            project = backend._create_storage_resource_json(resource, storage_system)
+            project = backend.mapper.map_resource(resource, storage_system)
             if project is not None:
                 hierarchy_builder.assign_parent_to_project(
                     project_resource=project,
