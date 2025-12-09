@@ -221,10 +221,6 @@ class CscsHpcStorageBackend:
         )
         return mock_gid
 
-    def _get_target_status_from_waldur_state(self, state: str) -> TargetStatus:
-        """Map Waldur resource state string to target item status."""
-        return get_target_status_from_waldur_state(state)
-
     def _get_target_item_data(  # noqa: PLR0911
         self,
         waldur_resource: ParsedWaldurResource,
@@ -255,9 +251,7 @@ class CscsHpcStorageBackend:
                 name=waldur_resource.project_name,
             )
         if target_type == TargetType.PROJECT:
-            target_status = self._get_target_status_from_waldur_state(
-                waldur_resource.state
-            )
+            target_status = get_target_status_from_waldur_state(waldur_resource.state)
             project_slug = waldur_resource.project_slug or "unknown"
 
             unix_gid = self._get_project_unix_gid(project_slug)
@@ -272,9 +266,7 @@ class CscsHpcStorageBackend:
                 active=target_status == TargetStatus.ACTIVE,
             )
         if target_type == TargetType.USER:
-            target_status = self._get_target_status_from_waldur_state(
-                waldur_resource.state
-            )
+            target_status = get_target_status_from_waldur_state(waldur_resource.state)
             project_slug = waldur_resource.project_slug or "default-project"
 
             # TODO: Just a placeholder, for user a default gid would be needed, which could be
@@ -379,7 +371,7 @@ class CscsHpcStorageBackend:
         )
 
         # Get status from waldur resource state
-        cscs_status = self._get_target_status_from_waldur_state(waldur_resource.state)
+        cscs_status = get_target_status_from_waldur_state(waldur_resource.state)
 
         logger.debug(
             "Mapped waldur state '%s' to CSCS status '%s'",
