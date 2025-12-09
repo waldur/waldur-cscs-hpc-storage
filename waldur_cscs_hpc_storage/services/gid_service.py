@@ -7,6 +7,7 @@ from typing import Any, Optional
 import httpx
 
 from waldur_cscs_hpc_storage.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.exceptions import ConfigurationError, HpcUserApiClientError
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,11 @@ class GidService:
             api_config: Configuration object for HPC User API
         """
         if not api_config.api_url:
-            raise ValueError("api_url is required via HpcUserApiConfig")
+            raise ConfigurationError("api_url is required via HpcUserApiConfig")
         if not api_config.client_id:
-            raise ValueError("client_id is required via HpcUserApiConfig")
+            raise ConfigurationError("client_id is required via HpcUserApiConfig")
         if not api_config.client_secret:
-            raise ValueError("client_secret is required via HpcUserApiConfig")
+            raise ConfigurationError("client_secret is required via HpcUserApiConfig")
 
         self.api_url = api_config.api_url.rstrip("/")
         self.client_id = api_config.client_id
@@ -75,7 +76,7 @@ class GidService:
                 "Set 'hpc_user_oidc_token_url' in backend_config for production use."
             )
             logger.error(error_msg)
-            raise ValueError(error_msg)
+            raise ConfigurationError(error_msg)
 
         # Request new token from OIDC provider
         return await self._acquire_oidc_token()
@@ -112,17 +113,22 @@ class GidService:
             )
 
         async with httpx.AsyncClient(**client_args) as client:
-            response = await client.post(
-                self.oidc_token_url, data=token_data, headers=headers
-            )
-            response.raise_for_status()
-            token_response = response.json()
+            try:
+                response = await client.post(
+                    self.oidc_token_url, data=token_data, headers=headers
+                )
+                response.raise_for_status()
+                token_response = response.json()
+            except httpx.HTTPError as e:
+                msg = f"Failed to acquire OIDC token from {self.oidc_token_url}"
+                logger.error(msg)
+                raise HpcUserApiClientError(msg, original_error=e) from e
 
             # Extract token and expiry information
             access_token = token_response.get("access_token")
             if not access_token:
                 msg = f"No access_token in OIDC response: {token_response}"
-                raise ValueError(msg)
+                raise HpcUserApiClientError(msg)
 
             # Calculate token expiry time
             expires_in = token_response.get("expires_in", 3600)  # Default to 1 hour
@@ -173,9 +179,14 @@ class GidService:
             logger.debug("Using SOCKS proxy for API request: %s", self.socks_proxy)
 
         async with httpx.AsyncClient(**client_args) as client:
-            response = await client.get(url, params=params, headers=headers)
-            response.raise_for_status()
-            return response.json()["projects"]
+            try:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                return response.json()["projects"]
+            except httpx.HTTPError as e:
+                msg = f"Failed to fetch projects from {url}"
+                logger.error(msg)
+                raise HpcUserApiClientError(msg, original_error=e) from e
 
     def _generate_mock_gid(self, project_slug: str) -> int:
         """Generate a deterministic mock GID for development/testing.
@@ -231,9 +242,15 @@ class GidService:
                 "Project %s not found in HPC User API response", project_slug
             )
             return self._handle_lookup_failure(project_slug, "project not found")
-        except Exception:
-            logger.exception("Failed to fetch unixGid for project %s", project_slug)
-            return self._handle_lookup_failure(project_slug, "API error")
+        except HpcUserApiClientError:
+            raise
+        except Exception as e:
+            logger.exception(
+                "Unexpected error fetching unixGid for project %s", project_slug
+            )
+            raise HpcUserApiClientError(
+                f"Unexpected error: {e}", original_error=e
+            ) from e
 
     def _handle_lookup_failure(self, project_slug: str, reason: str) -> Optional[int]:
         """Handle GID lookup failure based on development mode.

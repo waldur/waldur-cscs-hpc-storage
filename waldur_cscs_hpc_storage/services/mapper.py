@@ -36,6 +36,10 @@ from waldur_cscs_hpc_storage.base.target_ids import (
     generate_user_target_id,
 )
 from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.exceptions import (
+    MissingIdentityError,
+    ResourceProcessingError,
+)
 from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 
@@ -70,7 +74,7 @@ class ResourceMapper:
         waldur_resource: ParsedWaldurResource,
         storage_system: str,
         parent_item_id: Optional[str] = None,
-    ) -> Optional[StorageResource]:
+    ) -> StorageResource:
         """
         Transform a parsed Waldur resource into a StorageResource.
 
@@ -94,13 +98,15 @@ class ResourceMapper:
 
         # 2. Build the Target Item (Project, User, etc.)
         # This step involves GID lookups and might return None if they fail.
+        # 2. Build the Target Item (Project, User, etc.)
+        # This step involves GID lookups and might raise MissingIdentityError
         target_item = await self._build_target_item(waldur_resource, target_type)
-        if target_item is None:
-            logger.warning(
-                "Skipping resource %s: Failed to build target item (likely missing GID)",
-                resource_uuid,
+
+        if not target_item:
+            # Should be unreachable if build_target_item always returns item or raises
+            raise ResourceProcessingError(
+                f"Failed to build target item for resource {resource_uuid}"
             )
-            return None
 
         target = Target(targetType=target_type, targetItem=target_item)
 
@@ -209,7 +215,7 @@ class ResourceMapper:
         unix_gid = await self.gid_service.get_project_unix_gid(project_slug)
         if unix_gid is None:
             # If GID lookup fails in production, we cannot provision this resource.
-            return None
+            raise MissingIdentityError(waldur_resource.uuid, f"gid for {project_slug}")
 
         return ProjectTargetItem(
             itemId=generate_project_target_id(waldur_resource.slug),
@@ -234,9 +240,10 @@ class ResourceMapper:
         project_slug = waldur_resource.project_slug or "default-project"
 
         # Lookup Primary Project GID
+        # Lookup Primary Project GID
         unix_gid = await self.gid_service.get_project_unix_gid(project_slug)
         if unix_gid is None:
-            return None
+            raise MissingIdentityError(waldur_resource.uuid, f"gid for {project_slug}")
 
         # Placeholder logic from original backend.py
         # TODO: Implement actual User UID lookup logic if an API becomes available

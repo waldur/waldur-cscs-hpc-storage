@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, Mock, patch
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
+from waldur_cscs_hpc_storage.exceptions import WaldurClientError
 
 
 class TestWaldurService:
@@ -61,9 +62,8 @@ class TestWaldurService:
     async def test_get_offering_customers_error(self, mock_list, service):
         mock_list.asyncio_all = AsyncMock(side_effect=Exception("API Error"))
 
-        customers = await service.get_offering_customers("offering-uuid")
-
-        assert customers == {}
+        with pytest.raises(WaldurClientError):
+            await service.get_offering_customers("offering-uuid")
 
     @pytest.mark.asyncio
     @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")

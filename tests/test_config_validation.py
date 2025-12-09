@@ -2,6 +2,7 @@
 
 import pytest
 from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.exceptions import ConfigurationError
 
 
 class TestBackendConfigValidation:
@@ -24,21 +25,21 @@ class TestBackendConfigValidation:
         # Non-numeric
         config = BackendConfig(inode_soft_coefficient="invalid")
         with pytest.raises(
-            ValueError, match="inode_soft_coefficient must be a positive number"
+            ConfigurationError, match="inode_soft_coefficient must be a positive number"
         ):
             config.validate()
 
         # Negative
         config = BackendConfig(inode_soft_coefficient=-1.0)
         with pytest.raises(
-            ValueError, match="inode_soft_coefficient must be a positive number"
+            ConfigurationError, match="inode_soft_coefficient must be a positive number"
         ):
             config.validate()
 
         # Zero
         config = BackendConfig(inode_soft_coefficient=0)
         with pytest.raises(
-            ValueError, match="inode_soft_coefficient must be a positive number"
+            ConfigurationError, match="inode_soft_coefficient must be a positive number"
         ):
             config.validate()
 
@@ -47,21 +48,21 @@ class TestBackendConfigValidation:
         # Non-numeric
         config = BackendConfig(inode_hard_coefficient="invalid")
         with pytest.raises(
-            ValueError, match="inode_hard_coefficient must be a positive number"
+            ConfigurationError, match="inode_hard_coefficient must be a positive number"
         ):
             config.validate()
 
         # Negative
         config = BackendConfig(inode_hard_coefficient=-1.0)
         with pytest.raises(
-            ValueError, match="inode_hard_coefficient must be a positive number"
+            ConfigurationError, match="inode_hard_coefficient must be a positive number"
         ):
             config.validate()
 
         # Zero
         config = BackendConfig(inode_hard_coefficient=0)
         with pytest.raises(
-            ValueError, match="inode_hard_coefficient must be a positive number"
+            ConfigurationError, match="inode_hard_coefficient must be a positive number"
         ):
             config.validate()
 
@@ -72,7 +73,7 @@ class TestBackendConfigValidation:
             inode_hard_coefficient=1.5,
         )
         with pytest.raises(
-            ValueError, match="inode_hard_coefficient .* must be greater than"
+            ConfigurationError, match="inode_hard_coefficient .* must be greater than"
         ):
             config.validate()
 
@@ -81,21 +82,21 @@ class TestBackendConfigValidation:
         # Non-string
         config = BackendConfig(storage_file_system=123)
         with pytest.raises(
-            ValueError, match="storage_file_system must be a non-empty string"
+            ConfigurationError, match="storage_file_system must be a non-empty string"
         ):
             config.validate()
 
         # Empty string
         config = BackendConfig(storage_file_system="")
         with pytest.raises(
-            ValueError, match="storage_file_system must be a non-empty string"
+            ConfigurationError, match="storage_file_system must be a non-empty string"
         ):
             config.validate()
 
         # Whitespace string
         config = BackendConfig(storage_file_system="   ")
         with pytest.raises(
-            ValueError, match="storage_file_system must be a non-empty string"
+            ConfigurationError, match="storage_file_system must be a non-empty string"
         ):
             config.validate()
 
@@ -104,13 +105,13 @@ class TestBackendConfigValidation:
         # Non-numeric
         config = BackendConfig(inode_base_multiplier="invalid")
         with pytest.raises(
-            ValueError, match="inode_base_multiplier must be a positive number"
+            ConfigurationError, match="inode_base_multiplier must be a positive number"
         ):
             config.validate()
 
         # Negative
         config = BackendConfig(inode_base_multiplier=-1)
         with pytest.raises(
-            ValueError, match="inode_base_multiplier must be a positive number"
+            ConfigurationError, match="inode_base_multiplier must be a positive number"
         ):
             config.validate()

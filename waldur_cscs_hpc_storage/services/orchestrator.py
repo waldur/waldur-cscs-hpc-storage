@@ -7,6 +7,7 @@ from waldur_cscs_hpc_storage.base.enums import StorageDataType, TargetStatus
 from waldur_cscs_hpc_storage.base.models import StorageResource
 from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
 from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
@@ -205,7 +206,7 @@ class StorageOrchestrator:
                 if mapped_resource:
                     project_resources.append(mapped_resource)
 
-            except Exception as e:
+            except ResourceProcessingError as e:
                 logger.warning(
                     "Skipping resource %s due to processing error: %s",
                     resource.uuid,

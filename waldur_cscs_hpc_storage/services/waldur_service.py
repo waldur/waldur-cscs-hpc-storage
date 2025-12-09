@@ -11,6 +11,7 @@ from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
+from waldur_cscs_hpc_storage.exceptions import WaldurClientError
 from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo
 
 logger = logging.getLogger(__name__)
@@ -63,29 +64,27 @@ class WaldurService:
             response = await marketplace_provider_offerings_customers_list.asyncio_all(
                 uuid=offering_uuid, client=self.client
             )
-
-            if not response.parsed:
-                logger.warning("No customers found for offering %s", offering_uuid)
-                return {}
-
-            customers = {}
-            for customer in response.parsed:
-                customers[customer.slug] = CustomerInfo(
-                    itemId=customer.uuid.hex,
-                    key=customer.slug,
-                    name=customer.name,
-                )
-
-            logger.debug(
-                "Found %d customers for offering %s", len(customers), offering_uuid
-            )
-            return customers
-
         except Exception as e:
-            logger.error(
-                "Failed to fetch customers for offering %s: %s", offering_uuid, e
-            )
+            msg = f"Failed to fetch customers for offering {offering_uuid}"
+            logger.exception(msg)
+            raise WaldurClientError(msg, original_error=e) from e
+
+        if not response.parsed:
+            logger.warning("No customers found for offering %s", offering_uuid)
             return {}
+
+        customers = {}
+        for customer in response.parsed:
+            customers[customer.slug] = CustomerInfo(
+                itemId=customer.uuid.hex,
+                key=customer.slug,
+                name=customer.name,
+            )
+
+        logger.debug(
+            "Found %d customers for offering %s", len(customers), offering_uuid
+        )
+        return customers
 
     async def list_resources(
         self,

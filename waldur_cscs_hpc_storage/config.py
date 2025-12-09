@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 import yaml
+from waldur_cscs_hpc_storage.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
@@ -65,35 +66,35 @@ class BackendConfig:
             or self.inode_soft_coefficient <= 0
         ):
             msg = "inode_soft_coefficient must be a positive number"
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
 
         if (
             not isinstance(self.inode_hard_coefficient, (int, float))
             or self.inode_hard_coefficient <= 0
         ):
             msg = "inode_hard_coefficient must be a positive number"
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
 
         if self.inode_hard_coefficient < self.inode_soft_coefficient:
             msg = (
                 f"inode_hard_coefficient {self.inode_hard_coefficient} must be greater than "
                 f"inode_soft_coefficient {self.inode_soft_coefficient}"
             )
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
 
         if (
             not isinstance(self.storage_file_system, str)
             or not self.storage_file_system.strip()
         ):
             msg = "storage_file_system must be a non-empty string"
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
 
         if (
             not isinstance(self.inode_base_multiplier, (int, float))
             or self.inode_base_multiplier <= 0
         ):
             msg = "inode_base_multiplier must be a positive number"
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
 
 
 @dataclass(frozen=True)
@@ -115,7 +116,7 @@ class StorageProxyConfig:
         """Load configuration from YAML file."""
         config_path = Path(config_path)
         if not config_path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+            raise ConfigurationError(f"Configuration file not found: {config_path}")
 
         with config_path.open() as f:
             data = yaml.safe_load(f)
@@ -193,10 +194,10 @@ class StorageProxyConfig:
         """Validate the configuration."""
         if not self.waldur_api:
             msg = "waldur_api configuration is required (waldur_api_url and waldur_api_token)"
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
         if not self.storage_systems:
             msg = "At least one storage_system mapping is required"
-            raise ValueError(msg)
+            raise ConfigurationError(msg)
 
         logger.info("Configuration validated successfully")
         logger.info("  Waldur API URL: %s", self.waldur_api.api_url)

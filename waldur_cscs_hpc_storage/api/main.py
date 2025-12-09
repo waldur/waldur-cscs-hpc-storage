@@ -16,8 +16,18 @@ from waldur_cscs_hpc_storage.api.dependencies import (
     set_global_config,
 )
 from waldur_cscs_hpc_storage.api.handlers import (
+    configuration_error_handler,
     general_exception_handler,
+    resource_processing_error_handler,
+    storage_proxy_error_handler,
+    upstream_service_error_handler,
     validation_exception_handler,
+)
+from waldur_cscs_hpc_storage.exceptions import (
+    ConfigurationError,
+    ResourceProcessingError,
+    StorageProxyError,
+    UpstreamServiceError,
 )
 from waldur_cscs_hpc_storage.base.enums import (
     StorageDataType,
@@ -37,6 +47,10 @@ app = FastAPI(redirect_slashes=True)
 
 
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(UpstreamServiceError, upstream_service_error_handler)
+app.add_exception_handler(ResourceProcessingError, resource_processing_error_handler)
+app.add_exception_handler(ConfigurationError, configuration_error_handler)
+app.add_exception_handler(StorageProxyError, storage_proxy_error_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 
@@ -132,7 +146,9 @@ async def storage_resources(
     )
 
     # Return appropriate HTTP status code based on response status
+    # Note: Exceptions are now handled by global exception handlers
     if storage_data.get("status") == "error":
+        # Keep this for backward compatibility if any service still returns dict error
         return JSONResponse(
             content=storage_data, status_code=storage_data.get("code", 500)
         )

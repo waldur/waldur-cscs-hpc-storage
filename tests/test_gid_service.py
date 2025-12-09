@@ -8,6 +8,7 @@ import pytest
 
 from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.exceptions import ConfigurationError, HpcUserApiClientError
 
 
 class TestGidService:
@@ -115,7 +116,9 @@ class TestGidService:
         mock_client_instance.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client_instance
 
-        with pytest.raises(ValueError, match="No access_token in OIDC response"):
+        with pytest.raises(
+            HpcUserApiClientError, match="No access_token in OIDC response"
+        ):
             await gid_service._acquire_oidc_token()
 
     @pytest.mark.asyncio
@@ -131,7 +134,7 @@ class TestGidService:
         mock_client_instance.post.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client_instance
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(HpcUserApiClientError):
             await gid_service._acquire_oidc_token()
 
     @pytest.mark.asyncio
@@ -145,7 +148,9 @@ class TestGidService:
         )
         client = GidService(config)
 
-        with pytest.raises(ValueError, match="hpc_user_oidc_token_url not configured"):
+        with pytest.raises(
+            ConfigurationError, match="hpc_user_oidc_token_url not configured"
+        ):
             await client._get_auth_token()
 
     @pytest.mark.asyncio
@@ -306,7 +311,7 @@ class TestGidService:
         # Mock API response with different project
         mock_response = Mock()
         mock_response.json.return_value = {
-            "response": [
+            "projects": [
                 {
                     "posixName": "other_project",
                     "unixGid": 30099,
@@ -344,9 +349,8 @@ class TestGidService:
         mock_client_instance.get.return_value = mock_response
         mock_client_class.return_value.__aenter__.return_value = mock_client_instance
 
-        result = await gid_service.get_project_unix_gid("project1")
-
-        assert result is None
+        with pytest.raises(HpcUserApiClientError):
+            await gid_service.get_project_unix_gid("project1")
 
     @pytest.mark.asyncio
     @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.AsyncClient")
