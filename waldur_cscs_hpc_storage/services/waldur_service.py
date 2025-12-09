@@ -112,7 +112,7 @@ class WaldurService:
         """
         filters = {}
         if state:
-            filters["state"] = state
+            filters["state"] = [state]
 
         if offering_uuid:
             # The API client expects a list for offering_uuid

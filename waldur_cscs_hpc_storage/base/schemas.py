@@ -183,7 +183,7 @@ class ParsedWaldurResource(BaseModel):
             and ResourceAttributes(**resource.attributes.additional_properties)
             or ResourceAttributes(),
             options=resource.options
-            and ResourceOptions(**resource.options.additional_properties)
+            and ResourceOptions(**resource.options)
             or ResourceOptions(),
             backend_metadata=resource.backend_metadata
             and ResourceBackendMetadata(
