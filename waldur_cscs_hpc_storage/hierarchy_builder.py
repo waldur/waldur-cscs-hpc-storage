@@ -1,6 +1,7 @@
 """HierarchyBuilder: Manages the structural hierarchy (Tenants, Customers) for storage resources."""
 
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
 from waldur_cscs_hpc_storage.base.enums import TargetStatus, TargetType
@@ -26,6 +27,13 @@ from waldur_cscs_hpc_storage.base.target_ids import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class CustomerInfo:
+    key: str
+    itemId: str = ""
+    name: str = ""
 
 
 class HierarchyBuilder:
@@ -158,7 +166,7 @@ class HierarchyBuilder:
 
     def get_or_create_customer(
         self,
-        customer_info: dict,
+        customer_info: CustomerInfo,
         storage_system: str,
         storage_data_type: str,
         tenant_id: str,
@@ -170,7 +178,7 @@ class HierarchyBuilder:
         Otherwise, creates a new customer resource linked to the parent tenant.
 
         Args:
-            customer_info: Dictionary with 'itemId', 'key', and 'name' fields
+            customer_info: CustomerInfo object with 'itemId', 'key', and 'name' fields
             storage_system: Storage system name
             storage_data_type: Data type
             tenant_id: The parent tenant identifier
@@ -179,7 +187,7 @@ class HierarchyBuilder:
         Returns:
             The itemId of the customer entry, or None if customer_info is invalid
         """
-        customer_slug = customer_info.get("key")
+        customer_slug = customer_info.key
         if not customer_slug:
             logger.warning("Customer info missing 'key' field: %s", customer_info)
             return None
@@ -206,7 +214,7 @@ class HierarchyBuilder:
             data_type=storage_data_type,
         )
 
-        customer_item_id = customer_info.get("itemId", "")
+        customer_item_id = customer_info.itemId
         status = TargetStatus.ACTIVE if active else TargetStatus.PENDING
 
         customer_resource = StorageResource(
@@ -220,7 +228,7 @@ class HierarchyBuilder:
                 targetItem=CustomerTargetItem(
                     itemId=customer_item_id,
                     key=customer_slug,
-                    name=customer_info.get("name", ""),
+                    name=customer_info.name,
                 ),
             ),
             storageSystem=StorageItem(

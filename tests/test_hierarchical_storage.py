@@ -18,7 +18,8 @@ from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_poin
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
 )
-from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
+
+from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo, HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
@@ -255,12 +256,11 @@ class TestCustomerLevelGeneration:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {
-            "itemId": str(uuid4()),
-            "key": "mch",
-            "name": "MCH",
-            "uuid": str(uuid4()),
-        }
+        customer_info = CustomerInfo(
+            itemId=str(uuid4()),
+            key="mch",
+            name="MCH",
+        )
 
         hierarchy_builder.get_or_create_customer(
             customer_info=customer_info,
@@ -275,12 +275,12 @@ class TestCustomerLevelGeneration:
 
         # Verify structure
         assert result.target.targetType == "customer"
-        assert result.target.targetItem.key == customer_info["key"]
-        assert result.target.targetItem.name == customer_info["name"]
+        assert result.target.targetItem.key == customer_info.key
+        assert result.target.targetItem.name == customer_info.name
 
         # Verify mount point
         expected_path = (
-            f"/{storage_system}/{storage_data_type}/{tenant_id}/{customer_info['key']}"
+            f"/{storage_system}/{storage_data_type}/{tenant_id}/{customer_info.key}"
         )
         assert result.mountPoint.default == expected_path
 
@@ -296,12 +296,11 @@ class TestCustomerLevelGeneration:
     def test_customer_without_parent_tenant(self, hierarchy_builder):
         """Test creating a customer-level resource without parent (legacy mode)."""
         # Create customer without creating tenant first
-        customer_info = {
-            "itemId": str(uuid4()),
-            "key": "eth",
-            "name": "ETH",
-            "uuid": str(uuid4()),
-        }
+        customer_info = CustomerInfo(
+            itemId=str(uuid4()),
+            key="eth",
+            name="ETH",
+        )
 
         hierarchy_builder.get_or_create_customer(
             customer_info=customer_info,
@@ -378,18 +377,16 @@ class TestThreeTierHierarchyGeneration:
         """Test creating a complete three-tier hierarchy from resources."""
         # Mock customer data
         backend.waldur_service.get_offering_customers.return_value = {
-            "mch": {
-                "itemId": "customer-mch-id",
-                "key": "mch",
-                "name": "MCH",
-                "uuid": "customer-mch-uuid",
-            },
-            "eth": {
-                "itemId": "customer-eth-id",
-                "key": "eth",
-                "name": "ETH",
-                "uuid": "customer-eth-uuid",
-            },
+            "mch": CustomerInfo(
+                itemId="customer-mch-id",
+                key="mch",
+                name="MCH",
+            ),
+            "eth": CustomerInfo(
+                itemId="customer-eth-id",
+                key="eth",
+                name="ETH",
+            ),
         }
 
         # Create mock resources
@@ -557,12 +554,11 @@ class TestHierarchyFiltering:
         )
 
         builder_store.get_or_create_customer(
-            customer_info={
-                "itemId": "cust1",
-                "key": "mch",
-                "name": "MCH",
-                "uuid": "cust1",
-            },
+            customer_info=CustomerInfo(
+                itemId="cust1",
+                key="mch",
+                name="MCH",
+            ),
             storage_system="capstor",
             storage_data_type="store",
             tenant_id="cscs",
@@ -577,12 +573,11 @@ class TestHierarchyFiltering:
         )
 
         builder_scratch.get_or_create_customer(
-            customer_info={
-                "itemId": "cust2",
-                "key": "eth",
-                "name": "ETH",
-                "uuid": "cust2",
-            },
+            customer_info=CustomerInfo(
+                itemId="cust2",
+                key="eth",
+                name="ETH",
+            ),
             storage_system="capstor",
             storage_data_type="scratch",
             tenant_id="cscs",
@@ -679,12 +674,11 @@ class TestEdgeCases:
         # Create the same customer multiple times
         for _ in range(3):
             hierarchy_builder.get_or_create_customer(
-                customer_info={
-                    "itemId": "cust1",
-                    "key": "mch",
-                    "name": "MCH",
-                    "uuid": "cust1",
-                },
+                customer_info=CustomerInfo(
+                    itemId="cust1",
+                    key="mch",
+                    name="MCH",
+                ),
                 storage_system="capstor",
                 storage_data_type="store",
                 tenant_id="cscs",
@@ -702,12 +696,11 @@ class TestIntegrationScenarios:
     async def test_multi_storage_system_hierarchy(self, backend):
         """Test hierarchy with multiple storage systems."""
         backend.waldur_service.get_offering_customers.return_value = {
-            "customer1": {
-                "itemId": "c1",
-                "key": "customer1",
-                "name": "Customer 1",
-                "uuid": "c1",
-            },
+            "customer1": CustomerInfo(
+                itemId="c1",
+                key="customer1",
+                name="Customer 1",
+            ),
         }
 
         # Create resources across different storage systems
@@ -749,10 +742,11 @@ class TestIntegrationScenarios:
             )
 
             # Create customer
+            customer_info = backend.waldur_service.get_offering_customers.return_value[
+                "customer1"
+            ]
             hierarchy_builder.get_or_create_customer(
-                customer_info=backend.waldur_service.get_offering_customers.return_value[
-                    "customer1"
-                ],
+                customer_info=customer_info,
                 storage_system=storage_system,
                 storage_data_type=data_type,
                 tenant_id=tenant_id,

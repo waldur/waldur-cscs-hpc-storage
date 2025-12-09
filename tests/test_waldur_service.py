@@ -34,8 +34,9 @@ class TestWaldurService:
         customers = await service.get_offering_customers("offering-uuid")
 
         assert len(customers) == 1
-        assert customers["customer-1"]["key"] == "customer-1"
-        assert customers["customer-1"]["uuid"] == "uuid-1"
+        assert len(customers) == 1
+        assert customers["customer-1"].key == "customer-1"
+        assert customers["customer-1"].itemId == "uuid-1"
         mock_list.asyncio_all.assert_called_once_with(
             uuid="offering-uuid", client=service.client
         )

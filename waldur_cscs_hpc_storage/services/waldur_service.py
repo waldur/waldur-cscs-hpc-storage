@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 from waldur_api_client import AuthenticatedClient
 from waldur_api_client.api.marketplace_provider_offerings import (
@@ -11,6 +11,7 @@ from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
+from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +50,14 @@ class WaldurService:
 
     async def get_offering_customers(
         self, offering_uuid: str
-    ) -> dict[str, dict[str, Any]]:
+    ) -> dict[str, CustomerInfo]:
         """Get customers for a specific offering.
 
         Args:
             offering_uuid: UUID of the offering
 
         Returns:
-            Dictionary mapping customer slugs to customer information
+            Dictionary mapping customer slugs to CustomerInfo objects
         """
         try:
             response = await marketplace_provider_offerings_customers_list.asyncio_all(
@@ -69,12 +70,11 @@ class WaldurService:
 
             customers = {}
             for customer in response.parsed:
-                customers[customer.slug] = {
-                    "itemId": customer.uuid.hex,
-                    "key": customer.slug,
-                    "name": customer.name,
-                    "uuid": customer.uuid.hex,
-                }
+                customers[customer.slug] = CustomerInfo(
+                    itemId=customer.uuid.hex,
+                    key=customer.slug,
+                    name=customer.name,
+                )
 
             logger.debug(
                 "Found %d customers for offering %s", len(customers), offering_uuid

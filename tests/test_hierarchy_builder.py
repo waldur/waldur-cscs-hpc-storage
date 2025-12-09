@@ -2,7 +2,7 @@
 
 import pytest
 
-from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
+from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo, HierarchyBuilder
 from waldur_cscs_hpc_storage.base.enums import TargetStatus, TargetType
 from waldur_cscs_hpc_storage.base.models import StorageResource, MountPoint, Permission
 
@@ -96,11 +96,11 @@ class TestHierarchyBuilder:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {
-            "itemId": "customer-uuid-123",
-            "key": "ethz",
-            "name": "ETH Zurich",
-        }
+        customer_info = CustomerInfo(
+            itemId="customer-uuid-123",
+            key="ethz",
+            name="ETH Zurich",
+        )
 
         customer_id = builder.get_or_create_customer(
             customer_info=customer_info,
@@ -131,11 +131,11 @@ class TestHierarchyBuilder:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {
-            "itemId": "customer-uuid-123",
-            "key": "ethz",
-            "name": "ETH Zurich",
-        }
+        customer_info = CustomerInfo(
+            itemId="customer-uuid-123",
+            key="ethz",
+            name="ETH Zurich",
+        )
 
         customer_id_1 = builder.get_or_create_customer(
             customer_info=customer_info,
@@ -145,11 +145,11 @@ class TestHierarchyBuilder:
         )
 
         customer_id_2 = builder.get_or_create_customer(
-            customer_info={
-                "itemId": "different-uuid",
-                "key": "ethz",
-                "name": "Different",
-            },
+            customer_info=CustomerInfo(
+                itemId="different-uuid",
+                key="ethz",
+                name="Different",
+            ),
             storage_system="capstor",
             storage_data_type="store",
             tenant_id="cscs",
@@ -169,7 +169,9 @@ class TestHierarchyBuilder:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {"itemId": "customer-uuid", "name": "No Key Customer"}
+        customer_info = CustomerInfo(
+            itemId="customer-uuid", name="No Key Customer", key=""
+        )
 
         customer_id = builder.get_or_create_customer(
             customer_info=customer_info,
@@ -192,11 +194,11 @@ class TestHierarchyBuilder:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {
-            "itemId": "customer-uuid-123",
-            "key": "ethz",
-            "name": "ETH Zurich",
-        }
+        customer_info = CustomerInfo(
+            itemId="customer-uuid-123",
+            key="ethz",
+            name="ETH Zurich",
+        )
 
         builder.get_or_create_customer(
             customer_info=customer_info,
@@ -231,11 +233,11 @@ class TestHierarchyBuilder:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {
-            "itemId": "customer-uuid-123",
-            "key": "ethz",
-            "name": "ETH Zurich",
-        }
+        customer_info = CustomerInfo(
+            itemId="customer-uuid-123",
+            key="ethz",
+            name="ETH Zurich",
+        )
 
         builder.get_or_create_customer(
             customer_info=customer_info,
@@ -337,11 +339,11 @@ class TestHierarchyBuilder:
             offering_uuid="tenant-uuid",
         )
 
-        customer_info = {
-            "itemId": "customer-uuid",
-            "key": "ethz",
-            "name": "ETH",
-        }
+        customer_info = CustomerInfo(
+            itemId="customer-uuid",
+            key="ethz",
+            name="ETH",
+        )
         builder.get_or_create_customer(
             customer_info=customer_info,
             storage_system="capstor",
