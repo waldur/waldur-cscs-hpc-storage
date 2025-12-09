@@ -599,24 +599,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_limits.storage = 50
         mock_resource.limits = mock_limits
 
-        # Test with invalidated attributes (should raise ValidationError)
-        # However, backend now takes ParsedWaldurResource. If we pass a Mock that simulates it but violates internal type checks of logic?
-        # Actually, backend assumes `waldur_resource` IS validated.
-        # But `_create_storage_resource_json` does not re-validate.
-        # So this test checks if invalid data *in the model* raises error?
-        # But the model is parsed *before* passing to backend methods.
-        # The test originally checked that `_create_storage_resource_json` failed when it did validation.
-        # Now validation is done upstream.
-        # So we should probably test `from_waldur_resource` in `test_schemas.py` or similar.
-        # BUT `_create_storage_resource_json` uses `waldur_resource.attributes.permissions` etc.
-        # If we pass a mock for ParsedWaldurResource, it has whatever we give it.
-        # The TypeErrors/ValidationErrors in backend were from `_parse_resource_configuration`.
-        # Since that is gone, `_create_storage_resource_json` just reads from the object.
-        # So this test is no longer relevant for `backend.py` unless we are testing `WaldurService` parsing or `ParsedWaldurResource` validation.
-        # We can simulate `ParsedWaldurResource` with invalid data if we manually construct it?
-        # But `ParsedWaldurResource` validates on init.
-        # So let's construct `ParsedWaldurResource` with bad data to see it fail.
-
         with pytest.raises(ValidationError):
             # Manually triggering validation by creating model with bad data
             ResourceAttributes(permissions=["775", "770"])  # type: ignore
@@ -675,27 +657,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
             assert result.status == expected_status, (
                 f"State '{waldur_state}' should map to '{expected_status}'"
             )
-
-    def test_error_handling_returns_error_status(self):
-        """Test that errors return proper error status and code 500."""
-        backend = self._create_backend()
-
-        # Mock the list_resources to raise an exception
-        self.backend.waldur_service.list_resources.side_effect = Exception(
-            "API connection failed"
-        )
-
-        # Test that generate_all_resources_json returns error response
-        result = backend.generate_all_resources_json("test-offering-uuid")
-
-        # Verify error response structure
-        assert result["status"] == "error"
-        assert result["code"] == 500
-        assert "Failed to fetch storage resources" in result["message"]
-        assert result["result"]["storageResources"] == []
-        assert result["result"]["paginate"]["total"] == 0
-        assert result["result"]["paginate"]["current"] == 1
-        assert result["result"]["paginate"]["limit"] == 100
 
     def test_dynamic_target_type_mapping(self):
         """Test that storage data type correctly maps to target type."""

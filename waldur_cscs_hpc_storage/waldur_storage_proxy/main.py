@@ -1,7 +1,6 @@
 """API server used as proxy to Waldur storage resources."""
 
 from typing import Annotated, Optional
-import dataclasses
 import logging
 import os
 import sys
@@ -20,7 +19,6 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user, setup_auth
 from waldur_cscs_hpc_storage.enums import StorageSystem
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.sync_script import setup_logging
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     HpcUserApiConfig,
     StorageProxyConfig,
@@ -29,14 +27,17 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
 from waldur_cscs_hpc_storage.sentry_config import initialize_sentry, set_user_context
 
 
-# Check if debug mode is enabled via environment variable
+# Set up logging
 DEBUG_MODE = os.getenv("DEBUG", "false").lower() in ("true", "yes", "1")
-
-setup_logging(verbose=DEBUG_MODE)
+log_level = logging.DEBUG if DEBUG_MODE else logging.INFO
+logging.basicConfig(
+    level=log_level,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 
 if DEBUG_MODE:
     logger.info("Debug mode is enabled")
-    # Set debug level for the cscs backend logger
     cscs_logger = logging.getLogger(__name__)
     cscs_logger.setLevel(logging.DEBUG)
 
@@ -300,21 +301,17 @@ def storage_resources(
         Optional[str],
         Query(description="Optional: Status filter (pending/removing/active/error)"),
     ] = None,
-    debug: Annotated[
-        bool, Query(description="Enable debug mode to return raw Waldur data")
-    ] = False,
 ) -> JSONResponse:
     """Exposes list of all storage resources with pagination and filtering."""
     logger.info(
         "Processing request for user %s (page=%d, page_size=%d, storage_system=%s, "
-        "data_type=%s, status=%s, debug=%s)",
+        "data_type=%s, status=%s)",
         user.preferred_username,
         page,
         page_size,
         storage_system,
         data_type,
         status,
-        debug,
     )
 
     # Set Sentry user context for error tracking
@@ -352,57 +349,7 @@ def storage_resources(
             }
         )
 
-    # Handle debug mode - return raw Waldur data
-    if debug:
-        logger.info("Debug mode enabled - returning raw Waldur data")
-
-        # Prepare agent's configuration info
-        agent_config_info = {
-            "waldur_api_url": config.waldur_api.api_url if config.waldur_api else None,
-            "backend_config": dataclasses.asdict(config.backend_config),
-            "backend_components": config.backend_components,
-            "configured_storage_systems": config.storage_systems,
-            "requested_storage_system": storage_system.value
-            if storage_system
-            else None,
-            "resolved_offering_slug": config.storage_systems.get(storage_system.value)
-            if storage_system
-            else None,
-        }
-
-        # Get raw resources
-        if storage_system:
-            # Get raw resources for the specific storage_system
-            storage_system_offering_slug = config.storage_systems[storage_system.value]
-            debug_data = cscs_storage_backend.get_debug_resources_by_slugs(
-                offering_slugs=storage_system_offering_slug,
-                state=state,
-                page=page,
-                page_size=page_size,
-                data_type=data_type,
-                status=status,
-            )
-        else:
-            # Get raw resources from all storage systems
-            debug_data = cscs_storage_backend.get_debug_resources_by_slugs(
-                offering_slugs=list(config.storage_systems.values()),
-                state=state,
-                page=page,
-                page_size=page_size,
-                data_type=data_type,
-                status=status,
-            )
-
-        return JSONResponse(
-            content={
-                "status": "success",
-                "debug_mode": True,
-                "agent_config": agent_config_info,
-                "raw_resources": debug_data,
-            }
-        )
-
-    # Normal mode - translated API response
+    # Fetch and return translated API response
     if storage_system:
         # Fetch resources for the specific storage_system
         storage_system_offering_slug = config.storage_systems[storage_system.value]

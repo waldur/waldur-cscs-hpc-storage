@@ -1,11 +1,9 @@
 import logging
-from datetime import datetime
 from typing import Any, Optional, Sequence, Union
 
 from waldur_cscs_hpc_storage.gid_service import GidService
 from waldur_cscs_hpc_storage.waldur_service import WaldurService
 from waldur_api_client.models.resource_state import ResourceState
-from waldur_api_client.models.order_state import OrderState
 
 from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.enums import (
@@ -414,9 +412,6 @@ class CscsHpcStorageBackend:
             self.inode_hard_coefficient,
         )
 
-        # Extract permissions
-        permissions = waldur_resource.effective_permissions
-
         # Get storage data type
         storage_data_type = waldur_resource.attributes.storage_data_type
 
@@ -452,7 +447,7 @@ class CscsHpcStorageBackend:
             itemId=waldur_resource.uuid,
             status=cscs_status,
             mountPoint=MountPoint(default=mount_point),
-            permission=Permission(value=permissions),
+            permission=Permission(value=waldur_resource.effective_permissions),
             quotas=quotas,
             target=target_data,
             storageSystem=StorageItem(
@@ -703,54 +698,6 @@ class CscsHpcStorageBackend:
         except Exception as e:
             logger.error("Failed to fetch storage resources from Waldur API: %s", e)
             # Re-raise the exception to be handled by the caller
-            raise
-
-    def generate_all_resources_json(
-        self,
-        offering_uuid: str,
-    ) -> dict:
-        """Generate JSON data with all storage resources.
-
-        This method is used by the sync script to generate the all.json file.
-        It fetches all resources for the given offering without pagination or filtering.
-        """
-        try:
-            storage_resources, pagination_info = self._get_all_storage_resources(
-                offering_uuid,
-            )
-
-            # Serialize storage resources to dicts for JSON response
-            serialized_resources = [r.to_dict() for r in storage_resources]
-
-            return {
-                "status": "success",
-                "code": 200,
-                "meta": {"date": datetime.now().isoformat(), "appVersion": "1.4.0"},
-                "result": {
-                    "storageResources": serialized_resources,
-                    "paginate": pagination_info,
-                },
-            }
-
-        except Exception as e:
-            logger.error("Error generating storage resources JSON: %s", e)
-            # Return error response instead of empty results
-            return {
-                "status": "error",
-                "code": 500,
-                "meta": {"date": datetime.now().isoformat(), "appVersion": "1.4.0"},
-                "message": f"Failed to fetch storage resources: {e!s}",
-                "result": {
-                    "storageResources": [],
-                    "paginate": {
-                        "current": 1,
-                        "limit": 100,
-                        "offset": 0,
-                        "pages": 0,
-                        "total": 0,
-                    },
-                },
-            }
 
     def generate_all_resources_json_by_slugs(
         self,
@@ -816,112 +763,6 @@ class CscsHpcStorageBackend:
                 "status": "error",
                 "error": f"Failed to fetch storage resources: {e}",
                 "code": 500,
-            }
-
-    def get_debug_resources_by_slugs(
-        self,
-        offering_slugs: Union[str, list[str]],
-        state: Optional[ResourceState] = None,
-        page: int = 1,
-        page_size: int = 100,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-        storage_system_filter: Optional[str] = None,
-    ) -> dict:
-        """Get raw Waldur resources for debug mode without translation.
-
-        Args:
-            offering_slugs: Single offering slug or list of offering slugs.
-            state: Optional resource state filter.
-            page: Page number (1-based).
-            page_size: Number of items per page.
-            data_type: Optional data type filter.
-            status: Optional status filter.
-            storage_system_filter: Optional storage system filter.
-
-        Returns:
-            Dictionary with offering_details, resources, pagination, and filters_applied.
-        """
-        # Normalize to list for consistent handling
-        slugs_list = (
-            [offering_slugs] if isinstance(offering_slugs, str) else offering_slugs
-        )
-
-        try:
-            # Fetch raw resources filtered by offering slugs
-            filters = {}
-            if state:
-                filters["state"] = state
-
-            response = self.waldur_service.list_resources(
-                page=page,
-                page_size=page_size,
-                offering_slug=slugs_list,
-                **filters,
-            )
-
-            raw_resources = []
-            total_api_count = response.total_count
-
-            if response.resources:
-                for resource in response.resources:
-                    # Apply storage_system filter if provided
-                    if (
-                        storage_system_filter
-                        and resource.offering_slug != storage_system_filter
-                    ):
-                        continue
-
-                    # Apply additional filters
-                    if not self._resource_matches_filters(resource, data_type, status):
-                        continue
-
-                    try:
-                        raw_resources.append(self.serializer.serialize(resource))
-                    except Exception as e:
-                        resource_id = getattr(resource, "uuid", "unknown")
-                        logger.warning(
-                            "Failed to serialize resource %s: %s", resource_id, e
-                        )
-
-            pagination_info = {
-                "current": page,
-                "limit": page_size,
-                "offset": (page - 1) * page_size,
-                "pages": (len(raw_resources) + page_size - 1) // page_size
-                if raw_resources
-                else 0,
-                "total": len(raw_resources),
-                "api_total": total_api_count,
-            }
-
-            return {
-                "resources": raw_resources,
-                "pagination": pagination_info,
-                "filters_applied": {
-                    "offering_slugs": slugs_list,
-                    "storage_system": storage_system_filter,
-                    "data_type": data_type,
-                    "status": status,
-                    "state": state.value if state else None,
-                },
-            }
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch debug resources by slugs: %s", e, exc_info=True
-            )
-            return {
-                "error": f"Failed to fetch debug resources: {e}",
-                "offering_details": {},
-                "resources": [],
-                "pagination": {
-                    "current": page,
-                    "limit": page_size,
-                    "offset": (page - 1) * page_size,
-                    "pages": 0,
-                    "total": 0,
-                },
             }
 
     def _get_resources_by_offering_slugs(
@@ -1121,203 +962,6 @@ class CscsHpcStorageBackend:
         except Exception as e:
             logger.error(
                 "Failed to fetch storage resources by slugs: %s", e, exc_info=True
-            )
-            raise
-
-    def _get_resources_by_offering_slug(
-        self,
-        offering_slug: str,
-        state: Optional[ResourceState] = None,
-        page: int = 1,
-        page_size: int = 100,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> tuple[list[StorageResource], dict[str, Any]]:
-        """Fetch and process resources filtered by offering slug."""
-        try:
-            # Fetch resources with offering slug filter
-            filters = {}
-            if state:
-                filters["state"] = state
-
-            response = self.waldur_service.list_resources(
-                page=page,
-                page_size=page_size,
-                offering_slug=offering_slug,  # Filter by offering slug,
-                **filters,
-            )
-
-            if not response.resources:
-                return [], {
-                    "current": page,
-                    "limit": page_size,
-                    "offset": (page - 1) * page_size,
-                    "pages": 0,
-                    "total": 0,
-                }
-
-            resources = response.resources
-            # Extract pagination info from response
-            total_count = response.total_count
-
-            # Get offering customers for hierarchical resources
-            # Note: For slug-based lookup, we need to convert slug to UUID first
-            offering_uuid_for_customers = None
-            if resources:
-                # Get UUID from the first resource's offering_uuid field
-                first_resource = resources[0]
-                if first_resource.offering_uuid:
-                    offering_uuid_for_customers = first_resource.offering_uuid
-
-            offering_customers = {}
-            if offering_uuid_for_customers:
-                offering_customers = self.waldur_service.get_offering_customers(
-                    offering_uuid_for_customers
-                )
-
-            storage_resources = []
-            # Use HierarchyBuilder for hierarchy management
-            hierarchy_builder = HierarchyBuilder(self.storage_file_system)
-            processed_count = 0
-
-            logger.info(
-                "Processing resource %d/%d", processed_count + 1, len(resources)
-            )
-
-            for resource in resources:
-                processed_count += 1
-                logger.info(
-                    "Processing resource %d/%d", processed_count, len(resources)
-                )
-                logger.info("Resource %s / %s", resource.uuid, resource.name)
-
-                # Check transitional state and skip if order is not pending-provider on creation
-                if resource.state == ResourceState.CREATING:
-                    # For transitional resources, only process if order is in pending-provider state
-                    if resource.order_in_progress:
-                        # Check order state
-                        if resource.order_in_progress.state in [
-                            OrderState.PENDING_CONSUMER,
-                            OrderState.PENDING_PROJECT,
-                            OrderState.PENDING_START_DATE,
-                        ]:
-                            logger.info(
-                                "Skipping resource %s in transitional state (%s) - "
-                                "order state is %s, which is in early pending states",
-                                resource.uuid,
-                                resource.state,
-                                resource.order_in_progress.state,
-                            )
-                            continue
-
-                        # Display order URL for transitional resources with pending-provider order
-                        if resource.order_in_progress.url:
-                            logger.info(
-                                "Resource in transitional state (%s) with pending-provider order - "
-                                "Order URL: %s",
-                                resource.state,
-                                resource.order_in_progress.url,
-                            )
-                        else:
-                            # Log that URL field is not available
-                            logger.warning(
-                                "Resource in transitional state (%s) with pending-provider order "
-                                "but order URL not available",
-                                resource.state,
-                            )
-                    else:
-                        # No order in progress for transitional resource - skip it
-                        logger.info(
-                            "Skipping resource %s in transitional state (%s) - no order",
-                            resource.uuid,
-                            resource.state,
-                        )
-                        continue
-
-                try:
-                    storage_system_name = resource.offering_slug
-                    logger.debug(
-                        "Using storage_system from offering_slug: %s",
-                        storage_system_name,
-                    )
-
-                    # Get storage data type for the resource
-                    storage_data_type = resource.attributes.storage_data_type
-                    # Get tenant information
-                    tenant_id = resource.provider_slug
-                    tenant_name = resource.provider_name or tenant_id.upper()
-
-                    # Create tenant-level entry using HierarchyBuilder
-                    offering_uuid_str = resource.offering_uuid
-                    hierarchy_builder.get_or_create_tenant(
-                        tenant_id=tenant_id,
-                        tenant_name=tenant_name,
-                        storage_system=storage_system_name,
-                        storage_data_type=storage_data_type,
-                        offering_uuid=offering_uuid_str,
-                    )
-
-                    # Create customer-level entry if customer info is available
-                    if resource.customer_slug in offering_customers:
-                        customer_info = offering_customers[resource.customer_slug]
-                        hierarchy_builder.get_or_create_customer(
-                            customer_info=customer_info,
-                            storage_system=storage_system_name,
-                            storage_data_type=storage_data_type,
-                            tenant_id=tenant_id,
-                        )
-
-                    # Create project-level resource (the original resource)
-                    storage_resource = self._create_storage_resource_json(
-                        resource, storage_system_name
-                    )
-                    if storage_resource is not None:
-                        # Set parent reference using HierarchyBuilder
-                        hierarchy_builder.assign_parent_to_project(
-                            project_resource=storage_resource,
-                            customer_slug=resource.customer_slug,
-                            storage_system=storage_system_name,
-                            storage_data_type=storage_data_type,
-                        )
-
-                        storage_resources.append(storage_resource)
-
-                except Exception as e:
-                    logger.error(
-                        "Failed to process resource %s: %s",
-                        resource.uuid,
-                        e,
-                        exc_info=True,
-                    )
-
-            # Prepend hierarchy resources (tenants, customers) to the list
-            storage_resources = (
-                hierarchy_builder.get_hierarchy_resources() + storage_resources
-            )
-
-            # Apply additional filters (data_type, status) in memory
-            filtered_resources = self._apply_filters(  # type: ignore[arg-type]
-                storage_resources, offering_slug, data_type, status
-            )
-
-            # Update pagination info based on filtered results
-            filtered_count = len(filtered_resources)
-            pages = (filtered_count + page_size - 1) // page_size
-
-            pagination_info = {
-                "current": page,
-                "limit": page_size,
-                "offset": (page - 1) * page_size,
-                "pages": max(1, pages),
-                "total": filtered_count,
-                "raw_total_from_api": total_count,
-            }
-
-            return filtered_resources, pagination_info  # type: ignore[return-value]
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch storage resources by slug: %s", e, exc_info=True
             )
             raise
 

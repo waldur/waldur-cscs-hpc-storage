@@ -239,44 +239,6 @@ class TestStorageProxyAPI:
         assert call_args[1]["state"] == ResourceState(state)
 
     @patch("waldur_cscs_hpc_storage.waldur_storage_proxy.main.cscs_storage_backend")
-    def test_debug_mode_enabled(self, mock_backend):
-        """Test debug mode functionality."""
-        mock_backend.get_debug_resources_by_slugs.return_value = {
-            "raw_data": "debug_information",
-            "api_calls": [],
-        }
-
-        response = self.client.get("/api/storage-resources/?debug=true")
-        assert response.status_code == 200
-
-        data = response.json()
-        assert data["debug_mode"] is True
-        assert "agent_config" in data
-        assert "raw_resources" in data
-
-        # Verify debug method was called instead of regular method
-        mock_backend.get_debug_resources_by_slugs.assert_called_once()
-        mock_backend.generate_all_resources_json_by_slugs.assert_not_called()
-
-    @patch("waldur_cscs_hpc_storage.waldur_storage_proxy.main.cscs_storage_backend")
-    def test_debug_mode_with_storage_system(self, mock_backend):
-        """Test debug mode with specific storage system."""
-        mock_backend.get_debug_resources_by_slugs.return_value = {
-            "raw_data": "debug_information_for_capstor",
-            "api_calls": [],
-        }
-
-        response = self.client.get(
-            "/api/storage-resources/?storage_system=capstor&debug=true"
-        )
-        assert response.status_code == 200
-
-        # Verify debug method was called for specific storage system
-        mock_backend.get_debug_resources_by_slugs.assert_called_once()
-        call_args = mock_backend.get_debug_resources_by_slugs.call_args
-        assert call_args[1]["offering_slugs"] is not None
-
-    @patch("waldur_cscs_hpc_storage.waldur_storage_proxy.main.cscs_storage_backend")
     def test_backend_error_handling(self, mock_backend):
         """Test handling of backend errors."""
         # Mock backend error

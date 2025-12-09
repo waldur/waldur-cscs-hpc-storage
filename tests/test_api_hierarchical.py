@@ -263,7 +263,7 @@ class TestHierarchicalStorageAPI:
         "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_offering_customers"
     )
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slug"
+        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slugs"
     )
     def test_storage_system_filter_maintains_hierarchy(
         self,
