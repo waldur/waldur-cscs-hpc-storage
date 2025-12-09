@@ -31,22 +31,18 @@ from waldur_cscs_hpc_storage.models import (
     UserPrimaryProject,
     MountPoint,
 )
-from waldur_cscs_hpc_storage.mount_points import (
-    generate_customer_mount_point,
-    generate_project_mount_point,
-    generate_tenant_mount_point,
-)
+from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
 from waldur_cscs_hpc_storage.target_ids import (
     generate_customer_target_id,
     generate_project_target_id,
     generate_storage_data_type_target_id,
     generate_storage_filesystem_target_id,
     generate_storage_system_target_id,
-    generate_tenant_resource_id,
     generate_tenant_target_id,
     generate_user_target_id,
 )
 from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
+from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 
 from waldur_cscs_hpc_storage.serializers import JsonSerializer
 
@@ -479,123 +475,6 @@ class CscsHpcStorageBackend:
             extra_fields=waldur_resource.callback_urls,
         )
 
-    def _create_tenant_storage_resource_json(
-        self,
-        tenant_id: str,
-        tenant_name: str,
-        storage_system: str,
-        storage_data_type: str,
-        offering_uuid: Optional[str] = None,
-    ) -> StorageResource:
-        """Create JSON structure for a tenant-level storage resource."""
-        logger.debug("Creating tenant storage resource JSON for tenant %s", tenant_id)
-
-        # Generate tenant mount point
-        mount_point = generate_tenant_mount_point(
-            storage_system=storage_system,
-            tenant_id=tenant_id,
-            data_type=storage_data_type,
-        )
-
-        # Use offering UUID if provided, otherwise generate deterministic UUID
-        tenant_item_id = (
-            offering_uuid
-            if offering_uuid
-            else generate_tenant_resource_id(
-                tenant_id, storage_system, storage_data_type
-            )
-        )
-
-        return StorageResource(
-            itemId=tenant_item_id,
-            status=TargetStatus.PENDING,
-            mountPoint=MountPoint(default=mount_point),
-            permission=Permission(value="775"),
-            quotas=None,
-            target=Target(
-                targetType=TargetType.TENANT,
-                targetItem=TenantTargetItem(
-                    itemId=offering_uuid
-                    if offering_uuid
-                    else generate_tenant_target_id(tenant_id),
-                    key=tenant_id.lower(),
-                    name=tenant_name,
-                ),
-            ),
-            storageSystem=StorageItem(
-                itemId=generate_storage_system_target_id(storage_system),
-                key=storage_system.lower(),
-                name=storage_system.upper(),
-            ),
-            storageFileSystem=StorageItem(
-                itemId=generate_storage_filesystem_target_id(self.storage_file_system),
-                key=self.storage_file_system.lower(),
-                name=self.storage_file_system.upper(),
-            ),
-            storageDataType=StorageItem(
-                itemId=generate_storage_data_type_target_id(storage_data_type),
-                key=storage_data_type.lower(),
-                name=storage_data_type.upper(),
-                path=storage_data_type.lower(),
-            ),
-            parentItemId=None,
-        )
-
-    def _create_customer_storage_resource_json(
-        self,
-        customer_info: dict,
-        storage_system: str,
-        storage_data_type: str,
-        tenant_id: str,
-        parent_tenant_id: Optional[str] = None,
-    ) -> StorageResource:
-        """Create JSON structure for a customer-level storage resource."""
-        logger.debug(
-            "Creating customer storage resource JSON for customer %s",
-            customer_info["key"],
-        )
-
-        # Generate customer mount point
-        mount_point = generate_customer_mount_point(
-            storage_system=storage_system,
-            tenant_id=tenant_id,
-            customer=customer_info["key"],
-            data_type=storage_data_type,
-        )
-
-        return StorageResource(
-            itemId=customer_info["itemId"],
-            status=TargetStatus.PENDING,
-            mountPoint=MountPoint(default=mount_point),
-            permission=Permission(value="775"),
-            quotas=None,
-            target=Target(
-                targetType=TargetType.CUSTOMER,
-                targetItem=CustomerTargetItem(
-                    itemId=customer_info["itemId"],
-                    key=customer_info["key"],
-                    name=customer_info["name"],
-                ),
-            ),
-            storageSystem=StorageItem(
-                itemId=generate_storage_system_target_id(storage_system),
-                key=storage_system.lower(),
-                name=storage_system.upper(),
-            ),
-            storageFileSystem=StorageItem(
-                itemId=generate_storage_filesystem_target_id(self.storage_file_system),
-                key=self.storage_file_system.lower(),
-                name=self.storage_file_system.upper(),
-            ),
-            storageDataType=StorageItem(
-                itemId=generate_storage_data_type_target_id(storage_data_type),
-                key=storage_data_type.lower(),
-                name=storage_data_type.upper(),
-                path=storage_data_type.lower(),
-            ),
-            parentItemId=parent_tenant_id,
-        )
-
     def _get_all_storage_resources(
         self,
         offering_uuid: str,
@@ -662,9 +541,7 @@ class CscsHpcStorageBackend:
 
             # Convert Waldur resources to storage JSON format
             # We'll create tenant, customer-level and project-level entries (three-tier hierarchy)
-            storage_resources: list[StorageResource] = []
-            tenant_entries = {}  # Track unique tenant entries by tenant_id-storage_system-data_type
-            customer_entries = {}  # Track unique customer entries by slug-system-data_type
+            hierarchy_builder = HierarchyBuilder(self.storage_file_system)
 
             for i, resource in enumerate(waldur_resources):
                 # Log raw resource data for debugging
@@ -734,50 +611,24 @@ class CscsHpcStorageBackend:
                     else tenant_id.upper()
                 )
 
-                # Create tenant-level entry if not already created for this combination
-                tenant_key = f"{tenant_id}-{storage_system_name}-{storage_data_type}"
-                if tenant_key not in tenant_entries:
-                    # Get offering UUID from resource (use str() for proper UUID format)
-                    offering_uuid_str = str(resource.offering_uuid)
+                # Create tenant-level entry using HierarchyBuilder
+                offering_uuid_str = str(resource.offering_uuid)
+                hierarchy_builder.get_or_create_tenant(
+                    tenant_id=tenant_id,
+                    tenant_name=tenant_name,
+                    storage_system=storage_system_name,
+                    storage_data_type=storage_data_type,
+                    offering_uuid=offering_uuid_str,
+                )
 
-                    tenant_resource = self._create_tenant_storage_resource_json(
-                        tenant_id=tenant_id,
-                        tenant_name=tenant_name,
-                        storage_system=storage_system_name,
-                        storage_data_type=storage_data_type,
-                        offering_uuid=offering_uuid_str,
-                    )
-                    storage_resources.append(tenant_resource)
-                    tenant_entries[tenant_key] = tenant_resource.itemId
-                    logger.debug(
-                        "Created tenant entry for %s with offering UUID %s",
-                        tenant_key,
-                        offering_uuid_str,
-                    )
-
-                # Create customer-level entry if not already created for this combination
-                customer_key = f"{resource.customer_slug}-{storage_system_name}-{storage_data_type}"
-                if (
-                    customer_key not in customer_entries
-                    and resource.customer_slug in offering_customers
-                ):
+                # Create customer-level entry if customer info is available
+                if resource.customer_slug in offering_customers:
                     customer_info = offering_customers[resource.customer_slug]
-                    # Get parent tenant ID for this customer
-                    parent_tenant_id = tenant_entries.get(tenant_key)
-
-                    customer_resource = self._create_customer_storage_resource_json(
+                    hierarchy_builder.get_or_create_customer(
                         customer_info=customer_info,
                         storage_system=storage_system_name,
                         storage_data_type=storage_data_type,
                         tenant_id=tenant_id,
-                        parent_tenant_id=parent_tenant_id,  # Link to parent tenant
-                    )
-                    storage_resources.append(customer_resource)
-                    customer_entries[customer_key] = customer_resource.itemId
-                    logger.debug(
-                        "Created customer entry for %s with parent tenant %s",
-                        customer_key,
-                        parent_tenant_id,
                     )
 
                 # Create project-level resource (the original resource)
@@ -786,15 +637,37 @@ class CscsHpcStorageBackend:
                     storage_system=storage_system_name,
                 )
                 if storage_resource is not None:
-                    # Set parent reference if customer entry exists
-                    if customer_key in customer_entries:
-                        storage_resource.parentItemId = customer_entries[customer_key]
-                        logger.debug(
-                            "Set parentItemId %s for resource %s",
-                            customer_entries[customer_key],
-                            resource.uuid,
-                        )
+                    # Set parent reference using HierarchyBuilder
+                    hierarchy_builder.assign_parent_to_project(
+                        project_resource=storage_resource,
+                        customer_slug=resource.customer_slug,
+                        storage_system=storage_system_name,
+                        storage_data_type=storage_data_type,
+                    )
 
+            # Collect all resources: hierarchy (tenants, customers) + projects
+            storage_resources: list[StorageResource] = (
+                hierarchy_builder.get_hierarchy_resources()
+            )
+            # Add project resources from the loop (stored in storage_resource)
+            for i, resource in enumerate(waldur_resources):
+                storage_system_name = resource.offering_slug
+                storage_data_type = StorageDataType.STORE
+                if resource.attributes:
+                    storage_data_type = resource.attributes.additional_properties.get(
+                        "storage_data_type", storage_data_type
+                    )
+                storage_resource = self._create_storage_resource_json(
+                    waldur_resource=resource,
+                    storage_system=storage_system_name,
+                )
+                if storage_resource is not None:
+                    hierarchy_builder.assign_parent_to_project(
+                        project_resource=storage_resource,
+                        customer_slug=resource.customer_slug,
+                        storage_system=storage_system_name,
+                        storage_data_type=storage_data_type,
+                    )
                     storage_resources.append(storage_resource)
 
             # Apply filters to the converted storage resources
@@ -1120,8 +993,8 @@ class CscsHpcStorageBackend:
                     )
                     all_offering_customers.update(customers)  # Merge all customers
 
-                tenant_entries = {}  # Track unique tenant entries
-                customer_entries = {}  # Track unique customer entries
+                # Use HierarchyBuilder for hierarchy management
+                hierarchy_builder = HierarchyBuilder(self.storage_file_system)
 
                 logger.debug(
                     "Starting to process %d resources", len(response.resources)
@@ -1160,55 +1033,26 @@ class CscsHpcStorageBackend:
                             else tenant_id.upper()
                         )
 
-                        # Create tenant-level entry if not already created for this combination
-                        tenant_key = (
-                            f"{tenant_id}-{resource.offering_slug}-{storage_data_type}"
+                        # Create tenant-level entry using HierarchyBuilder
+                        offering_uuid_str = str(resource.offering_uuid)
+                        hierarchy_builder.get_or_create_tenant(
+                            tenant_id=tenant_id,
+                            tenant_name=tenant_name,
+                            storage_system=resource.offering_slug,
+                            storage_data_type=storage_data_type,
+                            offering_uuid=offering_uuid_str,
                         )
-                        if tenant_key not in tenant_entries:
-                            # Get offering UUID from resource
-                            offering_uuid_str = str(resource.offering_uuid)
 
-                            tenant_resource = self._create_tenant_storage_resource_json(
-                                tenant_id=tenant_id,
-                                tenant_name=tenant_name,
-                                storage_system=resource.offering_slug,
-                                storage_data_type=storage_data_type,
-                                offering_uuid=offering_uuid_str,
-                            )
-                            all_storage_resources.append(tenant_resource)
-                            tenant_entries[tenant_key] = tenant_resource.itemId
-                            logger.debug(
-                                "Created tenant entry for %s with offering UUID %s",
-                                tenant_key,
-                                offering_uuid_str,
-                            )
-
-                        # Create customer-level entry if not already created for this combination
-                        customer_key = f"{resource.customer_slug}-{resource.offering_slug}-{storage_data_type}"
-                        if (
-                            customer_key not in customer_entries
-                            and resource.customer_slug in all_offering_customers
-                        ):
+                        # Create customer-level entry if customer info is available
+                        if resource.customer_slug in all_offering_customers:
                             customer_info = all_offering_customers[
                                 resource.customer_slug
                             ]
-                            parent_tenant_id = tenant_entries.get(tenant_key)
-
-                            customer_resource = (
-                                self._create_customer_storage_resource_json(
-                                    customer_info=customer_info,
-                                    storage_system=resource.offering_slug,
-                                    storage_data_type=storage_data_type,
-                                    tenant_id=tenant_id,
-                                    parent_tenant_id=parent_tenant_id,
-                                )
-                            )
-                            all_storage_resources.append(customer_resource)
-                            customer_entries[customer_key] = customer_resource.itemId
-                            logger.debug(
-                                "Created customer entry for %s with parent tenant %s",
-                                customer_key,
-                                parent_tenant_id,
+                            hierarchy_builder.get_or_create_customer(
+                                customer_info=customer_info,
+                                storage_system=resource.offering_slug,
+                                storage_data_type=storage_data_type,
+                                tenant_id=tenant_id,
                             )
 
                         # Create project-level resource (the original resource)
@@ -1217,16 +1061,13 @@ class CscsHpcStorageBackend:
                             storage_system=resource.offering_slug,
                         )
                         if storage_resource is not None:
-                            # Set parent reference if customer entry exists
-                            if customer_key in customer_entries:
-                                storage_resource.parentItemId = customer_entries[
-                                    customer_key
-                                ]
-                                logger.debug(
-                                    "Set parentItemId %s for resource %s",
-                                    customer_entries[customer_key],
-                                    resource.uuid,
-                                )
+                            # Set parent reference using HierarchyBuilder
+                            hierarchy_builder.assign_parent_to_project(
+                                project_resource=storage_resource,
+                                customer_slug=resource.customer_slug,
+                                storage_system=resource.offering_slug,
+                                storage_data_type=storage_data_type,
+                            )
 
                             all_storage_resources.append(storage_resource)
 
@@ -1237,6 +1078,11 @@ class CscsHpcStorageBackend:
                             e,
                         )
                         continue
+
+                # Prepend hierarchy resources (tenants, customers) to the list
+                all_storage_resources = (
+                    hierarchy_builder.get_hierarchy_resources() + all_storage_resources
+                )
             else:
                 logger.warning(
                     "No resources found for offering slugs: %s",
@@ -1330,8 +1176,8 @@ class CscsHpcStorageBackend:
                 )
 
             storage_resources = []
-            tenant_entries = {}  # Track unique tenant entries
-            customer_entries = {}  # Track unique customer entries by slug-system-data_type
+            # Use HierarchyBuilder for hierarchy management
+            hierarchy_builder = HierarchyBuilder(self.storage_file_system)
             processed_count = 0
 
             logger.info(
@@ -1401,51 +1247,24 @@ class CscsHpcStorageBackend:
                     tenant_id = resource.provider_slug
                     tenant_name = resource.provider_name or tenant_id.upper()
 
-                    # Create tenant-level entry if not already created for this combination
-                    tenant_key = (
-                        f"{tenant_id}-{storage_system_name}-{storage_data_type}"
+                    # Create tenant-level entry using HierarchyBuilder
+                    offering_uuid_str = resource.offering_uuid
+                    hierarchy_builder.get_or_create_tenant(
+                        tenant_id=tenant_id,
+                        tenant_name=tenant_name,
+                        storage_system=storage_system_name,
+                        storage_data_type=storage_data_type,
+                        offering_uuid=offering_uuid_str,
                     )
-                    if tenant_key not in tenant_entries:
-                        # Get offering UUID from resource
-                        offering_uuid_str = resource.offering_uuid
 
-                        tenant_resource = self._create_tenant_storage_resource_json(
-                            tenant_id=tenant_id,
-                            tenant_name=tenant_name,
-                            storage_system=storage_system_name,
-                            storage_data_type=storage_data_type,
-                            offering_uuid=offering_uuid_str,
-                        )
-                        storage_resources.append(tenant_resource)
-                        tenant_entries[tenant_key] = tenant_resource.itemId
-                        logger.debug(
-                            "Created tenant entry for %s with offering UUID %s",
-                            tenant_key,
-                            offering_uuid_str,
-                        )
-
-                    # Create customer-level entry if not already created for this combination
-                    customer_key = f"{resource.customer_slug}-{storage_system_name}-{storage_data_type}"
-                    if (
-                        customer_key not in customer_entries
-                        and resource.customer_slug in offering_customers
-                    ):
+                    # Create customer-level entry if customer info is available
+                    if resource.customer_slug in offering_customers:
                         customer_info = offering_customers[resource.customer_slug]
-                        parent_tenant_id = tenant_entries.get(tenant_key)
-
-                        customer_resource = self._create_customer_storage_resource_json(
+                        hierarchy_builder.get_or_create_customer(
                             customer_info=customer_info,
                             storage_system=storage_system_name,
                             storage_data_type=storage_data_type,
                             tenant_id=tenant_id,
-                            parent_tenant_id=parent_tenant_id,
-                        )
-                        storage_resources.append(customer_resource)
-                        customer_entries[customer_key] = customer_resource.itemId
-                        logger.debug(
-                            "Created customer entry for %s with parent tenant %s",
-                            customer_key,
-                            parent_tenant_id,
                         )
 
                     # Create project-level resource (the original resource)
@@ -1453,16 +1272,13 @@ class CscsHpcStorageBackend:
                         resource, storage_system_name
                     )
                     if storage_resource is not None:
-                        # Set parent reference if customer entry exists
-                        if customer_key in customer_entries:
-                            storage_resource.parentItemId = customer_entries[
-                                customer_key
-                            ]
-                            logger.debug(
-                                "Set parentItemId %s for resource %s",
-                                customer_entries[customer_key],
-                                resource.uuid,
-                            )
+                        # Set parent reference using HierarchyBuilder
+                        hierarchy_builder.assign_parent_to_project(
+                            project_resource=storage_resource,
+                            customer_slug=resource.customer_slug,
+                            storage_system=storage_system_name,
+                            storage_data_type=storage_data_type,
+                        )
 
                         storage_resources.append(storage_resource)
 
@@ -1473,6 +1289,11 @@ class CscsHpcStorageBackend:
                         e,
                         exc_info=True,
                     )
+
+            # Prepend hierarchy resources (tenants, customers) to the list
+            storage_resources = (
+                hierarchy_builder.get_hierarchy_resources() + storage_resources
+            )
 
             # Apply additional filters (data_type, status) in memory
             filtered_resources = self._apply_filters(  # type: ignore[arg-type]

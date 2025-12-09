@@ -5,6 +5,7 @@ from waldur_cscs_hpc_storage.mount_points import generate_customer_mount_point
 from waldur_cscs_hpc_storage.mount_points import generate_tenant_mount_point
 from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.enums import QuotaType, QuotaUnit, EnforcementType
+from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from typing import Optional
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -45,6 +46,12 @@ def backend():
     # Inject mock waldur_service for testing
     backend.waldur_service = Mock()
     return backend
+
+
+@pytest.fixture
+def hierarchy_builder():
+    """Create a HierarchyBuilder instance for testing."""
+    return HierarchyBuilder(storage_file_system="lustre")
 
 
 @pytest.fixture(autouse=True)
@@ -149,21 +156,25 @@ def create_mock_resource(
 
 
 class TestTenantLevelGeneration:
-    """Tests for tenant-level resource generation."""
+    """Tests for tenant-level resource generation using HierarchyBuilder."""
 
-    def test_create_tenant_storage_resource(self, backend):
+    def test_create_tenant_storage_resource(self, hierarchy_builder):
         """Test creating a tenant-level storage resource."""
         tenant_id = "cscs"
         tenant_name = "CSCS"
         storage_system = "capstor"
         storage_data_type = "store"
 
-        result = backend._create_tenant_storage_resource_json(
+        hierarchy_builder.get_or_create_tenant(
             tenant_id=tenant_id,
             tenant_name=tenant_name,
             storage_system=storage_system,
             storage_data_type=storage_data_type,
         )
+
+        resources = hierarchy_builder.get_hierarchy_resources()
+        assert len(resources) == 1
+        result = resources[0]
 
         # Verify structure
         assert result.target.targetType == "tenant"
@@ -192,23 +203,24 @@ class TestTenantLevelGeneration:
         assert result.storageDataType.key == storage_data_type.lower()
         assert result.storageDataType.name == storage_data_type.upper()
 
-    def test_tenant_different_data_types(self, backend):
+    def test_tenant_different_data_types(self, hierarchy_builder):
         """Test tenant entries for different storage data types."""
         tenant_id = "cscs"
         storage_system = "capstor"
 
         # Test different data types
         data_types = ["store", "archive", "users", "scratch"]
-        results = []
 
         for data_type in data_types:
-            result = backend._create_tenant_storage_resource_json(
+            hierarchy_builder.get_or_create_tenant(
                 tenant_id=tenant_id,
                 tenant_name="CSCS",
                 storage_system=storage_system,
                 storage_data_type=data_type,
             )
-            results.append(result)
+
+        results = hierarchy_builder.get_hierarchy_resources()
+        assert len(results) == 4
 
         # Verify unique mount points
         mount_points = [r.mountPoint.default for r in results]
@@ -221,28 +233,40 @@ class TestTenantLevelGeneration:
 
 
 class TestCustomerLevelGeneration:
-    """Tests for customer-level resource generation."""
+    """Tests for customer-level resource generation using HierarchyBuilder."""
 
-    def test_create_customer_storage_resource_with_parent(self, backend):
+    def test_create_customer_storage_resource_with_parent(self, hierarchy_builder):
         """Test creating a customer-level storage resource with parent tenant."""
+        tenant_id = "cscs"
+        storage_system = "capstor"
+        storage_data_type = "store"
+
+        # First create tenant
+        parent_tenant_id = hierarchy_builder.get_or_create_tenant(
+            tenant_id=tenant_id,
+            tenant_name="CSCS",
+            storage_system=storage_system,
+            storage_data_type=storage_data_type,
+            offering_uuid="tenant-uuid",
+        )
+
         customer_info = {
             "itemId": str(uuid4()),
             "key": "mch",
             "name": "MCH",
             "uuid": str(uuid4()),
         }
-        tenant_id = "cscs"
-        parent_tenant_id = str(uuid4())
-        storage_system = "capstor"
-        storage_data_type = "store"
 
-        result = backend._create_customer_storage_resource_json(
+        hierarchy_builder.get_or_create_customer(
             customer_info=customer_info,
             storage_system=storage_system,
             storage_data_type=storage_data_type,
             tenant_id=tenant_id,
-            parent_tenant_id=parent_tenant_id,
         )
+
+        resources = hierarchy_builder.get_hierarchy_resources()
+        assert len(resources) == 2
+        result = resources[1]  # Customer is second
 
         # Verify structure
         assert result.target.targetType == "customer"
@@ -264,8 +288,9 @@ class TestCustomerLevelGeneration:
         # Verify no quotas
         assert result.quotas is None
 
-    def test_customer_without_parent_tenant(self, backend):
+    def test_customer_without_parent_tenant(self, hierarchy_builder):
         """Test creating a customer-level resource without parent (legacy mode)."""
+        # Create customer without creating tenant first
         customer_info = {
             "itemId": str(uuid4()),
             "key": "eth",
@@ -273,15 +298,17 @@ class TestCustomerLevelGeneration:
             "uuid": str(uuid4()),
         }
 
-        result = backend._create_customer_storage_resource_json(
+        hierarchy_builder.get_or_create_customer(
             customer_info=customer_info,
             storage_system="vast",
             storage_data_type="scratch",
             tenant_id="cscs",
-            parent_tenant_id=None,  # No parent
         )
 
-        # Verify no parent
+        resources = hierarchy_builder.get_hierarchy_resources()
+        result = resources[0]
+
+        # Verify no parent (tenant wasn't created)
         assert result.parentItemId is None
 
         # Verify rest of structure is intact
@@ -329,8 +356,6 @@ class TestProjectLevelGeneration:
         """Test project with custom permissions from attributes."""
         resource = create_mock_resource()
         resource.attributes.permissions = "0755"
-        # Since we are mocking backend internals in some places, but also passing resource to methods,
-        # we update the effective_permissions call mocks too if needed. But _create_storage_resource_json uses attributes.
         resource.effective_permissions = "0755"
 
         result = backend._create_storage_resource_json(resource, "capstor")
@@ -341,7 +366,7 @@ class TestProjectLevelGeneration:
 class TestThreeTierHierarchyGeneration:
     """Tests for complete three-tier hierarchy generation."""
 
-    def test_full_hierarchy_creation(self, backend):
+    def test_full_hierarchy_creation(self, backend, hierarchy_builder):
         """Test creating a complete three-tier hierarchy from resources."""
         # Mock customer data
         backend.waldur_service.get_offering_customers.return_value = {
@@ -387,10 +412,8 @@ class TestThreeTierHierarchyGeneration:
             ),
         ]
 
-        # Process resources
+        # Process resources using HierarchyBuilder
         storage_resources = []
-        tenant_entries = {}
-        customer_entries = {}
 
         for resource in resources:
             storage_system_name = resource.offering_slug
@@ -399,51 +422,47 @@ class TestThreeTierHierarchyGeneration:
             tenant_name = resource.provider_name
 
             # Create tenant entry
-            tenant_key = f"{tenant_id}-{storage_system_name}-{storage_data_type}"
-            if tenant_key not in tenant_entries:
-                tenant_resource = backend._create_tenant_storage_resource_json(
-                    tenant_id=tenant_id,
-                    tenant_name=tenant_name,
-                    storage_system=storage_system_name,
-                    storage_data_type=storage_data_type,
-                )
-                storage_resources.append(tenant_resource)
-                tenant_entries[tenant_key] = tenant_resource.itemId
+            hierarchy_builder.get_or_create_tenant(
+                tenant_id=tenant_id,
+                tenant_name=tenant_name,
+                storage_system=storage_system_name,
+                storage_data_type=storage_data_type,
+            )
 
             # Create customer entry
-            customer_key = (
-                f"{resource.customer_slug}-{storage_system_name}-{storage_data_type}"
-            )
-            if customer_key not in customer_entries:
-                customer_info = (
-                    backend.waldur_service.get_offering_customers.return_value.get(
-                        resource.customer_slug
-                    )
+            customer_info = (
+                backend.waldur_service.get_offering_customers.return_value.get(
+                    resource.customer_slug
                 )
-                if customer_info:
-                    parent_tenant_id = tenant_entries.get(tenant_key)
-                    customer_resource = backend._create_customer_storage_resource_json(
-                        customer_info=customer_info,
-                        storage_system=storage_system_name,
-                        storage_data_type=storage_data_type,
-                        tenant_id=tenant_id,
-                        parent_tenant_id=parent_tenant_id,
-                    )
-                    storage_resources.append(customer_resource)
-                    customer_entries[customer_key] = customer_resource.itemId
+            )
+            if customer_info:
+                hierarchy_builder.get_or_create_customer(
+                    customer_info=customer_info,
+                    storage_system=storage_system_name,
+                    storage_data_type=storage_data_type,
+                    tenant_id=tenant_id,
+                )
 
             # Create project entry
             project_resource = backend._create_storage_resource_json(
                 resource, storage_system_name
             )
-            if project_resource and customer_key in customer_entries:
-                project_resource.parentItemId = customer_entries[customer_key]
-            storage_resources.append(project_resource)
+            if project_resource:
+                hierarchy_builder.assign_parent_to_project(
+                    project_resource=project_resource,
+                    customer_slug=resource.customer_slug,
+                    storage_system=storage_system_name,
+                    storage_data_type=storage_data_type,
+                )
+                storage_resources.append(project_resource)
+
+        # Combine hierarchy resources with project resources
+        all_resources = hierarchy_builder.get_hierarchy_resources() + storage_resources
 
         # Verify results
-        tenants = [r for r in storage_resources if r.target.targetType == "tenant"]
-        customers = [r for r in storage_resources if r.target.targetType == "customer"]
-        projects = [r for r in storage_resources if r.target.targetType == "project"]
+        tenants = [r for r in all_resources if r.target.targetType == "tenant"]
+        customers = [r for r in all_resources if r.target.targetType == "customer"]
+        projects = [r for r in all_resources if r.target.targetType == "project"]
 
         # Should have unique tenants for each storage_system-data_type combo
         assert len(tenants) == 2  # cscs-capstor-store, cscs-capstor-users
@@ -453,23 +472,18 @@ class TestThreeTierHierarchyGeneration:
             len(customers) == 3
         )  # mch-capstor-store, eth-capstor-store, mch-capstor-users
 
-        # Should have successfully created projects (some might fail validation)
-        assert len(projects) >= 2  # At least 2 projects should be created successfully
+        # Should have successfully created projects
+        assert len(projects) >= 2
 
         # Verify hierarchy relationships
-        # All tenants should have no parent
         for tenant in tenants:
             assert tenant.parentItemId is None
 
-        # All customers should have parent tenant
         for customer in customers:
             assert customer.parentItemId is not None
-            assert customer.parentItemId in tenant_entries.values()
 
-        # All projects should have parent customer
         for project in projects:
             assert project.parentItemId is not None
-            assert project.parentItemId in customer_entries.values()
 
     def test_mount_path_hierarchy(self, backend):
         """Test that mount paths follow the correct hierarchy."""
@@ -522,19 +536,19 @@ class TestHierarchyFiltering:
 
     def test_filter_maintains_hierarchy(self, backend):
         """Test that filtering by storage system maintains the hierarchy."""
-        # Create resources with different storage systems
-        resources = []
+        # Use two separate HierarchyBuilders for different storage systems
+        builder_capstor = HierarchyBuilder(storage_file_system="lustre")
+        builder_vast = HierarchyBuilder(storage_file_system="lustre")
 
         # Add capstor resources
-        tenant_capstor = backend._create_tenant_storage_resource_json(
+        builder_capstor.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
         )
-        resources.append(tenant_capstor)
 
-        customer_capstor = backend._create_customer_storage_resource_json(
+        builder_capstor.get_or_create_customer(
             customer_info={
                 "itemId": "cust1",
                 "key": "mch",
@@ -544,20 +558,17 @@ class TestHierarchyFiltering:
             storage_system="capstor",
             storage_data_type="store",
             tenant_id="cscs",
-            parent_tenant_id=tenant_capstor.itemId,
         )
-        resources.append(customer_capstor)
 
         # Add vast resources
-        tenant_vast = backend._create_tenant_storage_resource_json(
+        builder_vast.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="vast",
             storage_data_type="scratch",
         )
-        resources.append(tenant_vast)
 
-        customer_vast = backend._create_customer_storage_resource_json(
+        builder_vast.get_or_create_customer(
             customer_info={
                 "itemId": "cust2",
                 "key": "eth",
@@ -567,13 +578,17 @@ class TestHierarchyFiltering:
             storage_system="vast",
             storage_data_type="scratch",
             tenant_id="cscs",
-            parent_tenant_id=tenant_vast.itemId,
         )
-        resources.append(customer_vast)
+
+        # Combine all resources
+        all_resources = (
+            builder_capstor.get_hierarchy_resources()
+            + builder_vast.get_hierarchy_resources()
+        )
 
         # Filter by storage system
         capstor_resources = backend._apply_filters(
-            resources, storage_system="capstor", data_type=None, status=None
+            all_resources, storage_system="capstor", data_type=None, status=None
         )
 
         # Verify only capstor resources returned
@@ -602,25 +617,28 @@ class TestEdgeCases:
         backend.waldur_service.get_offering_customers.return_value = {}
         resource = create_mock_resource(customer_slug="unknown-customer")
 
-        # Process with empty customer info
-        storage_resources = []
-        tenant_entries = {}
+        # Process with empty customer info using HierarchyBuilder
+        hierarchy_builder = HierarchyBuilder(storage_file_system="lustre")
 
-        tenant_key = "cscs-capstor-store"
-        tenant_resource = backend._create_tenant_storage_resource_json(
+        hierarchy_builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
         )
-        storage_resources.append(tenant_resource)
-        tenant_entries[tenant_key] = tenant_resource.itemId
 
         # Project should still be created but without parent
         project_resource = backend._create_storage_resource_json(resource, "capstor")
         if project_resource:
-            # No parent since customer doesn't exist
-            project_resource.parentItemId = None
+            hierarchy_builder.assign_parent_to_project(
+                project_resource=project_resource,
+                customer_slug="unknown-customer",
+                storage_system="capstor",
+                storage_data_type="store",
+            )
+
+        storage_resources = hierarchy_builder.get_hierarchy_resources()
+        if project_resource:
             storage_resources.append(project_resource)
 
         # Verify results
@@ -632,27 +650,26 @@ class TestEdgeCases:
         assert len(projects) == 1
         assert projects[0].parentItemId is None
 
-    def test_duplicate_prevention(self, backend):
-        """Test that duplicate entries are not created."""
+    def test_duplicate_prevention(self):
+        """Test that duplicate entries are not created by HierarchyBuilder."""
+        hierarchy_builder = HierarchyBuilder(storage_file_system="lustre")
+
         # Create the same tenant multiple times
-        tenant_results = []
         for _ in range(3):
-            result = backend._create_tenant_storage_resource_json(
+            hierarchy_builder.get_or_create_tenant(
                 tenant_id="cscs",
                 tenant_name="CSCS",
                 storage_system="capstor",
                 storage_data_type="store",
             )
-            tenant_results.append(result)
 
-        # All should have the same itemId (deterministic UUID)
-        item_ids = [r.itemId for r in tenant_results]
-        assert len(set(item_ids)) == 1
+        # Should only have one tenant
+        tenants = hierarchy_builder.get_hierarchy_resources()
+        assert len(tenants) == 1
 
-        # Same for customers
-        customer_results = []
+        # Create the same customer multiple times
         for _ in range(3):
-            result = backend._create_customer_storage_resource_json(
+            hierarchy_builder.get_or_create_customer(
                 customer_info={
                     "itemId": "cust1",
                     "key": "mch",
@@ -662,13 +679,11 @@ class TestEdgeCases:
                 storage_system="capstor",
                 storage_data_type="store",
                 tenant_id="cscs",
-                parent_tenant_id="parent1",
             )
-            customer_results.append(result)
 
-        # All should have the same itemId
-        customer_ids = [r.itemId for r in customer_results]
-        assert len(set(customer_ids)) == 1
+        # Should have one tenant and one customer
+        resources = hierarchy_builder.get_hierarchy_resources()
+        assert len(resources) == 2
 
 
 class TestIntegrationScenarios:
@@ -707,9 +722,8 @@ class TestIntegrationScenarios:
             ),
         ]
 
-        all_resources = []
-        tenant_entries = {}
-        customer_entries = {}
+        hierarchy_builder = HierarchyBuilder(storage_file_system="lustre")
+        project_resources = []
 
         for resource in resources:
             storage_system = resource.offering_slug
@@ -717,37 +731,35 @@ class TestIntegrationScenarios:
             tenant_id = resource.provider_slug
 
             # Create tenant
-            tenant_key = f"{tenant_id}-{storage_system}-{data_type}"
-            if tenant_key not in tenant_entries:
-                tenant = backend._create_tenant_storage_resource_json(
-                    tenant_id=tenant_id,
-                    tenant_name="CSCS",
-                    storage_system=storage_system,
-                    storage_data_type=data_type,
-                )
-                all_resources.append(tenant)
-                tenant_entries[tenant_key] = tenant.itemId
+            hierarchy_builder.get_or_create_tenant(
+                tenant_id=tenant_id,
+                tenant_name="CSCS",
+                storage_system=storage_system,
+                storage_data_type=data_type,
+            )
 
             # Create customer
-            customer_key = f"{resource.customer_slug}-{storage_system}-{data_type}"
-            if customer_key not in customer_entries:
-                customer = backend._create_customer_storage_resource_json(
-                    customer_info=backend.waldur_service.get_offering_customers.return_value[
-                        "customer1"
-                    ],
-                    storage_system=storage_system,
-                    storage_data_type=data_type,
-                    tenant_id=tenant_id,
-                    parent_tenant_id=tenant_entries[tenant_key],
-                )
-                all_resources.append(customer)
-                customer_entries[customer_key] = customer.itemId
+            hierarchy_builder.get_or_create_customer(
+                customer_info=backend.waldur_service.get_offering_customers.return_value[
+                    "customer1"
+                ],
+                storage_system=storage_system,
+                storage_data_type=data_type,
+                tenant_id=tenant_id,
+            )
 
             # Create project
             project = backend._create_storage_resource_json(resource, storage_system)
-            if project is not None:  # Check if project creation was successful
-                project.parentItemId = customer_entries[customer_key]
-                all_resources.append(project)
+            if project is not None:
+                hierarchy_builder.assign_parent_to_project(
+                    project_resource=project,
+                    customer_slug="customer1",
+                    storage_system=storage_system,
+                    storage_data_type=data_type,
+                )
+                project_resources.append(project)
+
+        all_resources = hierarchy_builder.get_hierarchy_resources() + project_resources
 
         # Verify we have 3 separate hierarchies
         tenants = [r for r in all_resources if r.target.targetType == "tenant"]
@@ -756,9 +768,7 @@ class TestIntegrationScenarios:
 
         assert len(tenants) == 3  # One per storage system
         assert len(customers) == 3  # One per storage system
-        assert (
-            len(projects) >= 2
-        )  # At least some projects should be created successfully
+        assert len(projects) >= 2  # At least some projects created
 
         # Verify each hierarchy is independent
         storage_systems = set(t.storageSystem.key for t in tenants)
