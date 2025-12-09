@@ -174,38 +174,6 @@ class ParsedWaldurResource(BaseModel):
         """Logic extracted from _extract_permissions"""
         return self.options.permissions or self.attributes.permissions
 
-    def get_effective_storage_quotas(self) -> tuple[float, float]:
-        limit = self.limits.storage or 0.0
-
-        soft = (
-            self.options.soft_quota_space
-            if self.options.soft_quota_space is not None
-            else limit
-        )
-        hard = (
-            self.options.hard_quota_space
-            if self.options.hard_quota_space is not None
-            else limit
-        )
-
-        return soft, hard
-
-    def get_effective_inode_quotas(
-        self, base_soft: int, base_hard: int
-    ) -> tuple[int, int]:
-        soft = (
-            self.options.soft_quota_inodes
-            if self.options.soft_quota_inodes is not None
-            else base_soft
-        )
-        hard = (
-            self.options.hard_quota_inodes
-            if self.options.hard_quota_inodes is not None
-            else base_hard
-        )
-
-        return soft, hard
-
     def render_quotas(
         self,
         inode_base_multiplier: float,
@@ -222,18 +190,36 @@ class ParsedWaldurResource(BaseModel):
         Returns:
             List of Quota objects, or None if no quotas are set
         """
-        # Base calculations
-        storage_quota_tb = self.limits.storage or 0.0
-        base_inodes = storage_quota_tb * inode_base_multiplier
+        # Get storage limit
+        storage_limit = self.limits.storage or 0.0
+
+        # Calculate effective storage quotas (with option overrides)
+        storage_quota_soft_tb = (
+            self.options.soft_quota_space
+            if self.options.soft_quota_space is not None
+            else storage_limit
+        )
+        storage_quota_hard_tb = (
+            self.options.hard_quota_space
+            if self.options.hard_quota_space is not None
+            else storage_limit
+        )
+
+        # Calculate base inode quotas
+        base_inodes = storage_limit * inode_base_multiplier
         base_soft_inode = int(base_inodes * inode_soft_coefficient)
         base_hard_inode = int(base_inodes * inode_hard_coefficient)
 
-        # Apply overrides
-        storage_quota_soft_tb, storage_quota_hard_tb = (
-            self.get_effective_storage_quotas()
+        # Calculate effective inode quotas (with option overrides)
+        inode_soft = (
+            self.options.soft_quota_inodes
+            if self.options.soft_quota_inodes is not None
+            else base_soft_inode
         )
-        inode_soft, inode_hard = self.get_effective_inode_quotas(
-            base_soft_inode, base_hard_inode
+        inode_hard = (
+            self.options.hard_quota_inodes
+            if self.options.hard_quota_inodes is not None
+            else base_hard_inode
         )
 
         if storage_quota_soft_tb <= 0 and storage_quota_hard_tb <= 0:
