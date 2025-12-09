@@ -1,5 +1,6 @@
-import dataclasses
-from typing import Any, Optional, Union
+from typing import Optional, Union
+
+from pydantic import BaseModel, ConfigDict
 
 from waldur_cscs_hpc_storage.base.enums import (
     EnforcementType,
@@ -9,19 +10,14 @@ from waldur_cscs_hpc_storage.base.enums import (
 )
 
 
-@dataclasses.dataclass
-class Permission:
+class Permission(BaseModel):
     """Represents a permission settings."""
 
     value: str
     permissionType: str = "octal"
 
-    def to_dict(self) -> dict[str, Any]:
-        return dataclasses.asdict(self)
 
-
-@dataclasses.dataclass
-class Quota:
+class Quota(BaseModel):
     """Represents a storage quota."""
 
     type: QuotaType
@@ -29,12 +25,8 @@ class Quota:
     unit: QuotaUnit
     enforcementType: EnforcementType
 
-    def to_dict(self) -> dict[str, Any]:
-        return dataclasses.asdict(self)
 
-
-@dataclasses.dataclass
-class StorageItem:
+class StorageItem(BaseModel):
     """Represents a storage-related item (system, filesystem, or data type)."""
 
     itemId: str
@@ -43,38 +35,27 @@ class StorageItem:
     active: bool = True
     path: str = ""  # Optional path field (used for data type)
 
-    def to_dict(self) -> dict[str, Any]:
-        return dataclasses.asdict(self)
 
-
-@dataclasses.dataclass
-class TargetItem:
+class TargetItem(BaseModel):
     """Base class for target items."""
 
     itemId: str
     key: Optional[str] = None
     name: Optional[str] = None
 
-    def to_dict(self) -> dict[str, Any]:
-        data = dataclasses.asdict(self)
-        return {k: v for k, v in data.items() if v is not None}
 
-
-@dataclasses.dataclass
 class TenantTargetItem(TargetItem):
     """Target item for a tenant."""
 
     pass
 
 
-@dataclasses.dataclass
 class CustomerTargetItem(TargetItem):
     """Target item for a customer."""
 
     pass
 
 
-@dataclasses.dataclass
 class ProjectTargetItem(TargetItem):
     """Target item for a project."""
 
@@ -83,8 +64,7 @@ class ProjectTargetItem(TargetItem):
     active: Optional[bool] = None
 
 
-@dataclasses.dataclass
-class UserPrimaryProject:
+class UserPrimaryProject(BaseModel):
     """Primary project information for a user."""
 
     name: str
@@ -92,7 +72,6 @@ class UserPrimaryProject:
     active: bool
 
 
-@dataclasses.dataclass
 class UserTargetItem(TargetItem):
     """Target item for a user."""
 
@@ -102,15 +81,8 @@ class UserTargetItem(TargetItem):
     primaryProject: Optional[UserPrimaryProject] = None
     active: Optional[bool] = None
 
-    def to_dict(self) -> dict[str, Any]:
-        data = super().to_dict()
-        if self.primaryProject:
-            data["primaryProject"] = dataclasses.asdict(self.primaryProject)
-        return data
 
-
-@dataclasses.dataclass
-class Target:
+class Target(BaseModel):
     """Wrapper for target item and type."""
 
     targetType: str
@@ -123,26 +95,15 @@ class Target:
         dict,
     ]
 
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "targetType": self.targetType,
-            "targetItem": self.targetItem.to_dict()
-            if hasattr(self.targetItem, "to_dict")
-            else self.targetItem,
-        }
 
-
-@dataclasses.dataclass
-class MountPoint:
+class MountPoint(BaseModel):
     default: str
 
-    def to_dict(self) -> dict[str, Any]:
-        return dataclasses.asdict(self)
 
-
-@dataclasses.dataclass
-class StorageResource:
+class StorageResource(BaseModel):
     """Main storage resource class."""
+
+    model_config = ConfigDict(extra="allow")
 
     itemId: str
     status: TargetStatus
@@ -154,31 +115,3 @@ class StorageResource:
     target: Target
     quotas: Optional[list[Quota]] = None
     parentItemId: Optional[str] = None
-
-    # Additional fields that might be added dynamically like URLs
-    extra_fields: dict[str, Any] = dataclasses.field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        data = dataclasses.asdict(self)
-        # Flatten extra_fields into the main dict
-        if self.extra_fields:
-            data.update(self.extra_fields)
-        del data["extra_fields"]
-
-        # Handle nested objects that might need custom serialization
-        if self.quotas:
-            data["quotas"] = [q.to_dict() for q in self.quotas]
-
-        # Ensure target is serialized correctly if it hasn't been handled automatically by asdict
-        # (dataclasses.asdict usually handles recursive dataclasses, but for Union types or custom methods we might need care)
-        # Actually asdict works recursively for dataclasses.
-        # But for TargetItem subclasses we might want to ensure None values are stripped if that's the desired behavior.
-        # We implemented to_dict on TargetItem for that reason, but asdict calls to_dict? No, it doesn't.
-        # So we should probably override serialization for fields that have objects with custom to_dict.
-
-        # Let's rely on manual construction for cleaner control or just trust asdict if we didn't have custom logic.
-        # Since I added to_dict to TargetItem to strip Nones, I should use it.
-
-        data["target"] = self.target.to_dict()
-
-        return data

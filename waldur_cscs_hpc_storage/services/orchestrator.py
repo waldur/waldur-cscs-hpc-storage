@@ -98,7 +98,10 @@ class StorageOrchestrator:
             )
 
             # 4. Serialize and Paginate
-            serialized_resources = [r.to_dict() for r in filtered_resources]
+            serialized_resources = [
+                r.model_dump(by_alias=True, exclude_none=True)
+                for r in filtered_resources
+            ]
 
             # Calculate pagination based on the filtered list size
             # Note: This represents the "view" pagination, not necessarily 1:1 with API pages

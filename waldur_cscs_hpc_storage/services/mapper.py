@@ -155,7 +155,7 @@ class ResourceMapper:
                 path=storage_data_type_str.lower(),
             ),
             parentItemId=parent_item_id,
-            extra_fields=waldur_resource.callback_urls,
+            **waldur_resource.callback_urls,
         )
 
     async def _build_target_item(

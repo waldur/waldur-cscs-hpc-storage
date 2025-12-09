@@ -158,6 +158,8 @@ def create_mock_resource(
         ),
     ]
 
+    resource.callback_urls = {}
+
     return resource
 
 
