@@ -54,7 +54,7 @@ OrchestratorDependency = Annotated[StorageOrchestrator, Depends(get_orchestrator
 
 
 @app.get("/api/storage-resources/")
-def storage_resources(
+async def storage_resources(
     user: OIDCUserDependency,
     orchestrator: OrchestratorDependency,
     storage_system: Annotated[
@@ -122,7 +122,7 @@ def storage_resources(
         # Fetch resources for all storage_systems
         offering_slugs = list(config.storage_systems.values())
 
-    storage_data = orchestrator.get_resources(
+    storage_data = await orchestrator.get_resources(
         offering_slugs=offering_slugs,
         state=state,
         page=page,

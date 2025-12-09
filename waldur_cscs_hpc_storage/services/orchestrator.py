@@ -18,8 +18,6 @@ class StorageOrchestrator:
     """
     Coordinator service that bridges external API fetching, data mapping,
     and hierarchy construction.
-
-    This replaces the monolithic logic previously found in CscsHpcStorageBackend.
     """
 
     def __init__(
@@ -40,7 +38,7 @@ class StorageOrchestrator:
         self.waldur_service = waldur_service
         self.mapper = mapper
 
-    def get_resources(
+    async def get_resources(
         self,
         offering_slugs: Union[str, List[str]],
         state: Optional[ResourceState] = None,
@@ -69,7 +67,7 @@ class StorageOrchestrator:
             logger.info("Orchestrating resource fetch for slugs: %s", slugs_list)
 
             # 1. Fetch raw data from Waldur
-            response = self.waldur_service.list_resources(
+            response = await self.waldur_service.list_resources(
                 page=page,
                 page_size=page_size,
                 offering_slug=slugs_list,
@@ -86,7 +84,7 @@ class StorageOrchestrator:
 
             # 2. Process resources if any exist
             if raw_resources:
-                processed_resources = self._process_resources(raw_resources)
+                processed_resources = await self._process_resources(raw_resources)
             else:
                 processed_resources = []
 
@@ -138,7 +136,7 @@ class StorageOrchestrator:
                 "code": 500,
             }
 
-    def _process_resources(
+    async def _process_resources(
         self, raw_resources: List[ParsedWaldurResource]
     ) -> List[StorageResource]:
         """
@@ -150,7 +148,7 @@ class StorageOrchestrator:
         all_offering_customers = {}
 
         for offering_uuid in offering_uuids:
-            customers = self.waldur_service.get_offering_customers(offering_uuid)
+            customers = await self.waldur_service.get_offering_customers(offering_uuid)
             all_offering_customers.update(customers)
 
         # B. Initialize a fresh HierarchyBuilder for this request
@@ -198,7 +196,7 @@ class StorageOrchestrator:
                     storage_data_type=storage_data_type_str,
                 )
 
-                mapped_resource = self.mapper.map_resource(
+                mapped_resource = await self.mapper.map_resource(
                     waldur_resource=resource,
                     storage_system=storage_system,
                     parent_item_id=customer_id,

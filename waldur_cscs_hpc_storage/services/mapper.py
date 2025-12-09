@@ -65,7 +65,7 @@ class ResourceMapper:
         self.config = config
         self.gid_service = gid_service
 
-    def map_resource(
+    async def map_resource(
         self,
         waldur_resource: ParsedWaldurResource,
         storage_system: str,
@@ -94,7 +94,7 @@ class ResourceMapper:
 
         # 2. Build the Target Item (Project, User, etc.)
         # This step involves GID lookups and might return None if they fail.
-        target_item = self._build_target_item(waldur_resource, target_type)
+        target_item = await self._build_target_item(waldur_resource, target_type)
         if target_item is None:
             logger.warning(
                 "Skipping resource %s: Failed to build target item (likely missing GID)",
@@ -154,7 +154,7 @@ class ResourceMapper:
             extra_fields=waldur_resource.callback_urls,
         )
 
-    def _build_target_item(
+    async def _build_target_item(
         self, waldur_resource: ParsedWaldurResource, target_type: TargetType
     ) -> Optional[TargetItem]:
         """
@@ -173,10 +173,10 @@ class ResourceMapper:
 
         # 2. Generate data based on type
         if target_type == TargetType.PROJECT:
-            return self._build_project_target(waldur_resource)
+            return await self._build_project_target(waldur_resource)
 
         elif target_type == TargetType.USER:
-            return self._build_user_target(waldur_resource)
+            return await self._build_user_target(waldur_resource)
 
         # Ideally, orchestration handles Tenant/Customer creation via HierarchyBuilder,
         # but if logic dictates mapping them here (e.g. for specialized resources),
@@ -198,7 +198,7 @@ class ResourceMapper:
         logger.warning("Unsupported target type: %s", target_type)
         return TargetItem(itemId="unknown")
 
-    def _build_project_target(
+    async def _build_project_target(
         self, waldur_resource: ParsedWaldurResource
     ) -> Optional[ProjectTargetItem]:
         """Build ProjectTargetItem with GID lookup."""
@@ -206,7 +206,7 @@ class ResourceMapper:
         project_slug = waldur_resource.project_slug or "unknown"
 
         # Lookup GID
-        unix_gid = self.gid_service.get_project_unix_gid(project_slug)
+        unix_gid = await self.gid_service.get_project_unix_gid(project_slug)
         if unix_gid is None:
             # If GID lookup fails in production, we cannot provision this resource.
             return None
@@ -221,7 +221,7 @@ class ResourceMapper:
             active=target_status == TargetStatus.ACTIVE,
         )
 
-    def _build_user_target(
+    async def _build_user_target(
         self, waldur_resource: ParsedWaldurResource
     ) -> Optional[UserTargetItem]:
         """
@@ -234,7 +234,7 @@ class ResourceMapper:
         project_slug = waldur_resource.project_slug or "default-project"
 
         # Lookup Primary Project GID
-        unix_gid = self.gid_service.get_project_unix_gid(project_slug)
+        unix_gid = await self.gid_service.get_project_unix_gid(project_slug)
         if unix_gid is None:
             return None
 

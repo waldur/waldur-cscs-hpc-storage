@@ -1,4 +1,4 @@
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -62,14 +62,16 @@ class TestResourceMapper:
     @pytest.fixture
     def mock_gid_service(self):
         service = Mock()
-        service.get_project_unix_gid.return_value = 30042
+        # Use AsyncMock for async method
+        service.get_project_unix_gid = AsyncMock(return_value=30042)
         return service
 
     @pytest.fixture
     def mapper(self, backend_config, mock_gid_service):
         return ResourceMapper(backend_config, mock_gid_service)
 
-    def test_map_resource_basic(self, mapper):
+    @pytest.mark.asyncio
+    async def test_map_resource_basic(self, mapper):
         """Test basic resource mapping."""
         mock_resource = Mock()
         mock_resource.uuid = str(uuid4())
@@ -95,7 +97,7 @@ class TestResourceMapper:
         mock_resource.order_in_progress = Unset()
         mock_resource.callback_urls = {}
 
-        result = mapper.map_resource(
+        result = await mapper.map_resource(
             mock_resource, "capstor", parent_item_id="parent-uuid"
         )
 
@@ -106,7 +108,8 @@ class TestResourceMapper:
         assert result.status == "active"
         assert result.parentItemId == "parent-uuid"
 
-    def test_map_resource_quotas(self, mapper):
+    @pytest.mark.asyncio
+    async def test_map_resource_quotas(self, mapper):
         """Test mapping of quotas."""
         mock_resource = Mock()
         mock_resource.uuid = str(uuid4())
@@ -133,13 +136,14 @@ class TestResourceMapper:
         mock_resource.order_in_progress = Unset()
         mock_resource.callback_urls = {}
 
-        result = mapper.map_resource(mock_resource, "capstor")
+        result = await mapper.map_resource(mock_resource, "capstor")
 
         assert len(result.quotas) == 4
         space_quotas = [q for q in result.quotas if q.type == QuotaType.SPACE]
         assert space_quotas[0].quota == 50.0
 
-    def test_dynamic_target_type_mapping(self, mapper):
+    @pytest.mark.asyncio
+    async def test_dynamic_target_type_mapping(self, mapper):
         """Test that storage data type determines target type."""
         mock_resource = Mock()
         mock_resource.uuid = str(uuid4())
@@ -166,12 +170,13 @@ class TestResourceMapper:
         mock_resource.order_in_progress = Unset()
         mock_resource.callback_urls = {}
 
-        result = mapper.map_resource(mock_resource, "capstor")
+        result = await mapper.map_resource(mock_resource, "capstor")
 
         assert result.storageDataType.key == "users"
         assert result.target.targetType == TargetType.USER
 
-    def test_build_target_item_project(self, mapper):
+    @pytest.mark.asyncio
+    async def test_build_target_item_project(self, mapper):
         """Test _build_target_item for PROJECT type."""
         mock_resource = Mock()
         mock_resource.slug = "project-slug"  # Used for name
@@ -179,7 +184,7 @@ class TestResourceMapper:
         mock_resource.state = "OK"
         mock_resource.backend_metadata = Mock(additional_properties={})
 
-        target_item = mapper._build_target_item(mock_resource, TargetType.PROJECT)
+        target_item = await mapper._build_target_item(mock_resource, TargetType.PROJECT)
 
         assert target_item.name == "project-slug"
         assert target_item.unixGid == 30042

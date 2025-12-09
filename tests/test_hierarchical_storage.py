@@ -10,7 +10,6 @@ from waldur_cscs_hpc_storage.base.enums import (
     QuotaType,
     QuotaUnit,
     EnforcementType,
-    StorageDataType,
 )
 from waldur_cscs_hpc_storage.base.models import Quota
 from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
@@ -18,7 +17,6 @@ from waldur_cscs_hpc_storage.base.mount_points import generate_customer_mount_po
 from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_point
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
-    WaldurApiConfig,
 )
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
@@ -37,10 +35,6 @@ def backend():
         inode_base_multiplier=1_000_000,
         use_mock_target_items=True,
         development_mode=True,
-    )
-
-    waldur_api_config = WaldurApiConfig(
-        api_url="https://example.com", access_token="token"
     )
 
     gid_service = MockGidService()
@@ -65,8 +59,12 @@ def hierarchy_builder():
 def mock_gid_lookup():
     """Mock GID lookup for all tests in this module."""
     from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+    from unittest.mock import AsyncMock
 
-    with patch.object(MockGidService, "get_project_unix_gid", return_value=30000):
+    with patch.object(
+        MockGidService, "get_project_unix_gid", new_callable=AsyncMock
+    ) as mock_method:
+        mock_method.return_value = 30000
         yield
 
 
@@ -326,7 +324,8 @@ class TestCustomerLevelGeneration:
 class TestProjectLevelGeneration:
     """Tests for project-level resource generation."""
 
-    def test_create_project_storage_resource(self, backend):
+    @pytest.mark.asyncio
+    async def test_create_project_storage_resource(self, backend):
         """Test creating a project-level storage resource."""
         resource = create_mock_resource(
             project_slug="msclim",
@@ -336,7 +335,7 @@ class TestProjectLevelGeneration:
             storage_limit=150.0,
         )
 
-        result = backend.mapper.map_resource(resource, "capstor")
+        result = await backend.mapper.map_resource(resource, "capstor")
 
         # Verify structure
         assert result.target.targetType == "project"
@@ -359,13 +358,14 @@ class TestProjectLevelGeneration:
         assert hard_quota.quota == 150.0
         assert hard_quota.unit == "tera"
 
-    def test_project_with_custom_permissions(self, backend):
+    @pytest.mark.asyncio
+    async def test_project_with_custom_permissions(self, backend):
         """Test project with custom permissions from attributes."""
         resource = create_mock_resource()
         resource.attributes.permissions = "0755"
         resource.effective_permissions = "0755"
 
-        result = backend.mapper.map_resource(resource, "capstor")
+        result = await backend.mapper.map_resource(resource, "capstor")
 
         assert result.permission.value == "0755"
 
@@ -373,7 +373,8 @@ class TestProjectLevelGeneration:
 class TestThreeTierHierarchyGeneration:
     """Tests for complete three-tier hierarchy generation."""
 
-    def test_full_hierarchy_creation(self, backend, hierarchy_builder):
+    @pytest.mark.asyncio
+    async def test_full_hierarchy_creation(self, backend, hierarchy_builder):
         """Test creating a complete three-tier hierarchy from resources."""
         # Mock customer data
         backend.waldur_service.get_offering_customers.return_value = {
@@ -451,7 +452,7 @@ class TestThreeTierHierarchyGeneration:
                 )
 
             # Create project entry
-            project_resource = backend.mapper.map_resource(
+            project_resource = await backend.mapper.map_resource(
                 resource, storage_system_name
             )
             if project_resource:
@@ -619,7 +620,8 @@ class TestHierarchyFiltering:
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
 
-    def test_resource_without_customer_info(self, backend):
+    @pytest.mark.asyncio
+    async def test_resource_without_customer_info(self, backend):
         """Test handling resource when customer info is not available."""
         backend.waldur_service.get_offering_customers.return_value = {}
         resource = create_mock_resource(customer_slug="unknown-customer")
@@ -635,7 +637,7 @@ class TestEdgeCases:
         )
 
         # Project should still be created but without parent
-        project_resource = backend.mapper.map_resource(resource, "capstor")
+        project_resource = await backend.mapper.map_resource(resource, "capstor")
         if project_resource:
             hierarchy_builder.assign_parent_to_project(
                 project_resource=project_resource,
@@ -696,7 +698,8 @@ class TestEdgeCases:
 class TestIntegrationScenarios:
     """Integration tests for realistic scenarios."""
 
-    def test_multi_storage_system_hierarchy(self, backend):
+    @pytest.mark.asyncio
+    async def test_multi_storage_system_hierarchy(self, backend):
         """Test hierarchy with multiple storage systems."""
         backend.waldur_service.get_offering_customers.return_value = {
             "customer1": {
@@ -756,7 +759,7 @@ class TestIntegrationScenarios:
             )
 
             # Create project
-            project = backend.mapper.map_resource(resource, storage_system)
+            project = await backend.mapper.map_resource(resource, storage_system)
             if project is not None:
                 hierarchy_builder.assign_parent_to_project(
                     project_resource=project,

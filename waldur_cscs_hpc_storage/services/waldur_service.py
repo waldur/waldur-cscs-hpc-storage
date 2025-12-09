@@ -47,7 +47,9 @@ class WaldurService:
             "Waldur API client initialized for URL: %s", waldur_api_config.api_url
         )
 
-    def get_offering_customers(self, offering_uuid: str) -> dict[str, dict[str, Any]]:
+    async def get_offering_customers(
+        self, offering_uuid: str
+    ) -> dict[str, dict[str, Any]]:
         """Get customers for a specific offering.
 
         Args:
@@ -57,7 +59,7 @@ class WaldurService:
             Dictionary mapping customer slugs to customer information
         """
         try:
-            response = marketplace_provider_offerings_customers_list.sync_all(
+            response = await marketplace_provider_offerings_customers_list.asyncio_all(
                 uuid=offering_uuid, client=self.client
             )
 
@@ -85,7 +87,7 @@ class WaldurService:
             )
             return {}
 
-    def list_resources(
+    async def list_resources(
         self,
         offering_uuid: Optional[str] = None,
         offering_slug: Optional[Union[str, list[str]]] = None,
@@ -128,7 +130,7 @@ class WaldurService:
 
         filters.update(kwargs)
 
-        response = marketplace_resources_list.sync_detailed(
+        response = await marketplace_resources_list.asyncio_detailed(
             client=self.client,
             page=page,
             page_size=page_size,

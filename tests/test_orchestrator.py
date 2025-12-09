@@ -1,6 +1,6 @@
 """Tests for CSCS HPC Storage Orchestrator."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
@@ -104,7 +104,10 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
     @pytest.fixture(autouse=True)
     def mock_gid_lookup(self):
         """Mock GID lookup for all tests in this class."""
-        with patch.object(MockGidService, "get_project_unix_gid", return_value=30000):
+        with patch.object(
+            MockGidService, "get_project_unix_gid", new_callable=AsyncMock
+        ) as mock_method:
+            mock_method.return_value = 30000
             yield
 
     def test_generate_mount_point(self):
@@ -118,7 +121,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         )
         assert mount_point == "/lustre-fs/store/university/physics-dept/climate-sim"
 
-    def test_get_target_item_data_mock(self):
+    @pytest.mark.asyncio
+    async def test_get_target_item_data_mock(self):
         """Test target item data generation with mock enabled."""
         mock_resource = Mock()
         mock_resource.customer_slug = "university"
@@ -136,7 +140,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
         # Determine target type
 
-        target_data = self.orchestrator.mapper._build_target_item(
+        target_data = await self.orchestrator.mapper._build_target_item(
             mock_resource, TargetType.PROJECT
         )
 
@@ -146,7 +150,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         assert target_data.status == "active"
         assert target_data.active is True
 
-    def test_target_status_mapping_from_waldur_state(self):
+    @pytest.mark.asyncio
+    async def test_target_status_mapping_from_waldur_state(self):
         """Test that target item status correctly maps from Waldur resource states."""
         mock_resource = Mock()
         mock_resource.customer_slug = "university"
@@ -169,7 +174,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         for waldur_state, expected_status, expected_active in test_cases:
             mock_resource.state = waldur_state
 
-            target_data = self.orchestrator.mapper._build_target_item(
+            target_data = await self.orchestrator.mapper._build_target_item(
                 mock_resource, TargetType.PROJECT
             )
 
@@ -180,7 +185,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
                 f"Waldur state '{waldur_state}' should set active={expected_active}, got {target_data.active}"
             )
 
-    def test_create_storage_resource_json(self):
+    @pytest.mark.asyncio
+    async def test_create_storage_resource_json(self):
         """Test storage resource JSON creation."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
@@ -224,7 +230,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.effective_permissions = "2770"
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
-        storage_json = self.orchestrator.mapper.map_resource(
+        storage_json = await self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -240,7 +246,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         assert storage_json.storageFileSystem.key == "lustre"
         assert storage_json.target.targetItem.unixGid == 30000
 
-    def test_create_storage_resource_json_with_provider_action_urls(self):
+    @pytest.mark.asyncio
+    async def test_create_storage_resource_json_with_provider_action_urls(self):
         """Test storage resource JSON creation includes provider action URLs when available."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
@@ -300,7 +307,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         }
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
-        storage_json = self.orchestrator.mapper.map_resource(
+        storage_json = await self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -314,7 +321,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/reject_by_provider/"
         )
 
-    def test_create_storage_resource_json_without_provider_action_urls(self):
+    @pytest.mark.asyncio
+    async def test_create_storage_resource_json_without_provider_action_urls(self):
         """Test storage resource JSON creation without provider action URLs when not available."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
@@ -358,7 +366,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.order_in_progress = Unset()
         mock_resource.callback_urls = {}
 
-        storage_json = self.orchestrator.mapper.map_resource(
+        storage_json = await self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -366,7 +374,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         assert "approve_by_provider_url" not in storage_json.extra_fields
         assert "reject_by_provider_url" not in storage_json.extra_fields
 
-    def test_create_storage_resource_json_with_order_but_no_uuid(self):
+    @pytest.mark.asyncio
+    async def test_create_storage_resource_json_with_order_but_no_uuid(self):
         """Test storage resource JSON creation when order exists but has no UUID."""
         mock_resource = Mock()
         mock_resource.uuid = Mock()
@@ -414,7 +423,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.order_in_progress = mock_order
         mock_resource.callback_urls = {}
 
-        storage_json = self.orchestrator.mapper.map_resource(
+        storage_json = await self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -487,7 +496,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         attr = ResourceAttributes(storage_data_type={"type": "store"})  # type: ignore
         assert attr.storage_data_type == StorageDataType.STORE
 
-    def test_status_mapping_from_waldur_state(self):
+    @pytest.mark.asyncio
+    async def test_status_mapping_from_waldur_state(self):
         """Test that Waldur resource state is correctly mapped to CSCS status."""
         backend = self._create_orchestrator()
 
@@ -528,7 +538,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         for waldur_state, expected_status in test_cases:
             mock_resource.state = waldur_state
 
-            result = backend.mapper.map_resource(
+            result = await backend.mapper.map_resource(
                 mock_resource, "test-storage", parent_item_id="parent"
             )
 
@@ -536,7 +546,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
                 f"State '{waldur_state}' should map to '{expected_status}'"
             )
 
-    def test_dynamic_target_type_mapping(self):
+    @pytest.mark.asyncio
+    async def test_dynamic_target_type_mapping(self):
         """Test that storage data type correctly maps to target type."""
         backend = self._create_orchestrator()
 
@@ -577,7 +588,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
             mock_resource.get_effective_inode_quotas.return_value = (100, 200)
             mock_resource.effective_permissions = "775"
 
-            result = backend.mapper.map_resource(
+            result = await backend.mapper.map_resource(
                 mock_resource, "test-storage", parent_item_id="parent"
             )
 
@@ -600,7 +611,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
                 assert target_item.primaryProject.name is not None
                 assert target_item.primaryProject.unixGid is not None
 
-    def test_quota_float_consistency(self):
+    @pytest.mark.asyncio
+    async def test_quota_float_consistency(self):
         """Test that quotas use float data type for consistency."""
         backend = self._create_orchestrator()
 
@@ -631,7 +643,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.effective_permissions = "775"
         mock_resource.render_quotas.return_value = create_mock_quotas(42.5)
 
-        result = backend.mapper.map_resource(mock_resource, "test-storage")
+        result = await backend.mapper.map_resource(mock_resource, "test-storage")
 
         # Verify all quotas are floats
         quotas = result.quotas
@@ -657,7 +669,8 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # I'll just skip this test or remove it.
         pass
 
-    def test_system_identifiers_use_deterministic_uuids(self):
+    @pytest.mark.asyncio
+    async def test_system_identifiers_use_deterministic_uuids(self):
         """Test that system identifiers use deterministic UUIDs generated from their names."""
         backend = self._create_orchestrator()
 
@@ -694,7 +707,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.effective_permissions = "775"
         mock_resource.render_quotas.return_value = create_mock_quotas(50)
 
-        result = backend.mapper.map_resource(mock_resource, "test-storage-system")
+        result = await backend.mapper.map_resource(mock_resource, "test-storage-system")
 
         # Verify that system identifiers are in UUID format
         import re
@@ -713,7 +726,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         assert re.match(uuid_pattern, storage_data_type.itemId)
         assert storage_data_type.key == "store"
 
-        result2 = backend.mapper.map_resource(mock_resource, "test-storage-system")
+        result2 = await backend.mapper.map_resource(
+            mock_resource, "test-storage-system"
+        )
 
         assert result.storageSystem.itemId == result2.storageSystem.itemId
         assert result.storageFileSystem.itemId == result2.storageFileSystem.itemId
@@ -873,16 +888,18 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         )
         assert len(filtered) == 2
 
-    def test_pagination_support(self):
+    @pytest.mark.asyncio
+    async def test_pagination_support(self):
         """Test pagination support via get_resources (delegated to Orchestrator)."""
         # Setup mock response parameters
         mock_response = Mock()
         mock_response.resources = []
         mock_response.total_count = 0
         self.orchestrator.waldur_service.list_resources.return_value = mock_response
+        self.orchestrator.waldur_service.get_offering_customers.return_value = {}
 
         # Case 1: Default pagination (page=1, page_size=100)
-        self.orchestrator.get_resources(["slug"])
+        await self.orchestrator.get_resources(["slug"])
 
         # Verify call args
         call_args = self.orchestrator.waldur_service.list_resources.call_args
@@ -895,7 +912,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         self.orchestrator.waldur_service.list_resources.reset_mock()
 
         # Case 2: Explicit pagination
-        self.orchestrator.get_resources(["slug"], page=2, page_size=50)
+        await self.orchestrator.get_resources(["slug"], page=2, page_size=50)
 
         call_args = self.orchestrator.waldur_service.list_resources.call_args
         assert call_args is not None

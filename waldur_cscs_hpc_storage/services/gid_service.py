@@ -51,7 +51,7 @@ class GidService:
             self.development_mode,
         )
 
-    def _get_auth_token(self) -> str:
+    async def _get_auth_token(self) -> str:
         """Get or refresh OIDC authentication token.
 
         Returns:
@@ -78,9 +78,9 @@ class GidService:
             raise ValueError(error_msg)
 
         # Request new token from OIDC provider
-        return self._acquire_oidc_token()
+        return await self._acquire_oidc_token()
 
-    def _acquire_oidc_token(self) -> str:
+    async def _acquire_oidc_token(self) -> str:
         """Acquire a new OIDC token from the configured provider.
 
         Returns:
@@ -111,8 +111,8 @@ class GidService:
                 "Using SOCKS proxy for token acquisition: %s", self.socks_proxy
             )
 
-        with httpx.Client(**client_args) as client:
-            response = client.post(
+        async with httpx.AsyncClient(**client_args) as client:
+            response = await client.post(
                 self.oidc_token_url, data=token_data, headers=headers
             )
             response.raise_for_status()
@@ -140,7 +140,7 @@ class GidService:
 
             return access_token
 
-    def get_projects(self, project_slugs: list[str]) -> list[dict[str, Any]]:
+    async def get_projects(self, project_slugs: list[str]) -> list[dict[str, Any]]:
         """Get project information for multiple project slugs.
 
         Args:
@@ -152,7 +152,7 @@ class GidService:
         Raises:
             httpx.HTTPError: If API request fails
         """
-        token = self._get_auth_token()
+        token = await self._get_auth_token()
 
         params: dict[str, Any] = {}
 
@@ -172,8 +172,8 @@ class GidService:
             client_args["proxy"] = self.socks_proxy
             logger.debug("Using SOCKS proxy for API request: %s", self.socks_proxy)
 
-        with httpx.Client(**client_args) as client:
-            response = client.get(url, params=params, headers=headers)
+        async with httpx.AsyncClient(**client_args) as client:
+            response = await client.get(url, params=params, headers=headers)
             response.raise_for_status()
             return response.json()["projects"]
 
@@ -188,7 +188,7 @@ class GidService:
         """
         return 30000 + hash(project_slug) % 10000
 
-    def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
+    async def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for a specific project slug.
 
         In development mode, returns a mock GID if the API lookup fails.
@@ -209,7 +209,7 @@ class GidService:
             return self._gid_cache[project_slug]
 
         try:
-            projects_data = self.get_projects([project_slug])
+            projects_data = await self.get_projects([project_slug])
             if len(projects_data) > 1:
                 logger.error("Multiple projects found for slug: %s", project_slug)
                 return self._handle_lookup_failure(
@@ -262,14 +262,14 @@ class GidService:
             )
             return None
 
-    def ping(self) -> bool:
+    async def ping(self) -> bool:
         """Check if CSCS HPC User API is accessible.
 
         Returns:
             True if API is accessible, False otherwise
         """
         try:
-            token = self._get_auth_token()
+            token = await self._get_auth_token()
             headers = {"Authorization": f"Bearer {token}"}
 
             url = f"{self.api_url}/api/v1/export/waldur/projects"
@@ -281,8 +281,8 @@ class GidService:
                 logger.debug("Using SOCKS proxy for ping: %s", self.socks_proxy)
 
             # Test with a simple request (no project filters)
-            with httpx.Client(**client_args) as client:
-                response = client.get(url, headers=headers)
+            async with httpx.AsyncClient(**client_args) as client:
+                response = await client.get(url, headers=headers)
                 return response.status_code == HTTP_OK
         except Exception:
             logger.exception("HPC User API ping failed")

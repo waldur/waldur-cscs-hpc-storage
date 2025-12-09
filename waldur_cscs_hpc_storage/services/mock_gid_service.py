@@ -38,7 +38,7 @@ class MockGidService:
         """
         return 30000 + hash(project_slug) % 10000
 
-    def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
+    async def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for a specific project slug.
 
         In development mode, returns a deterministic mock GID.
@@ -77,7 +77,7 @@ class MockGidService:
         )
         return mock_gid
 
-    def ping(self) -> bool:
+    async def ping(self) -> bool:
         """Check if service is available.
 
         MockGidService is always "available" since it doesn't depend on external API.
