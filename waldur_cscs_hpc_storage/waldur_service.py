@@ -10,7 +10,7 @@ from waldur_api_client.api.marketplace_resources import marketplace_resources_li
 from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
+from waldur_cscs_hpc_storage.config import WaldurApiConfig
 
 logger = logging.getLogger(__name__)
 

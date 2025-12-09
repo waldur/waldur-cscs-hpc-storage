@@ -1,7 +1,7 @@
 """Tests for configuration validation."""
 
 import pytest
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import BackendConfig
+from waldur_cscs_hpc_storage.config import BackendConfig
 
 
 class TestBackendConfigValidation:

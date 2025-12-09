@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 try:
-    from waldur_cscs_hpc_storage.waldur_storage_proxy.main import app
+    from waldur_cscs_hpc_storage.main import app
 except SystemExit:
     # If import fails due to configuration issues, skip all tests
     pytest.skip("Configuration not available for API tests", allow_module_level=True)

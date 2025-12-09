@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from waldur_cscs_hpc_storage.gid_service import GidService
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.config import HpcUserApiConfig
 
 
 class TestGidService:

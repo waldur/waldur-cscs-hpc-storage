@@ -6,7 +6,7 @@ from typing import Any, Optional
 
 import httpx
 
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import HpcUserApiConfig
+from waldur_cscs_hpc_storage.config import HpcUserApiConfig
 
 logger = logging.getLogger(__name__)
 

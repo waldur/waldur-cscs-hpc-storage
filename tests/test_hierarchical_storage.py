@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+from waldur_cscs_hpc_storage.config import (
     BackendConfig,
     WaldurApiConfig,
 )

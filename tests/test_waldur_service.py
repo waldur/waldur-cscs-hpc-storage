@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock, patch
 from waldur_cscs_hpc_storage.waldur_service import WaldurService
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
+from waldur_cscs_hpc_storage.config import WaldurApiConfig
 
 
 class TestWaldurService:

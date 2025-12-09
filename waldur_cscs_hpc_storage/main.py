@@ -1,5 +1,7 @@
 """API server used as proxy to Waldur storage resources."""
 
+from waldur_cscs_hpc_storage.base.enums import TargetStatus
+from waldur_cscs_hpc_storage.base.enums import StorageDataType
 from typing import Annotated, Optional
 import logging
 import os
@@ -16,10 +18,10 @@ from fastapi_keycloak_middleware import (
 from waldur_api_client.models.user import User
 from waldur_api_client.models.resource_state import ResourceState
 
-from waldur_cscs_hpc_storage.waldur_storage_proxy.auth import mock_user, setup_auth
+from waldur_cscs_hpc_storage.auth import mock_user, setup_auth
 from waldur_cscs_hpc_storage.base.enums import StorageSystem
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+from waldur_cscs_hpc_storage.config import (
     HpcUserApiConfig,
     StorageProxyConfig,
     WaldurApiConfig,
@@ -286,7 +288,7 @@ OIDCUserDependency = Annotated[User, Depends(user_dependency)]
 def storage_resources(
     user: OIDCUserDependency,
     storage_system: Annotated[
-        Optional[StorageSystem], Query(description="Optional: Storage system filter")
+        Optional[StorageSystem], Query(description="Storage system filter")
     ] = None,
     state: Optional[ResourceState] = None,
     page: Annotated[int, Query(ge=1, description="Page number (starts from 1)")] = 1,
@@ -294,12 +296,12 @@ def storage_resources(
         int, Query(ge=1, le=500, description="Number of items per page")
     ] = 100,
     data_type: Annotated[
-        Optional[str],
-        Query(description="Optional: Data type filter (users/scratch/store/archive)"),
+        Optional[StorageDataType],
+        Query(description="Data type filter"),
     ] = None,
     status: Annotated[
-        Optional[str],
-        Query(description="Optional: Status filter (pending/removing/active/error)"),
+        Optional[TargetStatus],
+        Query(description="Status filter"),
     ] = None,
 ) -> JSONResponse:
     """Exposes list of all storage resources with pagination and filtering."""
@@ -342,35 +344,29 @@ def storage_resources(
                 },
                 "filters_applied": {
                     "storage_system": storage_system.value if storage_system else None,
-                    "data_type": data_type,
-                    "status": status,
+                    "data_type": data_type.value if data_type else None,
+                    "status": status.value if status else None,
                     "state": state.value if state else None,
                 },
             }
         )
 
-    # Fetch and return translated API response
+    # Fetch resources for the specific storage_system
     if storage_system:
-        # Fetch resources for the specific storage_system
         storage_system_offering_slug = config.storage_systems[storage_system.value]
-        storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
-            offering_slugs=storage_system_offering_slug,
-            state=state,
-            page=page,
-            page_size=page_size,
-            data_type=data_type,
-            status=status,
-        )
+        offering_slugs = [storage_system_offering_slug]
     else:
-        # Fetch resources from all storage systems
-        storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
-            offering_slugs=list(config.storage_systems.values()),
-            state=state,
-            page=page,
-            page_size=page_size,
-            data_type=data_type,
-            status=status,
-        )
+        # Fetch resources for all storage_systems
+        offering_slugs = list(config.storage_systems.values())
+
+    storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
+        offering_slugs=offering_slugs,
+        state=state.value if state else None,
+        page=page,
+        page_size=page_size,
+        data_type=data_type.value if data_type else None,
+        status=status.value if status else None,
+    )
 
     # Return appropriate HTTP status code based on response status
     if storage_data.get("status") == "error":

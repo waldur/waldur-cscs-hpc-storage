@@ -15,7 +15,7 @@ from waldur_cscs_hpc_storage.base.mappers import (
     get_target_status_from_waldur_state,
     get_target_type_from_data_type,
 )
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
+from waldur_cscs_hpc_storage.config import (
     BackendConfig,
     HpcUserApiConfig,
     WaldurApiConfig,
