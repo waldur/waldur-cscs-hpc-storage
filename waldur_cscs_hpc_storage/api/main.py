@@ -11,26 +11,27 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.user import User
 
 from waldur_cscs_hpc_storage.api.config_parser import parse_configuration
+from waldur_cscs_hpc_storage.api.dependencies import (
+    get_orchestrator,
+    set_global_config,
+)
 from waldur_cscs_hpc_storage.api.handlers import (
     general_exception_handler,
     validation_exception_handler,
 )
-from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
 from waldur_cscs_hpc_storage.base.enums import (
     StorageDataType,
     StorageSystem,
     TargetStatus,
 )
 from waldur_cscs_hpc_storage.services.auth import mock_user, setup_auth
+from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
 
 # Parse all configuration
 config, waldur_api_config, hpc_user_api_config, DISABLE_AUTH = parse_configuration()
 
-cscs_storage_backend = CscsHpcStorageBackend(
-    config.backend_config,
-    waldur_api_config=waldur_api_config,
-    hpc_user_api_config=hpc_user_api_config,
-)
+# Initialize global config for dependency injection
+set_global_config(config)
 
 app = FastAPI(redirect_slashes=True)
 
@@ -49,11 +50,13 @@ else:
     user_dependency = mock_user
 
 OIDCUserDependency = Annotated[User, Depends(user_dependency)]
+OrchestratorDependency = Annotated[StorageOrchestrator, Depends(get_orchestrator)]
 
 
 @app.get("/api/storage-resources/")
 def storage_resources(
     user: OIDCUserDependency,
+    orchestrator: OrchestratorDependency,
     storage_system: Annotated[
         Optional[StorageSystem], Query(description="Storage system filter")
     ] = None,
@@ -119,7 +122,7 @@ def storage_resources(
         # Fetch resources for all storage_systems
         offering_slugs = list(config.storage_systems.values())
 
-    storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
+    storage_data = orchestrator.get_resources(
         offering_slugs=offering_slugs,
         state=state,
         page=page,

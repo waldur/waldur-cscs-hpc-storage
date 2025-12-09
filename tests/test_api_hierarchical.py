@@ -129,14 +129,14 @@ class TestHierarchicalStorageAPI:
     """Test the hierarchical storage resource API."""
 
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_offering_customers"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.get_offering_customers"
     )
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slugs"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
     )
     def test_three_tier_hierarchy_response(
         self,
-        mock_get_resources,
+        mock_list_resources,
         mock_get_customers,
         client,
         mock_waldur_resources,
@@ -144,16 +144,11 @@ class TestHierarchicalStorageAPI:
     ):
         """Test that the API returns a proper three-tier hierarchy."""
         mock_get_customers.return_value = mock_offering_customers
-        mock_get_resources.return_value = (
-            mock_waldur_resources,
-            {
-                "current": 1,
-                "limit": 100,
-                "offset": 0,
-                "pages": 1,
-                "total": len(mock_waldur_resources),
-            },
-        )
+
+        mock_response = Mock()
+        mock_response.resources = mock_waldur_resources
+        mock_response.total_count = len(mock_waldur_resources)
+        mock_list_resources.return_value = mock_response
 
         response = client.get("/api/storage-resources/")
 
@@ -195,14 +190,14 @@ class TestHierarchicalStorageAPI:
             assert project["parentItemId"] in customer_ids
 
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_offering_customers"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.get_offering_customers"
     )
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slugs"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
     )
     def test_mount_point_hierarchy(
         self,
-        mock_get_resources,
+        mock_list_resources,
         mock_get_customers,
         client,
         mock_waldur_resources,
@@ -210,16 +205,11 @@ class TestHierarchicalStorageAPI:
     ):
         """Test that mount points follow the correct hierarchy."""
         mock_get_customers.return_value = mock_offering_customers
-        mock_get_resources.return_value = (
-            mock_waldur_resources,
-            {
-                "current": 1,
-                "limit": 100,
-                "offset": 0,
-                "pages": 1,
-                "total": len(mock_waldur_resources),
-            },
-        )
+
+        mock_response = Mock()
+        mock_response.resources = mock_waldur_resources
+        mock_response.total_count = len(mock_waldur_resources)
+        mock_list_resources.return_value = mock_response
 
         response = client.get("/api/storage-resources/")
         data = response.json()
@@ -260,14 +250,14 @@ class TestHierarchicalStorageAPI:
             assert project_mount.startswith(customer_mount + "/")
 
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_offering_customers"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.get_offering_customers"
     )
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slugs"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
     )
     def test_storage_system_filter_maintains_hierarchy(
         self,
-        mock_get_resources,
+        mock_list_resources,
         mock_get_customers,
         client,
         mock_waldur_resources,
@@ -279,16 +269,11 @@ class TestHierarchicalStorageAPI:
         capstor_resources = [
             r for r in mock_waldur_resources if r.offering_slug == "capstor"
         ]
-        mock_get_resources.return_value = (
-            capstor_resources,
-            {
-                "current": 1,
-                "limit": 100,
-                "offset": 0,
-                "pages": 1,
-                "total": len(capstor_resources),
-            },
-        )
+
+        mock_response = Mock()
+        mock_response.resources = capstor_resources
+        mock_response.total_count = len(capstor_resources)
+        mock_list_resources.return_value = mock_response
 
         response = client.get("/api/storage-resources/?storage_system=capstor")
 
@@ -402,14 +387,14 @@ class TestHierarchyValidation:
     """Test hierarchy validation and consistency."""
 
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_offering_customers"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.get_offering_customers"
     )
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slugs"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
     )
     def test_no_orphaned_resources(
         self,
-        mock_get_resources,
+        mock_list_resources,
         mock_get_customers,
         client,
         mock_waldur_resources,
@@ -417,16 +402,11 @@ class TestHierarchyValidation:
     ):
         """Test that no resources are orphaned in the hierarchy."""
         mock_get_customers.return_value = mock_offering_customers
-        mock_get_resources.return_value = (
-            mock_waldur_resources,
-            {
-                "current": 1,
-                "limit": 100,
-                "offset": 0,
-                "pages": 1,
-                "total": len(mock_waldur_resources),
-            },
-        )
+
+        mock_response = Mock()
+        mock_response.resources = mock_waldur_resources
+        mock_response.total_count = len(mock_waldur_resources)
+        mock_list_resources.return_value = mock_response
 
         response = client.get("/api/storage-resources/")
         data = response.json()
@@ -460,14 +440,14 @@ class TestHierarchyValidation:
             assert parent["target"]["targetType"] == "customer"
 
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_offering_customers"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.get_offering_customers"
     )
     @patch(
-        "waldur_cscs_hpc_storage.backend.CscsHpcStorageBackend._get_resources_by_offering_slugs"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
     )
     def test_consistent_storage_metadata(
         self,
-        mock_get_resources,
+        mock_list_resources,
         mock_get_customers,
         client,
         mock_waldur_resources,
@@ -475,16 +455,11 @@ class TestHierarchyValidation:
     ):
         """Test that storage system metadata is consistent across hierarchy levels."""
         mock_get_customers.return_value = mock_offering_customers
-        mock_get_resources.return_value = (
-            mock_waldur_resources,
-            {
-                "current": 1,
-                "limit": 100,
-                "offset": 0,
-                "pages": 1,
-                "total": len(mock_waldur_resources),
-            },
-        )
+
+        mock_response = Mock()
+        mock_response.resources = mock_waldur_resources
+        mock_response.total_count = len(mock_waldur_resources)
+        mock_list_resources.return_value = mock_response
 
         response = client.get("/api/storage-resources/")
         data = response.json()

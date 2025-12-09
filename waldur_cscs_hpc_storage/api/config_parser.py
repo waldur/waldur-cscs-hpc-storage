@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+from dataclasses import replace
 from typing import Optional, Tuple
 
 import yaml
@@ -103,46 +104,41 @@ def apply_waldur_api_overrides(config: StorageProxyConfig) -> Optional[WaldurApi
 
     # Initialize waldur_api if missing but essential env vars are present
     if not config.waldur_api and waldur_api_url and waldur_api_token:
-        config.waldur_api = WaldurApiConfig(
-            api_url=waldur_api_url, access_token=waldur_api_token
-        )
+        # Create a new WaldurApiConfig
+        return WaldurApiConfig(api_url=waldur_api_url, access_token=waldur_api_token)
 
     if config.waldur_api:
         # Apply env var overrides if present
-        if waldur_api_url:
-            config.waldur_api.api_url = waldur_api_url
-        if waldur_api_token:
-            config.waldur_api.access_token = waldur_api_token
+        api_url = waldur_api_url or config.waldur_api.api_url
+        access_token = waldur_api_token or config.waldur_api.access_token
 
+        verify_ssl = config.waldur_api.verify_ssl
         if waldur_verify_ssl is not None:
-            config.waldur_api.verify_ssl = waldur_verify_ssl.lower() in (
-                "true",
-                "yes",
-                "1",
-            )
+            verify_ssl = waldur_verify_ssl.lower() in ("true", "yes", "1")
 
-        if waldur_socks_proxy is not None:
-            config.waldur_api.socks_proxy = waldur_socks_proxy
+        socks_proxy = waldur_socks_proxy or config.waldur_api.socks_proxy
 
         # Log proxy configuration
-        if config.waldur_api.socks_proxy:
+        if socks_proxy:
             logger.info(
                 "Using SOCKS proxy for Waldur API connections: %s",
-                config.waldur_api.socks_proxy,
+                socks_proxy,
             )
         else:
             logger.info("No SOCKS proxy configured for Waldur API connections")
+
+        # Create a new WaldurApiConfig with overrides
+        new_waldur_api = WaldurApiConfig(
+            api_url=api_url,
+            access_token=access_token,
+            verify_ssl=verify_ssl,
+            socks_proxy=socks_proxy,
+        )
+
+        return new_waldur_api
     else:
         logger.warning("Waldur API configuration is missing")
-
-    # Validate configuration after overrides
-    try:
-        config.validate()
-    except ValueError:
-        logger.exception("Configuration validation failed")
-        sys.exit(1)
-
-    return config.waldur_api
+        return None
 
 
 def build_hpc_user_api_config(
@@ -239,6 +235,16 @@ def parse_configuration() -> Tuple[
     waldur_api_config = apply_waldur_api_overrides(config)
     if waldur_api_config is None:
         logger.error("Waldur API configuration validation failed")
+        sys.exit(1)
+
+    # Update main config with the possibly modified waldur_api_config
+    config = replace(config, waldur_api=waldur_api_config)
+
+    # Validate configuration after overrides
+    try:
+        config.validate()
+    except ValueError:
+        logger.exception("Configuration validation failed")
         sys.exit(1)
 
     hpc_user_api_config = build_hpc_user_api_config(config)

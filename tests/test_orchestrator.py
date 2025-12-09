@@ -1,19 +1,14 @@
-"""Tests for CSCS HPC Storage backend."""
+"""Tests for CSCS HPC Storage Orchestrator."""
 
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
-from waldur_api_client.types import Unset
 from waldur_api_client.models.order_state import OrderState
-from waldur_cscs_hpc_storage.backend import (
-    CscsHpcStorageBackend,
-    make_storage_resource_predicate,
-)
-from waldur_cscs_hpc_storage.base.schemas import (
-    ResourceAttributes,
-)
+from waldur_api_client.models.resource_state import ResourceState
+from waldur_api_client.types import Unset
+
 from waldur_cscs_hpc_storage.base.enums import (
     EnforcementType,
     QuotaType,
@@ -23,13 +18,18 @@ from waldur_cscs_hpc_storage.base.enums import (
     TargetType,
 )
 from waldur_cscs_hpc_storage.base.models import Quota
+from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.base.schemas import (
+    ResourceAttributes,
+)
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
-    HpcUserApiConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
-from waldur_api_client.models.resource_state import ResourceState
+from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
+from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 
 def create_mock_quotas(storage_limit: float = 150.0) -> list[Quota]:
@@ -64,12 +64,12 @@ def create_mock_quotas(storage_limit: float = 150.0) -> list[Quota]:
     ]
 
 
-class TestCscsHpcStorageBackendBase:
-    """Base test class for CSCS HPC Storage backend."""
+class TestStorageOrchestratorBase:
+    """Base test class for CSCS HPC Storage Orchestrator."""
 
     def setup_method(self):
         """Set up test environment."""
-        self.backend_config = BackendConfig(
+        self.orchestrator_config = BackendConfig(
             storage_file_system="lustre",
             inode_soft_coefficient=1.5,
             inode_hard_coefficient=2.0,
@@ -79,29 +79,31 @@ class TestCscsHpcStorageBackendBase:
         self.waldur_api_config = WaldurApiConfig(
             api_url="https://example.com", access_token="token"
         )
-        self.backend = self._create_backend()
+        self.orchestrator = self._create_orchestrator()
 
-    def _create_backend(self, hpc_user_api_config=None):
-        """Helper to create backend instance with mocks."""
-        backend = CscsHpcStorageBackend(
-            self.backend_config,
-            waldur_api_config=self.waldur_api_config,
-            hpc_user_api_config=hpc_user_api_config,
-        )
+    def _create_orchestrator(self):
+        """Helper to create orchestrator instance with mocks."""
+        # Initialize dependencies
+        gid_service = MockGidService()
+        mapper = ResourceMapper(self.orchestrator_config, gid_service)
+
         # Inject mock waldur_service for testing
-        backend.waldur_service = Mock()
-        backend.orchestrator.waldur_service = backend.waldur_service
-        return backend
+        self.mock_waldur_service = Mock(spec=WaldurService)
+
+        orchestrator = StorageOrchestrator(
+            self.orchestrator_config,
+            waldur_service=self.mock_waldur_service,
+            mapper=mapper,
+        )
+        return orchestrator
 
 
-class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
-    """Test cases for CSCS HPC Storage backend."""
+class TestStorageOrchestrator(TestStorageOrchestratorBase):
+    """Test cases for CSCS HPC Storage Orchestrator."""
 
     @pytest.fixture(autouse=True)
     def mock_gid_lookup(self):
         """Mock GID lookup for all tests in this class."""
-        from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
-
         with patch.object(MockGidService, "get_project_unix_gid", return_value=30000):
             yield
 
@@ -134,7 +136,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         # Determine target type
 
-        target_data = self.backend.mapper._build_target_item(
+        target_data = self.orchestrator.mapper._build_target_item(
             mock_resource, TargetType.PROJECT
         )
 
@@ -167,7 +169,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         for waldur_state, expected_status, expected_active in test_cases:
             mock_resource.state = waldur_state
 
-            target_data = self.backend.mapper._build_target_item(
+            target_data = self.orchestrator.mapper._build_target_item(
                 mock_resource, TargetType.PROJECT
             )
 
@@ -222,7 +224,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.effective_permissions = "2770"
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
-        storage_json = self.backend.mapper.map_resource(
+        storage_json = self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -298,7 +300,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         }
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
-        storage_json = self.backend.mapper.map_resource(
+        storage_json = self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -356,7 +358,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.order_in_progress = Unset()
         mock_resource.callback_urls = {}
 
-        storage_json = self.backend.mapper.map_resource(
+        storage_json = self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -412,7 +414,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resource.order_in_progress = mock_order
         mock_resource.callback_urls = {}
 
-        storage_json = self.backend.mapper.map_resource(
+        storage_json = self.orchestrator.mapper.map_resource(
             mock_resource, "lustre-fs", parent_item_id="parent-uuid"
         )
 
@@ -422,7 +424,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_invalid_storage_system_type_validation(self):
         """Test that non-string storage_system raises clear validation error."""
-        backend = self._create_backend()
+        backend = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -458,7 +460,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
     def test_invalid_attribute_types_validation(self):
         """Test that non-string attribute values raise clear validation errors."""
         """Test that non-string attribute values raise clear validation errors."""
-        # backend = self._create_backend() # Removed unused variable
+        # backend = self._create_orchestrator() # Removed unused variable
 
         # Create a mock resource
         mock_resource = Mock()
@@ -487,7 +489,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_status_mapping_from_waldur_state(self):
         """Test that Waldur resource state is correctly mapped to CSCS status."""
-        backend = self._create_backend()
+        backend = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -536,7 +538,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_dynamic_target_type_mapping(self):
         """Test that storage data type correctly maps to target type."""
-        backend = self._create_backend()
+        backend = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -600,7 +602,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_quota_float_consistency(self):
         """Test that quotas use float data type for consistency."""
-        backend = self._create_backend()
+        backend = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -643,7 +645,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_storage_data_type_validation(self):
         """Test validation of storage_data_type parameter."""
-        backend = self._create_backend()
+        backend = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -657,7 +659,7 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
     def test_system_identifiers_use_deterministic_uuids(self):
         """Test that system identifiers use deterministic UUIDs generated from their names."""
-        backend = self._create_backend()
+        backend = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -746,18 +748,21 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2, r3]
 
         # Test filtering by data_type
-        predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=StorageDataType.STORE, status=None
+        )
         assert len(filtered) == 1
         assert filtered[0].storageDataType.key == "store"
 
-        predicate = make_storage_resource_predicate(data_type=StorageDataType.USERS)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=StorageDataType.USERS, status=None
+        )
         assert len(filtered) == 1
         assert filtered[0].storageDataType.key == "users"
 
-        predicate = make_storage_resource_predicate(data_type=StorageDataType.SCRATCH)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=StorageDataType.SCRATCH, status=None
+        )
         assert len(filtered) == 1
         assert filtered[0].storageDataType.key == "scratch"
 
@@ -782,18 +787,21 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2, r3]
 
         # Test filtering by status
-        predicate = make_storage_resource_predicate(status=TargetStatus.ACTIVE)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=None, status=TargetStatus.ACTIVE
+        )
         assert len(filtered) == 1
         assert filtered[0].status == "active"
 
-        predicate = make_storage_resource_predicate(status=TargetStatus.PENDING)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=None, status=TargetStatus.PENDING
+        )
         assert len(filtered) == 1
         assert filtered[0].status == "pending"
 
-        predicate = make_storage_resource_predicate(status=TargetStatus.REMOVING)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=None, status=TargetStatus.REMOVING
+        )
         assert len(filtered) == 1
         assert filtered[0].status == "removing"
 
@@ -823,25 +831,24 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2, r3, r4]
 
         # Test combined filtering: store + active
-        predicate = make_storage_resource_predicate(
-            data_type=StorageDataType.STORE, status=TargetStatus.ACTIVE
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=StorageDataType.STORE, status=TargetStatus.ACTIVE
         )
-        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 2
         assert all(r.storageDataType.key == "store" for r in filtered)
         assert all(r.status == "active" for r in filtered)
 
         # Test combined filtering: store only (should return 3)
-        predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
-        filtered = list(filter(predicate, mock_resources))
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=StorageDataType.STORE, status=None
+        )
         assert len(filtered) == 3
         assert all(r.storageDataType.key == "store" for r in filtered)
 
         # Test combined filtering that returns no results
-        predicate = make_storage_resource_predicate(
-            data_type=StorageDataType.USERS, status=TargetStatus.PENDING
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=StorageDataType.USERS, status=TargetStatus.PENDING
         )
-        filtered = list(filter(predicate, mock_resources))
         assert len(filtered) == 0
 
     def test_filtering_no_filters_applied(self):
@@ -860,37 +867,37 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         mock_resources = [r1, r2]
 
         # Test no filtering (should return all resources)
-        predicate = make_storage_resource_predicate()
-        filtered = list(filter(predicate, mock_resources))
+        # Test that no filtering is applied (return all)
+        filtered = self.orchestrator._filter_resources(
+            mock_resources, data_type=None, status=None
+        )
         assert len(filtered) == 2
 
     def test_pagination_support(self):
-        """Test pagination support via generate_all_resources_json_by_slugs (delegated to Orchestrator)."""
+        """Test pagination support via get_resources (delegated to Orchestrator)."""
         # Setup mock response parameters
         mock_response = Mock()
         mock_response.resources = []
         mock_response.total_count = 0
-        self.backend.waldur_service.list_resources.return_value = mock_response
+        self.orchestrator.waldur_service.list_resources.return_value = mock_response
 
         # Case 1: Default pagination (page=1, page_size=100)
-        self.backend.generate_all_resources_json_by_slugs(["slug"])
+        self.orchestrator.get_resources(["slug"])
 
         # Verify call args
-        call_args = self.backend.waldur_service.list_resources.call_args
+        call_args = self.orchestrator.waldur_service.list_resources.call_args
         assert call_args is not None
         _, kwargs = call_args
         assert kwargs["page"] == 1
         assert kwargs["page_size"] == 100  # Default
 
         # Reset mock
-        self.backend.waldur_service.list_resources.reset_mock()
+        self.orchestrator.waldur_service.list_resources.reset_mock()
 
         # Case 2: Explicit pagination
-        self.backend.generate_all_resources_json_by_slugs(
-            ["slug"], page=2, page_size=50
-        )
+        self.orchestrator.get_resources(["slug"], page=2, page_size=50)
 
-        call_args = self.backend.waldur_service.list_resources.call_args
+        call_args = self.orchestrator.waldur_service.list_resources.call_args
         assert call_args is not None
         _, kwargs = call_args
         # Should be exactly what we passed

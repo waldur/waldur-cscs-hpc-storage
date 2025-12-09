@@ -10,7 +10,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class AuthConfig:
     """Authentication configuration."""
 
@@ -21,7 +21,7 @@ class AuthConfig:
     keycloak_client_secret: Optional[str] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class HpcUserApiConfig:
     """HPC User API configuration."""
 
@@ -36,7 +36,7 @@ class HpcUserApiConfig:
     development_mode: bool = False  # Enable mock fallback when API lookup fails
 
 
-@dataclass
+@dataclass(frozen=True)
 class WaldurApiConfig:
     """Waldur API configuration."""
 
@@ -47,7 +47,7 @@ class WaldurApiConfig:
     agent_header: Optional[str] = None
 
 
-@dataclass
+@dataclass(frozen=True)
 class BackendConfig:
     """Backend configuration settings."""
 
@@ -96,7 +96,7 @@ class BackendConfig:
             raise ValueError(msg)
 
 
-@dataclass
+@dataclass(frozen=True)
 class StorageProxyConfig:
     """Configuration for the CSCS Storage Proxy."""
 

@@ -1,35 +1,35 @@
 """Tests for hierarchical storage resource generation."""
 
-from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
-from waldur_cscs_hpc_storage.base.mount_points import generate_customer_mount_point
-from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_point
-from waldur_cscs_hpc_storage.base.models import Quota
-from waldur_cscs_hpc_storage.base.enums import (
-    QuotaType,
-    QuotaUnit,
-    EnforcementType,
-    StorageDataType,
-)
-from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from typing import Optional
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
 
-from waldur_cscs_hpc_storage.backend import (
-    CscsHpcStorageBackend,
-    make_storage_resource_predicate,
+from waldur_cscs_hpc_storage.base.enums import (
+    QuotaType,
+    QuotaUnit,
+    EnforcementType,
+    StorageDataType,
 )
+from waldur_cscs_hpc_storage.base.models import Quota
+from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.base.mount_points import generate_customer_mount_point
+from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_point
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
     WaldurApiConfig,
 )
+from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
+from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
+from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 
 @pytest.fixture
 def backend():
-    """Create a backend instance for testing."""
+    """Create a orchestrator instance for testing (mimicking backend interface)."""
     backend_config = BackendConfig(
         storage_file_system="lustre",
         inode_soft_coefficient=1.33,
@@ -43,14 +43,16 @@ def backend():
         api_url="https://example.com", access_token="token"
     )
 
-    backend = CscsHpcStorageBackend(
-        backend_config,
-        waldur_api_config=waldur_api_config,
-    )
+    gid_service = MockGidService()
+    mapper = ResourceMapper(backend_config, gid_service)
 
     # Inject mock waldur_service for testing
-    backend.waldur_service = Mock()
-    return backend
+    waldur_service = Mock(spec=WaldurService)
+
+    orchestrator = StorageOrchestrator(
+        backend_config, waldur_service=waldur_service, mapper=mapper
+    )
+    return orchestrator
 
 
 @pytest.fixture
@@ -592,8 +594,11 @@ class TestHierarchyFiltering:
         )
 
         # Filter by data_type
-        predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
-        store_resources = list(filter(predicate, all_resources))
+        # predicate = make_storage_resource_predicate(data_type=StorageDataType.STORE)
+        # Using lambda replacement
+        store_resources = list(
+            filter(lambda r: r.storageDataType.key == "store", all_resources)
+        )
 
         # Verify only store resources returned
         assert len(store_resources) == 2
