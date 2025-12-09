@@ -1,6 +1,7 @@
 from typing import Any, Optional, Annotated
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
+from waldur_api_client.models.resource import Resource
 from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.types import Unset
@@ -148,7 +149,7 @@ class ParsedWaldurResource(BaseModel):
     order_in_progress: Optional[Any] = None
 
     @classmethod
-    def from_waldur_resource(cls, resource: Any) -> "ParsedWaldurResource":
+    def from_waldur_resource(cls, resource: Resource) -> "ParsedWaldurResource":
         return cls(
             uuid=resource.uuid.hex,
             name=resource.name,
