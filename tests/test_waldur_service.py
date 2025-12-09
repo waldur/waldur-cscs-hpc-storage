@@ -12,10 +12,10 @@ class TestWaldurService:
     @pytest.fixture
     def service(self, waldur_api_config):
         with patch(
-            "waldur_cscs_hpc_storage.waldur_service.get_client"
-        ) as mock_get_client:
+            "waldur_cscs_hpc_storage.waldur_service.AuthenticatedClient"
+        ) as mock_client_class:
+            mock_client_class.return_value = Mock()
             service = WaldurService(waldur_api_config)
-            service.client = Mock()
             return service
 
     @patch(

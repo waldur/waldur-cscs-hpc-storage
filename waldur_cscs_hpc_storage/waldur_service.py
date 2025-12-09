@@ -2,14 +2,14 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
-from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
-
+from waldur_api_client import AuthenticatedClient
 from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
 from waldur_api_client.api.marketplace_resources import marketplace_resources_list
 from waldur_api_client.models.resource_state import ResourceState
-from waldur_cscs_hpc_storage.utils import get_client
+
+from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,26 @@ class WaldurResourceResponse:
 
 class WaldurService:
     def __init__(self, waldur_api_config: WaldurApiConfig):
-        self.client = get_client(waldur_api_config)
+        headers = (
+            {"User-Agent": waldur_api_config.agent_header}
+            if waldur_api_config.agent_header
+            else {}
+        )
+        url = waldur_api_config.api_url.rstrip("/api")
+
+        # Configure httpx args with proxy if specified
+        httpx_args = {}
+        if waldur_api_config.socks_proxy:
+            httpx_args["proxy"] = waldur_api_config.socks_proxy
+
+        self.client = AuthenticatedClient(
+            base_url=url,
+            token=waldur_api_config.access_token,
+            timeout=600,
+            headers=headers,
+            verify_ssl=waldur_api_config.verify_ssl,
+            httpx_args=httpx_args,
+        )
         logger.debug(
             "Waldur API client initialized for URL: %s", waldur_api_config.api_url
         )

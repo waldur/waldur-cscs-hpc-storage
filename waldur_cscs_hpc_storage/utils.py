@@ -3,41 +3,6 @@
 from pathlib import Path
 
 import yaml
-from waldur_api_client import AuthenticatedClient
-
-
-from waldur_cscs_hpc_storage.waldur_storage_proxy.config import WaldurApiConfig
-
-
-def get_client(waldur_api_config: WaldurApiConfig) -> AuthenticatedClient:
-    """Create an authenticated Waldur API client.
-
-    Args:
-        waldur_api_config: Waldur API configuration object
-
-    Returns:
-        Configured AuthenticatedClient instance ready for API calls
-    """
-    headers = (
-        {"User-Agent": waldur_api_config.agent_header}
-        if waldur_api_config.agent_header
-        else {}
-    )
-    url = waldur_api_config.api_url.rstrip("/api")
-
-    # Configure httpx args with proxy if specified
-    httpx_args = {}
-    if waldur_api_config.socks_proxy:
-        httpx_args["proxy"] = waldur_api_config.socks_proxy
-
-    return AuthenticatedClient(
-        base_url=url,
-        token=waldur_api_config.access_token,
-        timeout=600,
-        headers=headers,
-        verify_ssl=waldur_api_config.verify_ssl,
-        httpx_args=httpx_args,
-    )
 
 
 def load_configuration(
