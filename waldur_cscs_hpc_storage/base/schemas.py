@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
 from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.order_state import OrderState
+from waldur_api_client.types import Unset
 
 # Re-importing Enums from your existing structure to ensure compatibility
 from waldur_cscs_hpc_storage.base.enums import (
@@ -133,6 +134,8 @@ class ParsedWaldurResource(BaseModel):
     customer_uuid: str
     customer_name: str = ""
     customer_slug: str = ""
+    provider_slug: str = ""
+    provider_name: str = ""
 
     limits: ResourceLimits = Field(default_factory=ResourceLimits)
     attributes: ResourceAttributes = Field(default_factory=ResourceAttributes)
@@ -160,6 +163,18 @@ class ParsedWaldurResource(BaseModel):
             customer_uuid=resource.customer_uuid.hex,
             customer_name=resource.customer_name,
             customer_slug=resource.customer_slug,
+            provider_slug=(
+                resource.provider_slug
+                if hasattr(resource, "provider_slug")
+                and not isinstance(resource.provider_slug, Unset)
+                else ""
+            ),
+            provider_name=(
+                resource.provider_name
+                if hasattr(resource, "provider_name")
+                and not isinstance(resource.provider_name, Unset)
+                else ""
+            ),
             limits=ResourceLimits(**resource.limits.additional_properties),
             attributes=ResourceAttributes(**resource.attributes.additional_properties),
             options=ResourceOptions(**resource.options.additional_properties),

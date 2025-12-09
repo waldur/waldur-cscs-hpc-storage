@@ -12,7 +12,6 @@ from waldur_cscs_hpc_storage.backend import (
     make_storage_resource_predicate,
 )
 from waldur_cscs_hpc_storage.base.schemas import (
-    ParsedWaldurResource,
     ResourceAttributes,
 )
 from waldur_cscs_hpc_storage.base.enums import (
@@ -23,7 +22,6 @@ from waldur_cscs_hpc_storage.base.enums import (
     TargetStatus,
 )
 from waldur_cscs_hpc_storage.base.models import Quota
-from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
     HpcUserApiConfig,
