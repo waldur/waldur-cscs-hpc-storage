@@ -1,9 +1,9 @@
 import logging
 from typing import Any, Callable, Optional, Union
 
-from waldur_cscs_hpc_storage.gid_service import GidService
-from waldur_cscs_hpc_storage.mock_gid_service import MockGidService
-from waldur_cscs_hpc_storage.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.services.gid_service import GidService
+from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_api_client.types import Unset

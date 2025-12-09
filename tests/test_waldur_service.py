@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-from waldur_cscs_hpc_storage.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
 
 
@@ -12,14 +12,14 @@ class TestWaldurService:
     @pytest.fixture
     def service(self, waldur_api_config):
         with patch(
-            "waldur_cscs_hpc_storage.waldur_service.AuthenticatedClient"
+            "waldur_cscs_hpc_storage.services.waldur_service.AuthenticatedClient"
         ) as mock_client_class:
             mock_client_class.return_value = Mock()
             service = WaldurService(waldur_api_config)
             return service
 
     @patch(
-        "waldur_cscs_hpc_storage.waldur_service.marketplace_provider_offerings_customers_list"
+        "waldur_cscs_hpc_storage.services.waldur_service.marketplace_provider_offerings_customers_list"
     )
     def test_get_offering_customers_success(self, mock_list, service):
         mock_response = Mock()
@@ -40,7 +40,7 @@ class TestWaldurService:
         )
 
     @patch(
-        "waldur_cscs_hpc_storage.waldur_service.marketplace_provider_offerings_customers_list"
+        "waldur_cscs_hpc_storage.services.waldur_service.marketplace_provider_offerings_customers_list"
     )
     def test_get_offering_customers_empty(self, mock_list, service):
         mock_response = Mock()
@@ -52,7 +52,7 @@ class TestWaldurService:
         assert customers == {}
 
     @patch(
-        "waldur_cscs_hpc_storage.waldur_service.marketplace_provider_offerings_customers_list"
+        "waldur_cscs_hpc_storage.services.waldur_service.marketplace_provider_offerings_customers_list"
     )
     def test_get_offering_customers_error(self, mock_list, service):
         mock_list.sync_all.side_effect = Exception("API Error")
@@ -61,7 +61,7 @@ class TestWaldurService:
 
         assert customers == {}
 
-    @patch("waldur_cscs_hpc_storage.waldur_service.marketplace_resources_list")
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
     def test_list_resources_basic(self, mock_list, service):
         service.list_resources(offering_uuid="uuid", page=1, page_size=10)
 
@@ -69,7 +69,7 @@ class TestWaldurService:
             client=service.client, offering_uuid=["uuid"], page=1, page_size=10
         )
 
-    @patch("waldur_cscs_hpc_storage.waldur_service.marketplace_resources_list")
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
     def test_list_resources_with_slug_list(self, mock_list, service):
         service.list_resources(offering_slug=["slug1", "slug2"])
 
@@ -77,7 +77,7 @@ class TestWaldurService:
             client=service.client, offering_slug="slug1,slug2", page=1, page_size=100
         )
 
-    @patch("waldur_cscs_hpc_storage.waldur_service.marketplace_resources_list")
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
     def test_list_resources_exclude_pending(self, mock_list, service):
         service.list_resources(offering_uuid="uuid", exclude_pending=True)
 

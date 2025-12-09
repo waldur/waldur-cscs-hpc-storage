@@ -14,8 +14,8 @@ test_config_path = Path(__file__).parent / "test_config.yaml"
 os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
 os.environ["DISABLE_AUTH"] = "true"
 
-from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
-from waldur_cscs_hpc_storage.main import app  # noqa: E402
+from waldur_cscs_hpc_storage.services.waldur_service import WaldurResourceResponse
+from waldur_cscs_hpc_storage.api.main import app  # noqa: E402
 
 
 class TestStorageProxyAPI:
@@ -31,7 +31,7 @@ class TestStorageProxyAPI:
         response = self.client.get("/")
         assert response.status_code == 404
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_storage_resources_endpoint_exists(self, mock_backend):
         """Test that the storage-resources endpoint exists."""
         # Mock successful response
@@ -51,7 +51,7 @@ class TestStorageProxyAPI:
         assert response.status_code == 200
 
     @pytest.mark.parametrize("storage_system", ["capstor", "vast", "iopsstor"])
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_valid_storage_system_filters(self, mock_backend, storage_system):
         """Test valid storage system filter values."""
         # Mock successful response
@@ -102,7 +102,7 @@ class TestStorageProxyAPI:
         assert isinstance(data["detail"], list)
         assert len(data["detail"]) > 0
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_no_storage_system_filter(self, mock_backend):
         """Test request without storage_system filter (should return all storage systems)."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -128,7 +128,7 @@ class TestStorageProxyAPI:
         assert len(offered_slugs) > 1  # Should include multiple storage systems
 
     @pytest.mark.parametrize("page,page_size", [(1, 50), (2, 100), (1, 500)])
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_pagination_parameters(self, mock_backend, page, page_size):
         """Test pagination parameters."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -167,7 +167,7 @@ class TestStorageProxyAPI:
         assert response.status_code == 422
 
     @pytest.mark.parametrize("data_type", ["users", "scratch", "store", "archive"])
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_data_type_filter(self, mock_backend, data_type):
         """Test data_type filter parameter."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -191,7 +191,7 @@ class TestStorageProxyAPI:
         assert call_args[1]["data_type"] == data_type
 
     @pytest.mark.parametrize("status", ["pending", "removing", "active", "error"])
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_status_filter(self, mock_backend, status):
         """Test status filter parameter."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -215,7 +215,7 @@ class TestStorageProxyAPI:
         assert call_args[1]["status"] == status
 
     @pytest.mark.parametrize("state", ["Creating", "OK", "Erred", "Terminating"])
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_state_filter(self, mock_backend, state):
         """Test state filter parameter."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -238,7 +238,7 @@ class TestStorageProxyAPI:
         call_args = mock_backend.generate_all_resources_json_by_slugs.call_args
         assert call_args[1]["state"] == ResourceState(state)
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_backend_error_handling(self, mock_backend):
         """Test handling of backend errors."""
         # Mock backend error
@@ -255,7 +255,7 @@ class TestStorageProxyAPI:
         assert data["status"] == "error"
         assert "error" in data
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_successful_response_structure(self, mock_backend):
         """Test the structure of successful API responses."""
         # Mock a successful response with sample data
@@ -296,7 +296,7 @@ class TestStorageProxyAPI:
         assert len(data["resources"]) == 1
         assert data["resources"][0]["itemId"] == mock_storage_resource["itemId"]
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_multiple_filters_combination(self, mock_backend):
         """Test combining multiple filters."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -324,7 +324,7 @@ class TestStorageProxyAPI:
         assert call_args[1]["page"] == 1
         assert call_args[1]["page_size"] == 50
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_unconfigured_storage_system(self, mock_backend):
         """Test behavior when requesting a valid but unconfigured storage system."""
         # This test ensures that the API handles storage systems that are valid enum values
@@ -355,7 +355,7 @@ class TestStorageProxyAPI:
         # Should not get authentication error
         assert response.status_code != 401
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_response_headers(self, mock_backend):
         """Test response headers are set correctly."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -374,7 +374,7 @@ class TestStorageProxyAPI:
         assert response.status_code == 200
         assert "application/json" in response.headers.get("content-type", "")
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_empty_resources_response(self, mock_backend):
         """Test response when no resources are found."""
         mock_backend.generate_all_resources_json_by_slugs.return_value = {
@@ -397,7 +397,7 @@ class TestStorageProxyAPI:
         assert data["resources"] == []
         assert data["pagination"]["total"] == 0
 
-    @patch("waldur_cscs_hpc_storage.main.cscs_storage_backend")
+    @patch("waldur_cscs_hpc_storage.api.main.cscs_storage_backend")
     def test_multiple_offering_slugs_api_call_format(self, mock_backend):
         """Test that multiple offering slugs are passed as comma-separated string to Waldur API."""
         # Mock the backend method to capture the API call parameters
@@ -429,7 +429,9 @@ class TestStorageProxyAPI:
         assert "vast" in offering_slugs
         assert "iopsstor" in offering_slugs
 
-    @patch("waldur_cscs_hpc_storage.waldur_service.WaldurService.list_resources")
+    @patch(
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
+    )
     def test_comma_separated_slugs_in_waldur_api_call(self, mock_list_resources):
         """Test that the backend uses comma-separated offering slugs when calling Waldur API."""
         # Mock the API response

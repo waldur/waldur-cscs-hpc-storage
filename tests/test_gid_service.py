@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from waldur_cscs_hpc_storage.gid_service import GidService
+from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.config import HpcUserApiConfig
 
 
@@ -65,7 +65,7 @@ class TestGidService:
         client = GidService(config)
         assert client.oidc_scope == "openid"
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_acquire_oidc_token_success(self, mock_client_class, gid_service):
         """Test successful OIDC token acquisition."""
         # Mock HTTP response
@@ -100,7 +100,7 @@ class TestGidService:
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_acquire_oidc_token_no_access_token(self, mock_client_class, gid_service):
         """Test OIDC token acquisition when no access_token in response."""
         mock_response = Mock()
@@ -114,7 +114,7 @@ class TestGidService:
         with pytest.raises(ValueError, match="No access_token in OIDC response"):
             gid_service._acquire_oidc_token()
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_acquire_oidc_token_http_error(self, mock_client_class, gid_service):
         """Test OIDC token acquisition HTTP error handling."""
         mock_response = Mock()
@@ -154,7 +154,7 @@ class TestGidService:
         token = gid_service._get_auth_token()
         assert token == "cached_token"
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_get_projects_success(self, mock_client_class, gid_service):
         """Test successful project data retrieval."""
         from datetime import timedelta
@@ -202,7 +202,7 @@ class TestGidService:
             headers={"Authorization": "Bearer test_token"},
         )
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_get_projects_empty_list(self, mock_client_class, gid_service):
         """Test project retrieval with empty project list."""
         from datetime import timedelta
@@ -232,7 +232,7 @@ class TestGidService:
             headers={"Authorization": "Bearer test_token"},
         )
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_get_project_unix_gid_found(self, mock_client_class, gid_service):
         """Test successful unixGid lookup for existing project."""
         from datetime import timedelta
@@ -268,7 +268,7 @@ class TestGidService:
         # Verify it cached the result
         assert gid_service._gid_cache["project1"] == 30001
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_get_project_unix_gid_uses_cache(self, mock_client_class, gid_service):
         """Test that get_project_unix_gid uses cached value if available."""
         # Pre-populate cache
@@ -283,7 +283,7 @@ class TestGidService:
         # Should NOT make any API calls
         mock_client_class.assert_not_called()
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_get_project_unix_gid_not_found(self, mock_client_class, gid_service):
         """Test unixGid lookup for non-existent project."""
         from datetime import timedelta
@@ -314,7 +314,7 @@ class TestGidService:
 
         assert result is None
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_get_project_unix_gid_api_error(self, mock_client_class, gid_service):
         """Test unixGid lookup when API request fails."""
         from datetime import timedelta
@@ -337,7 +337,7 @@ class TestGidService:
 
         assert result is None
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_ping_success(self, mock_client_class, gid_service):
         """Test successful ping to HPC User API."""
         from datetime import timedelta
@@ -365,7 +365,7 @@ class TestGidService:
             headers={"Authorization": "Bearer test_token"},
         )
 
-    @patch("waldur_cscs_hpc_storage.gid_service.httpx.Client")
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.Client")
     def test_ping_failure(self, mock_client_class, gid_service):
         """Test ping failure when API is not accessible."""
         from datetime import timedelta

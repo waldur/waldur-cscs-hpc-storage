@@ -1,6 +1,6 @@
 import pytest
 import asyncio
-from waldur_cscs_hpc_storage.auth import user_mapper, User
+from waldur_cscs_hpc_storage.services.auth import user_mapper, User
 
 
 @pytest.mark.asyncio
