@@ -11,6 +11,10 @@ from waldur_cscs_hpc_storage.enums import (
     TargetStatus,
     TargetType,
 )
+from waldur_cscs_hpc_storage.mappers import (
+    get_target_status_from_waldur_state,
+    get_target_type_from_data_type,
+)
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
     HpcUserApiConfig,
@@ -46,24 +50,6 @@ from waldur_cscs_hpc_storage.serializers import JsonSerializer
 
 
 logger = logging.getLogger(__name__)
-
-# Mapping from Waldur resource state to target status
-TARGET_STATUS_MAPPING: dict[ResourceState, TargetStatus] = {
-    ResourceState.CREATING: TargetStatus.PENDING,
-    ResourceState.OK: TargetStatus.ACTIVE,
-    ResourceState.ERRED: TargetStatus.ERROR,
-    ResourceState.TERMINATING: TargetStatus.REMOVING,
-    ResourceState.TERMINATED: TargetStatus.REMOVED,
-    ResourceState.UPDATING: TargetStatus.PENDING,
-}
-
-# Mapping from storage data type to target type
-DATA_TYPE_TO_TARGET_MAPPING: dict[StorageDataType, TargetType] = {
-    StorageDataType.STORE: TargetType.PROJECT,
-    StorageDataType.ARCHIVE: TargetType.PROJECT,
-    StorageDataType.USERS: TargetType.USER,
-    StorageDataType.SCRATCH: TargetType.USER,
-}
 
 
 class CscsHpcStorageBackend:
@@ -237,10 +223,7 @@ class CscsHpcStorageBackend:
 
     def _get_target_status_from_waldur_state(self, state: str) -> TargetStatus:
         """Map Waldur resource state string to target item status."""
-        for rs, ts in TARGET_STATUS_MAPPING.items():
-            if str(rs) == state:
-                return ts
-        return TargetStatus.PENDING
+        return get_target_status_from_waldur_state(state)
 
     def _get_target_item_data(  # noqa: PLR0911
         self,
@@ -323,37 +306,8 @@ class CscsHpcStorageBackend:
         storage_data_type: str,
     ) -> Optional[Target]:
         """Get target data based on storage data type mapping."""
-        # Validate storage_data_type is a string
-        if not isinstance(storage_data_type, str):
-            error_msg = (
-                f"Invalid storage_data_type for resource {waldur_resource.uuid}: "
-                f"expected string, got {type(storage_data_type).__name__}. "
-                f"Value: {storage_data_type!r}"
-            )
-            logger.error(error_msg)
-            raise TypeError(error_msg)
-
-        # Validate that storage_data_type is a supported type
-        try:
-            data_type_enum = StorageDataType(storage_data_type)
-        except ValueError:
-            data_type_enum = None
-
-        if data_type_enum is None or data_type_enum not in DATA_TYPE_TO_TARGET_MAPPING:
-            logger.warning(
-                "Unknown storage_data_type '%s' for resource %s, using default 'project' "
-                "target type. Supported types: %s",
-                storage_data_type,
-                waldur_resource.uuid,
-                list(DATA_TYPE_TO_TARGET_MAPPING.keys()),
-            )
-            target_type = TargetType.PROJECT
-        else:
-            target_type = DATA_TYPE_TO_TARGET_MAPPING[data_type_enum]
-        logger.debug(
-            "Mapped storage_data_type '%s' to target_type '%s'",
-            storage_data_type,
-            target_type,
+        target_type = get_target_type_from_data_type(
+            storage_data_type, waldur_resource.uuid
         )
 
         target_item = self._get_target_item_data(waldur_resource, target_type)
@@ -735,31 +689,3 @@ class CscsHpcStorageBackend:
                 "Failed to fetch storage resources by slugs: %s", e, exc_info=True
             )
             raise
-
-    def _resource_matches_filters(
-        self,
-        resource: ParsedWaldurResource,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> bool:
-        """Check if a resource matches the given filters."""
-        # Check data_type filter
-        if data_type:
-            storage_data_type = getattr(resource, "storage_data_type", None)
-            logger.debug(
-                "Comparing raw resource storage_data_type '%s' with filter '%s'",
-                storage_data_type,
-                data_type,
-            )
-            if storage_data_type != data_type:
-                return False
-
-        # Check status filter
-        if status:
-            resource_status = TARGET_STATUS_MAPPING.get(
-                resource.state, TargetStatus.UNKNOWN
-            )
-            if resource_status != status:
-                return False
-
-        return True
