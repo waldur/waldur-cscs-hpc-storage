@@ -969,7 +969,7 @@ class CscsHpcStorageBackend:
 
     def generate_all_resources_json_by_slugs(
         self,
-        offering_slugs: list[str],
+        offering_slugs: Union[str, list[str]],
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -977,10 +977,28 @@ class CscsHpcStorageBackend:
         status: Optional[str] = None,
         storage_system_filter: Optional[str] = None,
     ) -> dict:
-        """Generate JSON with resources filtered by multiple offering slugs."""
+        """Generate JSON with resources filtered by offering slug(s).
+
+        Args:
+            offering_slugs: Single offering slug or list of offering slugs.
+            state: Optional resource state filter.
+            page: Page number (1-based).
+            page_size: Number of items per page.
+            data_type: Optional data type filter.
+            status: Optional status filter.
+            storage_system_filter: Optional storage system filter.
+
+        Returns:
+            Dictionary with status, resources, pagination, and filters_applied.
+        """
+        # Normalize to list for consistent handling
+        slugs_list = (
+            [offering_slugs] if isinstance(offering_slugs, str) else offering_slugs
+        )
+
         try:
             storage_resources, pagination_info = self._get_resources_by_offering_slugs(
-                offering_slugs=offering_slugs,
+                offering_slugs=slugs_list,
                 state=state,
                 page=page,
                 page_size=page_size,
@@ -997,53 +1015,8 @@ class CscsHpcStorageBackend:
                 "resources": serialized_resources,
                 "pagination": pagination_info,
                 "filters_applied": {
-                    "offering_slugs": offering_slugs,
+                    "offering_slugs": slugs_list,
                     "storage_system": storage_system_filter,
-                    "data_type": data_type,
-                    "status": status,
-                    "state": state.value if state else None,
-                },
-            }
-
-        except Exception as e:
-            logger.error(
-                "Failed to generate storage resources JSON: %s", e, exc_info=True
-            )
-            return {
-                "status": "error",
-                "error": f"Failed to fetch storage resources: {e}",
-                "code": 500,
-            }
-
-    def generate_all_resources_json_by_slug(
-        self,
-        offering_slug: str,
-        state: Optional[ResourceState] = None,
-        page: int = 1,
-        page_size: int = 100,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> dict:
-        """Generate JSON with resources filtered by offering slug instead of UUID."""
-        try:
-            storage_resources, pagination_info = self._get_resources_by_offering_slug(
-                offering_slug=offering_slug,
-                state=state,
-                page=page,
-                page_size=page_size,
-                data_type=data_type,
-                status=status,
-            )
-
-            # Serialize storage resources to dicts for JSON response
-            serialized_resources = [r.to_dict() for r in storage_resources]
-
-            return {
-                "status": "success",
-                "resources": serialized_resources,
-                "pagination": pagination_info,
-                "filters_applied": {
-                    "offering_slug": offering_slug,
                     "data_type": data_type,
                     "status": status,
                     "state": state.value if state else None,
@@ -1062,7 +1035,7 @@ class CscsHpcStorageBackend:
 
     def get_debug_resources_by_slugs(
         self,
-        offering_slugs: list[str],
+        offering_slugs: Union[str, list[str]],
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
@@ -1070,15 +1043,26 @@ class CscsHpcStorageBackend:
         status: Optional[str] = None,
         storage_system_filter: Optional[str] = None,
     ) -> dict:
-        """Get raw Waldur resources for debug mode without translation (multiple slugs)."""
-        try:
-            # Note: Offering details fetching removed - API doesn't support slug-based filtering
-            # The offering information is available in the resource data itself
-            waldur_offerings: dict[str, dict] = {
-                slug: {"note": "Offering details available in resource data"}
-                for slug in offering_slugs
-            }
+        """Get raw Waldur resources for debug mode without translation.
 
+        Args:
+            offering_slugs: Single offering slug or list of offering slugs.
+            state: Optional resource state filter.
+            page: Page number (1-based).
+            page_size: Number of items per page.
+            data_type: Optional data type filter.
+            status: Optional status filter.
+            storage_system_filter: Optional storage system filter.
+
+        Returns:
+            Dictionary with offering_details, resources, pagination, and filters_applied.
+        """
+        # Normalize to list for consistent handling
+        slugs_list = (
+            [offering_slugs] if isinstance(offering_slugs, str) else offering_slugs
+        )
+
+        try:
             # Fetch raw resources filtered by offering slugs
             filters = {}
             if state:
@@ -1087,7 +1071,7 @@ class CscsHpcStorageBackend:
             response = self.waldur_service.list_resources(
                 page=page,
                 page_size=page_size,
-                offering_slug=offering_slugs,
+                offering_slug=slugs_list,
                 **filters,
             )
 
@@ -1107,7 +1091,13 @@ class CscsHpcStorageBackend:
                     if not self._resource_matches_filters(resource, data_type, status):
                         continue
 
-                    raw_resources.append(self.serializer.serialize(resource))
+                    try:
+                        raw_resources.append(self.serializer.serialize(resource))
+                    except Exception as e:
+                        resource_id = getattr(resource, "uuid", "unknown")
+                        logger.warning(
+                            "Failed to serialize resource %s: %s", resource_id, e
+                        )
 
             pagination_info = {
                 "current": page,
@@ -1121,11 +1111,10 @@ class CscsHpcStorageBackend:
             }
 
             return {
-                "offering_details": waldur_offerings,
                 "resources": raw_resources,
                 "pagination": pagination_info,
                 "filters_applied": {
-                    "offering_slugs": offering_slugs,
+                    "offering_slugs": slugs_list,
                     "storage_system": storage_system_filter,
                     "data_type": data_type,
                     "status": status,
@@ -1140,110 +1129,6 @@ class CscsHpcStorageBackend:
             return {
                 "error": f"Failed to fetch debug resources: {e}",
                 "offering_details": {},
-                "resources": [],
-                "pagination": {
-                    "current": page,
-                    "limit": page_size,
-                    "offset": (page - 1) * page_size,
-                    "pages": 0,
-                    "total": 0,
-                },
-            }
-
-    def get_debug_resources_by_slug(
-        self,
-        offering_slug: str,
-        state: Optional[ResourceState] = None,
-        page: int = 1,
-        page_size: int = 100,
-        data_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> dict:
-        """Get raw resource data filtered by offering slug for debugging."""
-        try:
-            # Fetch resources directly with offering slug filter
-            filters = {}
-            if state:
-                filters["state"] = state
-
-            response = self.waldur_service.list_resources(
-                page=page,
-                page_size=page_size,
-                offering_slug=offering_slug,  # Filter by offering slug
-                **filters,
-            )
-
-            if not response.resources:
-                return {
-                    "resources": [],
-                    "pagination": {
-                        "current": page,
-                        "limit": page_size,
-                        "offset": (page - 1) * page_size,
-                        "pages": 0,
-                        "total": 0,
-                    },
-                    "filters_applied": {
-                        "offering_slug": offering_slug,
-                        "data_type": data_type,
-                        "status": status,
-                        "state": state.value if state else None,
-                    },
-                }
-
-            resources = response.resources
-            # Extract pagination info from response
-            total_count = response.total_count
-
-            # Serialize resources for JSON response first
-            serialized_resources = []
-            for resource in resources:
-                try:
-                    serialized_resource = self.serializer.serialize(resource)
-                    serialized_resources.append(serialized_resource)
-                except Exception as e:
-                    resource_id = getattr(resource, "uuid", "unknown")
-                    logger.warning(
-                        "Failed to serialize resource %s: %s", resource_id, e
-                    )
-
-            # Apply additional filters (data_type, status) in memory after serialization
-            logger.debug(
-                "About to apply filters on %d serialized resources",
-                len(serialized_resources),
-            )
-            filtered_resources = self._apply_filters(  # type: ignore[arg-type]
-                serialized_resources, None, data_type, status
-            )
-
-            # Update pagination info based on filtered results
-            filtered_count = len(filtered_resources)
-            pages = (filtered_count + page_size - 1) // page_size
-
-            return {
-                "resources": filtered_resources,
-                "pagination": {
-                    "current": page,
-                    "limit": page_size,
-                    "offset": (page - 1) * page_size,
-                    "pages": max(1, pages),
-                    "total": filtered_count,
-                    "raw_total_from_api": total_count,
-                },
-                "filters_applied": {
-                    "offering_slug": offering_slug,
-                    "data_type": data_type,
-                    "status": status,
-                    "state": state.value if state else None,
-                },
-            }
-
-        except Exception as e:
-            logger.error(
-                "Failed to fetch debug resources by slug: %s", e, exc_info=True
-            )
-            return {
-                "error": f"Failed to fetch resources: {e}",
                 "resources": [],
                 "pagination": {
                     "current": page,

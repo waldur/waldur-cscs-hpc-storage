@@ -374,8 +374,8 @@ def storage_resources(
         if storage_system:
             # Get raw resources for the specific storage_system
             storage_system_offering_slug = config.storage_systems[storage_system.value]
-            debug_data = cscs_storage_backend.get_debug_resources_by_slug(
-                offering_slug=storage_system_offering_slug,
+            debug_data = cscs_storage_backend.get_debug_resources_by_slugs(
+                offering_slugs=storage_system_offering_slug,
                 state=state,
                 page=page,
                 page_size=page_size,
@@ -406,8 +406,8 @@ def storage_resources(
     if storage_system:
         # Fetch resources for the specific storage_system
         storage_system_offering_slug = config.storage_systems[storage_system.value]
-        storage_data = cscs_storage_backend.generate_all_resources_json_by_slug(
-            offering_slug=storage_system_offering_slug,
+        storage_data = cscs_storage_backend.generate_all_resources_json_by_slugs(
+            offering_slugs=storage_system_offering_slug,
             state=state,
             page=page,
             page_size=page_size,

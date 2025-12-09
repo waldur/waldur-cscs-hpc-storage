@@ -55,7 +55,7 @@ class TestStorageProxyAPI:
     def test_valid_storage_system_filters(self, mock_backend, storage_system):
         """Test valid storage system filter values."""
         # Mock successful response
-        mock_backend.generate_all_resources_json_by_slug.return_value = {
+        mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
             "pagination": {
@@ -73,9 +73,9 @@ class TestStorageProxyAPI:
         assert response.status_code == 200
 
         # Verify the backend was called with the correct storage system
-        mock_backend.generate_all_resources_json_by_slug.assert_called_once()
-        call_args = mock_backend.generate_all_resources_json_by_slug.call_args
-        assert call_args[1]["offering_slug"] is not None
+        mock_backend.generate_all_resources_json_by_slugs.assert_called_once()
+        call_args = mock_backend.generate_all_resources_json_by_slugs.call_args
+        assert call_args[1]["offering_slugs"] is not None
 
     def test_invalid_storage_system_filter(self):
         """Test invalid storage system filter values."""
@@ -261,7 +261,7 @@ class TestStorageProxyAPI:
     @patch("waldur_cscs_hpc_storage.waldur_storage_proxy.main.cscs_storage_backend")
     def test_debug_mode_with_storage_system(self, mock_backend):
         """Test debug mode with specific storage system."""
-        mock_backend.get_debug_resources_by_slug.return_value = {
+        mock_backend.get_debug_resources_by_slugs.return_value = {
             "raw_data": "debug_information_for_capstor",
             "api_calls": [],
         }
@@ -272,9 +272,9 @@ class TestStorageProxyAPI:
         assert response.status_code == 200
 
         # Verify debug method was called for specific storage system
-        mock_backend.get_debug_resources_by_slug.assert_called_once()
-        call_args = mock_backend.get_debug_resources_by_slug.call_args
-        assert call_args[1]["offering_slug"] is not None
+        mock_backend.get_debug_resources_by_slugs.assert_called_once()
+        call_args = mock_backend.get_debug_resources_by_slugs.call_args
+        assert call_args[1]["offering_slugs"] is not None
 
     @patch("waldur_cscs_hpc_storage.waldur_storage_proxy.main.cscs_storage_backend")
     def test_backend_error_handling(self, mock_backend):
@@ -337,7 +337,7 @@ class TestStorageProxyAPI:
     @patch("waldur_cscs_hpc_storage.waldur_storage_proxy.main.cscs_storage_backend")
     def test_multiple_filters_combination(self, mock_backend):
         """Test combining multiple filters."""
-        mock_backend.generate_all_resources_json_by_slug.return_value = {
+        mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
             "pagination": {
@@ -355,8 +355,8 @@ class TestStorageProxyAPI:
         assert response.status_code == 200
 
         # Verify all filters are passed to backend
-        mock_backend.generate_all_resources_json_by_slug.assert_called_once()
-        call_args = mock_backend.generate_all_resources_json_by_slug.call_args
+        mock_backend.generate_all_resources_json_by_slugs.assert_called_once()
+        call_args = mock_backend.generate_all_resources_json_by_slugs.call_args
         assert call_args[1]["data_type"] == "store"
         assert call_args[1]["status"] == "active"
         assert call_args[1]["page"] == 1
@@ -369,7 +369,7 @@ class TestStorageProxyAPI:
         # but not configured in the storage_systems mapping
 
         # Mock the backend to return proper JSON-serializable data
-        mock_backend.generate_all_resources_json_by_slug.return_value = {
+        mock_backend.generate_all_resources_json_by_slugs.return_value = {
             "status": "success",
             "resources": [],
             "pagination": {
