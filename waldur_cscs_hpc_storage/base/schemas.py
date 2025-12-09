@@ -5,13 +5,13 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.order_state import OrderState
 
 # Re-importing Enums from your existing structure to ensure compatibility
-from waldur_cscs_hpc_storage.enums import (
+from waldur_cscs_hpc_storage.base.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
     StorageDataType,
 )
-from waldur_cscs_hpc_storage.models import (
+from waldur_cscs_hpc_storage.base.models import (
     Quota,
     TenantTargetItem,
     CustomerTargetItem,

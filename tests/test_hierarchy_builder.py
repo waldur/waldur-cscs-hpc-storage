@@ -3,8 +3,8 @@
 import pytest
 
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
-from waldur_cscs_hpc_storage.enums import TargetStatus, TargetType
-from waldur_cscs_hpc_storage.models import StorageResource, MountPoint, Permission
+from waldur_cscs_hpc_storage.base.enums import TargetStatus, TargetType
+from waldur_cscs_hpc_storage.base.models import StorageResource, MountPoint, Permission
 
 
 class TestHierarchyBuilder:
@@ -245,7 +245,7 @@ class TestHierarchyBuilder:
         )
 
         # Create a mock project resource
-        from waldur_cscs_hpc_storage.models import (
+        from waldur_cscs_hpc_storage.base.models import (
             Target,
             StorageItem,
             ProjectTargetItem,
@@ -278,7 +278,7 @@ class TestHierarchyBuilder:
 
     def test_assign_parent_to_project_no_matching_customer(self, builder):
         """Test that parentItemId remains None when customer doesn't exist."""
-        from waldur_cscs_hpc_storage.models import (
+        from waldur_cscs_hpc_storage.base.models import (
             Target,
             StorageItem,
             ProjectTargetItem,

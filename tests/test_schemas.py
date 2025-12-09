@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock
 from waldur_api_client.models.order_state import OrderState
-from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
+from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
 
 
 class TestParsedWaldurResource:

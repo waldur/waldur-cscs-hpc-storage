@@ -3,8 +3,8 @@
 import logging
 from typing import Optional
 
-from waldur_cscs_hpc_storage.enums import TargetStatus, TargetType
-from waldur_cscs_hpc_storage.models import (
+from waldur_cscs_hpc_storage.base.enums import TargetStatus, TargetType
+from waldur_cscs_hpc_storage.base.models import (
     CustomerTargetItem,
     MountPoint,
     Permission,
@@ -13,11 +13,11 @@ from waldur_cscs_hpc_storage.models import (
     Target,
     TenantTargetItem,
 )
-from waldur_cscs_hpc_storage.mount_points import (
+from waldur_cscs_hpc_storage.base.mount_points import (
     generate_customer_mount_point,
     generate_tenant_mount_point,
 )
-from waldur_cscs_hpc_storage.target_ids import (
+from waldur_cscs_hpc_storage.base.target_ids import (
     generate_storage_data_type_target_id,
     generate_storage_filesystem_target_id,
     generate_storage_system_target_id,

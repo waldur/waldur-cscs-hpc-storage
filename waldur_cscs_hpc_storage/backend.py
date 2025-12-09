@@ -6,12 +6,12 @@ from waldur_cscs_hpc_storage.waldur_service import WaldurService
 from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_api_client.types import Unset
-from waldur_cscs_hpc_storage.enums import (
+from waldur_cscs_hpc_storage.base.enums import (
     StorageDataType,
     TargetStatus,
     TargetType,
 )
-from waldur_cscs_hpc_storage.mappers import (
+from waldur_cscs_hpc_storage.base.mappers import (
     get_target_status_from_waldur_state,
     get_target_type_from_data_type,
 )
@@ -20,7 +20,7 @@ from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     HpcUserApiConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.models import (
+from waldur_cscs_hpc_storage.base.models import (
     Permission,
     StorageItem,
     StorageResource,
@@ -33,8 +33,8 @@ from waldur_cscs_hpc_storage.models import (
     UserPrimaryProject,
     MountPoint,
 )
-from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
-from waldur_cscs_hpc_storage.target_ids import (
+from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.base.target_ids import (
     generate_customer_target_id,
     generate_project_target_id,
     generate_storage_data_type_target_id,
@@ -43,10 +43,10 @@ from waldur_cscs_hpc_storage.target_ids import (
     generate_tenant_target_id,
     generate_user_target_id,
 )
-from waldur_cscs_hpc_storage.schemas import ParsedWaldurResource
+from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 
-from waldur_cscs_hpc_storage.serializers import JsonSerializer
+from waldur_cscs_hpc_storage.base.serializers import JsonSerializer
 
 
 logger = logging.getLogger(__name__)

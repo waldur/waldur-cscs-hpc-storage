@@ -8,24 +8,24 @@ from pydantic import ValidationError
 from waldur_api_client.types import Unset
 from waldur_api_client.models.order_state import OrderState
 from waldur_cscs_hpc_storage.backend import CscsHpcStorageBackend
-from waldur_cscs_hpc_storage.schemas import (
+from waldur_cscs_hpc_storage.base.schemas import (
     ParsedWaldurResource,
     ResourceAttributes,
 )
-from waldur_cscs_hpc_storage.enums import (
+from waldur_cscs_hpc_storage.base.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
     StorageDataType,
 )
-from waldur_cscs_hpc_storage.models import Quota
+from waldur_cscs_hpc_storage.base.models import Quota
 from waldur_cscs_hpc_storage.waldur_service import WaldurResourceResponse
 from waldur_cscs_hpc_storage.waldur_storage_proxy.config import (
     BackendConfig,
     HpcUserApiConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
 from waldur_api_client.models.resource_state import ResourceState
 
 

@@ -1,10 +1,12 @@
-from waldur_cscs_hpc_storage.enums import EnforcementType
-from waldur_cscs_hpc_storage.enums import QuotaUnit
-from waldur_cscs_hpc_storage.enums import QuotaType
 import dataclasses
 from typing import Any, Optional, Union
 
-from waldur_cscs_hpc_storage.enums import TargetStatus
+from waldur_cscs_hpc_storage.base.enums import (
+    EnforcementType,
+    QuotaType,
+    QuotaUnit,
+    TargetStatus,
+)
 
 
 @dataclasses.dataclass

@@ -1,6 +1,6 @@
 from uuid import NAMESPACE_OID, uuid5
 
-from waldur_cscs_hpc_storage.enums import TargetIdScope
+from waldur_cscs_hpc_storage.base.enums import TargetIdScope
 
 
 def _generate_scoped_id(scope: TargetIdScope, identifier: str) -> str:
