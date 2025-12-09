@@ -12,5 +12,3 @@ offerings:
       use_mock_target_items: false # Use real targetItem data from backend_metadata
       unix_gid_field: "unix_gid" # Field name in project backend_metadata for Unix GID
       development_mode: false # Enable development mode with fallback mock GID values
-    backend_components:
-      - storage

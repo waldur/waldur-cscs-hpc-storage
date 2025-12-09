@@ -9,13 +9,6 @@ backend_settings:
   inode_hard_coefficient: 1.0
   use_mock_target_items: true
 
-backend_components:
-  storage:
-    measured_unit: "TB"
-    accounting_type: "limit"
-    label: "Storage"
-    unit_factor: 1
-
 storage_systems:
   capstor: "capstor"
   vast: "vast"

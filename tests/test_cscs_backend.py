@@ -75,8 +75,6 @@ class TestCscsHpcStorageBackendBase:
             use_mock_target_items=True,
             development_mode=True,  # Enable development mode for tests
         )
-        self.backend_components = ["storage"]
-
         self.waldur_api_config = WaldurApiConfig(
             api_url="https://example.com", access_token="token"
         )
@@ -86,7 +84,6 @@ class TestCscsHpcStorageBackendBase:
         """Helper to create backend instance with mocks."""
         backend = CscsHpcStorageBackend(
             self.backend_config,
-            self.backend_components,
             waldur_api_config=self.waldur_api_config,
             hpc_user_api_config=hpc_user_api_config,
         )

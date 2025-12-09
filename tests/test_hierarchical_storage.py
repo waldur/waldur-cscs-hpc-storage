@@ -39,15 +39,12 @@ def backend():
         development_mode=True,
     )
 
-    backend_components = ["storage"]
-
     waldur_api_config = WaldurApiConfig(
         api_url="https://example.com", access_token="token"
     )
 
     backend = CscsHpcStorageBackend(
         backend_config,
-        backend_components,
         waldur_api_config=waldur_api_config,
     )
 

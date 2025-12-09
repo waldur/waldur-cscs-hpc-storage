@@ -174,7 +174,6 @@ if waldur_api_config is None:
 
 cscs_storage_backend = CscsHpcStorageBackend(
     config.backend_config,
-    config.backend_components,
     waldur_api_config=waldur_api_config,
     hpc_user_api_config=hpc_user_api_config,
 )

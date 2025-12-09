@@ -51,13 +51,6 @@ sentry_environment: "production"              # Environment name: production, st
 sentry_traces_sample_rate: 0.1                # Performance monitoring sample rate (0.0 to 1.0)
 ```
 
-### Backend Components
-
-```yaml
-backend_components:
-  - storage
-```
-
 ### Storage Systems Configuration
 
 The storage proxy supports multiple storage systems through offering slug mapping:
@@ -484,7 +477,6 @@ storage JSON format. This is useful for troubleshooting and understanding the so
     "api_url": "...",
     "backend_type": "cscs-hpc-storage",
     "backend_settings": {...},
-    "backend_components": {...}
   },
   "waldur_offering_details": {
     "uuid": "...",

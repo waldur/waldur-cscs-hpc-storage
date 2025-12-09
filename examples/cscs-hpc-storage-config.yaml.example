@@ -16,8 +16,6 @@ offerings: # Settings for offerings
       inode_soft_coefficient: 1.33 # Multiplier for soft inode limits (soft = storage_tb * 1M * coefficient)
       inode_hard_coefficient: 2.0 # Multiplier for hard inode limits (hard = storage_tb * 1M * coefficient)
       use_mock_target_items: false # Whether to use mock data for targetItem blocks (for development/testing)
-    backend_components:
-      - storage
 
 # Additional offering example with different storage system
   - name: "Research Storage Offering"
@@ -31,5 +29,3 @@ offerings: # Settings for offerings
       inode_soft_coefficient: 1.5 # Different inode coefficients
       inode_hard_coefficient: 2.5
       use_mock_target_items: true # Enable mock data for testing
-    backend_components:
-      - storage

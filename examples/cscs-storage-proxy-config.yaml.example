@@ -14,11 +14,6 @@ backend_settings:
   inode_hard_coefficient: 2.0  # Multiplier for hard inode limits
   use_mock_target_items: false  # Enable mock data for development
 
-# Backend Components Configuration
-# All offerings must have exactly the same backend_components
-backend_components:
-  - storage
-
 # Storage systems configuration - maps storage_system names to offering slugs
 # The API will fetch resources from all configured offering slugs
 # The storage_system filter should match one of the keys

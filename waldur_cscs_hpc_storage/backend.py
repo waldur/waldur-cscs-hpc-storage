@@ -1,12 +1,8 @@
 import logging
 from typing import Any, Callable, Optional, Union
 
-from waldur_cscs_hpc_storage.services.gid_service import GidService
-from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
-from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_api_client.models.resource_state import ResourceState
 
-from waldur_api_client.types import Unset
 from waldur_cscs_hpc_storage.base.enums import (
     StorageDataType,
     TargetStatus,
@@ -16,25 +12,22 @@ from waldur_cscs_hpc_storage.base.mappers import (
     get_target_status_from_waldur_state,
     get_target_type_from_data_type,
 )
-from waldur_cscs_hpc_storage.config import (
-    BackendConfig,
-    HpcUserApiConfig,
-    WaldurApiConfig,
-)
 from waldur_cscs_hpc_storage.base.models import (
+    CustomerTargetItem,
+    MountPoint,
     Permission,
+    ProjectTargetItem,
     StorageItem,
     StorageResource,
     Target,
     TargetItem,
     TenantTargetItem,
-    CustomerTargetItem,
-    ProjectTargetItem,
-    UserTargetItem,
     UserPrimaryProject,
-    MountPoint,
+    UserTargetItem,
 )
 from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
+from waldur_cscs_hpc_storage.base.serializers import JsonSerializer
 from waldur_cscs_hpc_storage.base.target_ids import (
     generate_customer_target_id,
     generate_project_target_id,
@@ -44,11 +37,15 @@ from waldur_cscs_hpc_storage.base.target_ids import (
     generate_tenant_target_id,
     generate_user_target_id,
 )
-from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
+from waldur_cscs_hpc_storage.config import (
+    BackendConfig,
+    HpcUserApiConfig,
+    WaldurApiConfig,
+)
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
-
-from waldur_cscs_hpc_storage.base.serializers import JsonSerializer
-
+from waldur_cscs_hpc_storage.services.gid_service import GidService
+from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +91,6 @@ class CscsHpcStorageBackend:
     def __init__(
         self,
         backend_config: BackendConfig,
-        backend_components: list[str],
         waldur_api_config: WaldurApiConfig,
         hpc_user_api_config: Optional[HpcUserApiConfig] = None,
     ) -> None:
@@ -102,14 +98,11 @@ class CscsHpcStorageBackend:
 
         Args:
             backend_config: Backend configuration (BackendConfig object)
-            backend_components: List of enabled backend components
             waldur_api_config: Waldur API configuration (WaldurApiConfig object)
             hpc_user_api_config: Optional HPC User API configuration (HpcUserApiConfig object)
         """
-        self.backend_components = backend_components
         self.backend_config = backend_config
         self.serializer = JsonSerializer()
-        self.waldur_api_config = waldur_api_config
 
         # Configuration
         self.storage_file_system = backend_config.storage_file_system
@@ -487,12 +480,7 @@ class CscsHpcStorageBackend:
 
                         # Get tenant information
                         tenant_id = resource.provider_slug
-                        tenant_name = (
-                            resource.provider_name
-                            if hasattr(resource, "provider_name")
-                            and not isinstance(resource.provider_name, Unset)
-                            else tenant_id.upper()
-                        )
+                        tenant_name = resource.provider_name or tenant_id.upper()
 
                         # Create tenant-level entry using HierarchyBuilder
                         offering_uuid_str = str(resource.offering_uuid)

@@ -102,7 +102,6 @@ class StorageProxyConfig:
 
     waldur_api: Optional[WaldurApiConfig]
     backend_config: BackendConfig
-    backend_components: list[str]
     storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = None
     hpc_user_api: Optional[HpcUserApiConfig] = None
@@ -182,7 +181,6 @@ class StorageProxyConfig:
         return cls(
             waldur_api=waldur_api_config,
             backend_config=backend_config,
-            backend_components=data.get("backend_components", []),
             storage_systems=data.get("storage_systems", {}),
             auth=auth_config,
             hpc_user_api=hpc_user_api_config,
@@ -199,16 +197,7 @@ class StorageProxyConfig:
         if not self.storage_systems:
             msg = "At least one storage_system mapping is required"
             raise ValueError(msg)
-        if not self.backend_components:
-            msg = "backend_components is required"
-            raise ValueError(msg)
-
-        # Validate that storage component exists
-        if "storage" not in self.backend_components:
-            msg = "'storage' component is required in backend_components"
-            raise ValueError(msg)
 
         logger.info("Configuration validated successfully")
         logger.info("  Waldur API URL: %s", self.waldur_api.api_url)
         logger.info("  Storage systems: %s", self.storage_systems)
-        logger.info("  Backend components: %s", self.backend_components)
