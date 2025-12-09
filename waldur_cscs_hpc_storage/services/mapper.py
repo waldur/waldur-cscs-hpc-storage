@@ -97,8 +97,6 @@ class ResourceMapper:
         )
 
         # 2. Build the Target Item (Project, User, etc.)
-        # This step involves GID lookups and might return None if they fail.
-        # 2. Build the Target Item (Project, User, etc.)
         # This step involves GID lookups and might raise MissingIdentityError
         target_item = await self._build_target_item(waldur_resource, target_type)
 
