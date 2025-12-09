@@ -240,7 +240,6 @@ class ResourceMapper:
         project_slug = waldur_resource.project_slug or "default-project"
 
         # Lookup Primary Project GID
-        # Lookup Primary Project GID
         unix_gid = await self.gid_service.get_project_unix_gid(project_slug)
         if unix_gid is None:
             raise MissingIdentityError(waldur_resource.uuid, f"gid for {project_slug}")
