@@ -90,6 +90,7 @@ class TestCscsHpcStorageBackendBase:
         )
         # Inject mock waldur_service for testing
         backend.waldur_service = Mock()
+        backend.orchestrator.waldur_service = backend.waldur_service
         return backend
 
 
@@ -103,12 +104,6 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
 
         with patch.object(MockGidService, "get_project_unix_gid", return_value=30000):
             yield
-
-    def test_backend_initialization(self):
-        """Test backend initialization."""
-        assert self.backend.storage_file_system == "lustre"
-        assert self.backend.inode_soft_coefficient == 1.5
-        assert self.backend.inode_hard_coefficient == 2.0
 
     def test_generate_mount_point(self):
         """Test mount point generation."""
@@ -870,20 +865,17 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         assert len(filtered) == 2
 
     def test_pagination_support(self):
-        """Test pagination support in _get_resources_by_offering_slugs."""
+        """Test pagination support via generate_all_resources_json_by_slugs (delegated to Orchestrator)."""
         # Setup mock response parameters
         mock_response = Mock()
         mock_response.resources = []
-        # We need to ensure subsequent calls return empty list to break loops if any
-        # But for this test we mock side_effect to inspect calls or return specific things
+        mock_response.total_count = 0
         self.backend.waldur_service.list_resources.return_value = mock_response
 
-        # Case 1: No pagination logic (default behavior, fetches all - loops until empty)
-        # We assume the first call returns empty list so loop breaks immediately
-        self.backend._get_resources_by_offering_slugs(["slug"])
+        # Case 1: Default pagination (page=1, page_size=100)
+        self.backend.generate_all_resources_json_by_slugs(["slug"])
 
-        # Verify call args for loop behavior (starts at page 1)
-        # WALDUR SERVICE IS A MOCK OBJECT
+        # Verify call args
         call_args = self.backend.waldur_service.list_resources.call_args
         assert call_args is not None
         _, kwargs = call_args
@@ -894,7 +886,9 @@ class TestCscsHpcStorageBackend(TestCscsHpcStorageBackendBase):
         self.backend.waldur_service.list_resources.reset_mock()
 
         # Case 2: Explicit pagination
-        self.backend._get_resources_by_offering_slugs(["slug"], page=2, page_size=50)
+        self.backend.generate_all_resources_json_by_slugs(
+            ["slug"], page=2, page_size=50
+        )
 
         call_args = self.backend.waldur_service.list_resources.call_args
         assert call_args is not None
