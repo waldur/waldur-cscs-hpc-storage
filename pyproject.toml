@@ -9,7 +9,7 @@ dependencies = [
     "fastapi-keycloak-middleware>=1.3.0",
     "fastapi[standard]>=0.115.14",
     "httpx[socks]>=0.24.0",
-    "waldur-api-client",
+    "waldur-api-client>=7.9.2",
     "pyyaml>=6.0",
     "sentry-sdk[fastapi]>=2.0.0",
 ]
