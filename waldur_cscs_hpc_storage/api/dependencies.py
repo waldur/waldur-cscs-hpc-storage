@@ -5,7 +5,7 @@ from fastapi import Depends
 
 from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.services.gid_service import GidService
-from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
 from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator

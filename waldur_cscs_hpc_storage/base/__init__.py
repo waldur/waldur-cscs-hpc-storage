@@ -11,7 +11,7 @@ from waldur_cscs_hpc_storage.models.enums import (
     TargetStatus,
     TargetType,
 )
-from waldur_cscs_hpc_storage.base.mappers import (
+from waldur_cscs_hpc_storage.mapper import (
     DATA_TYPE_TO_TARGET_MAPPING,
     TARGET_STATUS_MAPPING,
     get_target_status_from_waldur_state,
@@ -31,7 +31,7 @@ from waldur_cscs_hpc_storage.models import (
     UserPrimaryProject,
     UserTargetItem,
 )
-from waldur_cscs_hpc_storage.base.mount_points import (
+from waldur_cscs_hpc_storage.mapper import (
     generate_customer_mount_point,
     generate_project_mount_point,
     generate_tenant_mount_point,
@@ -44,7 +44,7 @@ from waldur_cscs_hpc_storage.models import (
     ResourceLimits,
     ResourceOptions,
 )
-from waldur_cscs_hpc_storage.base.target_ids import (
+from waldur_cscs_hpc_storage.mapper import (
     generate_customer_target_id,
     generate_project_target_id,
     generate_storage_data_type_target_id,

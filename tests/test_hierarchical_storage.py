@@ -20,7 +20,7 @@ from waldur_cscs_hpc_storage.config import (
 )
 
 from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo, HierarchyBuilder
-from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
 from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator

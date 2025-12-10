@@ -7,10 +7,7 @@ from waldur_cscs_hpc_storage.config.parser import (
 )
 from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
-    WaldurApiConfig,
-    StorageSystem,
 )
-import sys
 
 
 def test_format_validation_error_basic():
