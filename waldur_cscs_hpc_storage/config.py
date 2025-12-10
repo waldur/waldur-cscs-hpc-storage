@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import Any, Optional, Tuple, Type
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     field_validator,
     model_validator,
@@ -22,7 +20,7 @@ from pydantic_settings import (
 logger = logging.getLogger(__name__)
 
 
-class AuthConfig(BaseModel):
+class AuthConfig(BaseSettings):
     """Authentication configuration."""
 
     disable_auth: bool = Field(default=False, alias="DISABLE_AUTH")
@@ -38,10 +36,10 @@ class AuthConfig(BaseModel):
         default=None, alias="CSCS_KEYCLOAK_CLIENT_SECRET"
     )
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
 
-class HpcUserApiConfig(BaseModel):
+class HpcUserApiConfig(BaseSettings):
     """HPC User API configuration."""
 
     api_url: Optional[str] = Field(None, alias="HPC_USER_API_URL")
@@ -60,10 +58,10 @@ class HpcUserApiConfig(BaseModel):
         alias="HPC_USER_DEVELOPMENT_MODE",
     )
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
 
-class WaldurApiConfig(BaseModel):
+class WaldurApiConfig(BaseSettings):
     """Waldur API configuration."""
 
     api_url: str = Field(..., alias="WALDUR_API_URL")
@@ -72,10 +70,10 @@ class WaldurApiConfig(BaseModel):
     socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
 
-class BackendConfig(BaseModel):
+class BackendConfig(BaseSettings):
     """Backend configuration settings."""
 
     storage_file_system: str = Field(default="lustre", min_length=1)
@@ -96,17 +94,17 @@ class BackendConfig(BaseModel):
             raise ValueError(msg)
         return self
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
 
-class SentryConfig(BaseModel):
+class SentryConfig(BaseSettings):
     """Sentry configuration."""
 
     dsn: Optional[str] = Field(None, alias="SENTRY_DSN")
     environment: Optional[str] = Field(None, alias="SENTRY_ENVIRONMENT")
     traces_sample_rate: Optional[float] = Field(None, alias="SENTRY_TRACES_SAMPLE_RATE")
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
 
 class StorageProxyConfig(BaseSettings):
@@ -119,12 +117,12 @@ class StorageProxyConfig(BaseSettings):
     """
 
     debug: bool = Field(default=False, alias="DEBUG")
-    waldur_api: WaldurApiConfig
+    waldur_api: WaldurApiConfig = Field(default_factory=WaldurApiConfig)
     backend_settings: BackendConfig = Field(default_factory=BackendConfig)
     storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = Field(default_factory=AuthConfig)
-    hpc_user_api: Optional[HpcUserApiConfig] = None
-    sentry: Optional[SentryConfig] = None
+    hpc_user_api: Optional[HpcUserApiConfig] = Field(default_factory=HpcUserApiConfig)
+    sentry: Optional[SentryConfig] = Field(default_factory=SentryConfig)
 
     model_config = SettingsConfigDict(
         # We handle env vars manually via aliases on fields or nested models,

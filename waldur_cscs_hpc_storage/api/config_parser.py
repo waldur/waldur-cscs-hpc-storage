@@ -1,7 +1,9 @@
 """Configuration parsing module for the API server."""
 
 import logging
+import pprint
 import sys
+from typing import Any
 from pydantic import ValidationError
 
 from waldur_cscs_hpc_storage.config import StorageProxyConfig
@@ -34,7 +36,25 @@ def load_config() -> StorageProxyConfig:
     if config.debug:
         logger.info("Debug mode is enabled")
 
-    if config.sentry:
+    if config.sentry and config.sentry.dsn:
         initialize_sentry(config.sentry)
 
+    # Log merged configuration
+    safe_config = mask_sensitive_data(config.model_dump())
+    logger.info("Merged configuration:\n%s", pprint.pformat(safe_config))
+
     return config
+
+
+def mask_sensitive_data(data: Any) -> Any:
+    """Recursively mask sensitive data in a dictionary."""
+    if isinstance(data, dict):
+        return {
+            k: mask_sensitive_data(v)
+            if k not in {"access_token", "client_secret", "keycloak_client_secret"}
+            else "********"
+            for k, v in data.items()
+        }
+    if isinstance(data, list):
+        return [mask_sensitive_data(item) for item in data]
+    return data

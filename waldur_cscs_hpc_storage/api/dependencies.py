@@ -48,7 +48,7 @@ def get_gid_service(
     Creates a GidService or MockGidService based on configuration.
     """
     # 1. Try to initialize the real HPC User API client
-    if config.hpc_user_api:
+    if config.hpc_user_api and config.hpc_user_api.api_url:
         try:
             # development_mode is already synced in config_parser.py
             service = GidService(config.hpc_user_api)
