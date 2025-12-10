@@ -197,7 +197,7 @@ Disable this in production if needed by modifying `sentry_config.py`.
 # Test with a Sentry DSN
 SENTRY_DSN="https://test@sentry.io/123" \
 SENTRY_ENVIRONMENT="development" \
-uvicorn waldur_cscs_hpc_storage.waldur_storage_proxy.main:app
+uvicorn waldur_cscs_hpc_storage.api.main:app
 ```
 
 ## Data Mapping

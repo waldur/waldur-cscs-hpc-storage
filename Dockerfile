@@ -16,4 +16,4 @@ RUN pip install uv --no-cache && uv sync && uv pip install "uvicorn[standard]"
 
 ENV PATH="/app/.venv/bin:$PATH"
 
-CMD ["uvicorn", "waldur_cscs_hpc_storage.waldur_storage_proxy.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "waldur_cscs_hpc_storage.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
