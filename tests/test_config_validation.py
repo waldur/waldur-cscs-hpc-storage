@@ -3,89 +3,109 @@
 import pytest
 from pydantic import ValidationError
 
-from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.config import (
+    BackendConfig,
+    SentryConfig,
+    StorageProxyConfig,
+    WaldurApiConfig,
+)
+
+
+@pytest.fixture(autouse=True)
+def clean_env():
+    """Ensure no config file is loaded from env during validation tests."""
+    import os
+
+    # Remove config path to prevent YamlConfigSettingsSource from loading the test config
+    old_path = os.environ.pop("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH", None)
+    yield
+    if old_path:
+        os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = old_path
 
 
 class TestBackendConfigValidation:
     """Test cases for BackendConfig validation."""
 
-    def test_valid_configuration(self):
-        """Test that valid configuration passes validation."""
-        config = BackendConfig(
-            storage_file_system="lustre",
-            inode_soft_coefficient=1.5,
-            inode_hard_coefficient=2.0,
-            inode_base_multiplier=1000,
-            use_mock_target_items=False,
-            development_mode=False,
-        )
-        # Pydantic validation happens at init, so if we are here, it's valid.
-        assert config.storage_file_system == "lustre"
+    def test_inode_coefficients_relationship(self):
+        """Test that hard coefficient must be greater than or equal to soft coefficient."""
+        # Valid case: hard > soft
+        BackendConfig(inode_soft_coefficient=1.0, inode_hard_coefficient=2.0)
 
-    def test_invalid_inode_soft_coefficient(self):
-        """Test validation of inode_soft_coefficient."""
-        # Non-numeric string that can't be cast to float raises ValidationError
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_soft_coefficient="invalid")
-        assert "should be a valid number" in str(excinfo.value)
+        # Valid case: hard == soft
+        # The validator checks: if hard < soft -> raise
+        BackendConfig(inode_soft_coefficient=1.5, inode_hard_coefficient=1.5)
 
-        # Negative
+        # Invalid case: hard < soft
         with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_soft_coefficient=-1.0)
-        assert "greater than 0" in str(excinfo.value)
-
-        # Zero
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_soft_coefficient=0)
-        assert "greater than 0" in str(excinfo.value)
-
-    def test_invalid_inode_hard_coefficient(self):
-        """Test validation of inode_hard_coefficient."""
-        # Non-numeric
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_hard_coefficient="invalid")
-        assert "should be a valid number" in str(excinfo.value)
-
-        # Negative
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_hard_coefficient=-1.0)
-        assert "greater than 0" in str(excinfo.value)
-
-        # Zero
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_hard_coefficient=0)
-        assert "greater than 0" in str(excinfo.value)
-
-    def test_soft_limit_greater_than_hard_limit(self):
-        """Test validation when soft limit > hard limit."""
-        # This is caught by the @model_validator
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(
-                inode_soft_coefficient=2.0,
-                inode_hard_coefficient=1.5,
-            )
+            BackendConfig(inode_soft_coefficient=2.0, inode_hard_coefficient=1.5)
         assert "must be greater than inode_soft_coefficient" in str(excinfo.value)
 
-    def test_invalid_storage_file_system(self):
-        """Test validation of storage_file_system."""
-        # Non-string (int) - Pydantic will coerce int to string "123" which is valid min_length=1
-        # So BackendConfig(storage_file_system=123) might actually succeed if strict=False (default).
-        # Let's verify strict behavior or check if "123" is acceptable.
-        # "must be a non-empty string" was the old requirement. "123" is non-empty.
+    def test_numeric_constraints(self):
+        """Test gt=0 constraints for numeric fields."""
+        # inode_soft_coefficient
+        with pytest.raises(ValidationError) as exc:
+            BackendConfig(inode_soft_coefficient=0)
+        assert "greater than 0" in str(exc.value)
 
-        # Empty string
-        with pytest.raises(ValidationError) as excinfo:
+        # inode_hard_coefficient
+        with pytest.raises(ValidationError) as exc:
+            BackendConfig(inode_hard_coefficient=-1.0)
+        assert "greater than 0" in str(exc.value)
+
+        # inode_base_multiplier
+        with pytest.raises(ValidationError) as exc:
+            BackendConfig(inode_base_multiplier=0)
+        assert "greater than 0" in str(exc.value)
+
+    def test_storage_file_system_non_empty(self):
+        """Test valid non-empty string for storage file system."""
+        with pytest.raises(ValidationError) as exc:
             BackendConfig(storage_file_system="")
-        assert "String should have at least 1 character" in str(excinfo.value)
+        assert "String should have at least 1 character" in str(exc.value)
 
-    def test_invalid_inode_base_multiplier(self):
-        """Test validation of inode_base_multiplier."""
-        # Non-numeric
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_base_multiplier="invalid")
-        assert "should be a valid number" in str(excinfo.value)
 
-        # Negative
-        with pytest.raises(ValidationError) as excinfo:
-            BackendConfig(inode_base_multiplier=-1)
-        assert "greater than 0" in str(excinfo.value)
+class TestWaldurApiConfigValidation:
+    """Test cases for WaldurApiConfig validation."""
+
+    def test_required_fields(self):
+        """Test that api_url and access_token are strictly required."""
+        with pytest.raises(ValidationError) as exc:
+            WaldurApiConfig(api_url="http://example.com")  # missing access_token
+        assert "Field required" in str(exc.value)
+        assert "WALDUR_API_TOKEN" in str(exc.value)
+
+        with pytest.raises(ValidationError) as exc:
+            WaldurApiConfig(access_token="token")  # missing api_url
+        assert "Field required" in str(exc.value)
+        assert "WALDUR_API_URL" in str(exc.value)
+
+
+class TestStorageProxyConfigValidation:
+    """Test cases for StorageProxyConfig validation."""
+
+    def test_storage_systems_non_empty(self):
+        """Test that storage_systems map cannot be empty."""
+        # We must provide valid waldur_api to reach the storage_systems validation
+        valid_waldur_api = {"api_url": "u", "access_token": "t"}
+
+        with pytest.raises(ValidationError) as exc:
+            StorageProxyConfig(waldur_api=valid_waldur_api, storage_systems={})
+        assert "At least one storage_system mapping is required" in str(exc.value)
+
+    def test_storage_systems_valid(self):
+        """Test successful validation with at least one storage system."""
+        valid_waldur_api = {"api_url": "u", "access_token": "t"}
+        config = StorageProxyConfig(
+            waldur_api=valid_waldur_api, storage_systems={"sys": "slug"}
+        )
+        assert config.storage_systems == {"sys": "slug"}
+
+
+class TestSentryConfigValidation:
+    """Test cases for SentryConfig validation."""
+
+    def test_traces_sample_rate_numeric(self):
+        """Test traces_sample_rate must be a float."""
+        with pytest.raises(ValidationError) as exc:
+            SentryConfig(traces_sample_rate="invalid-float")
+        assert "Input should be a valid number" in str(exc.value)

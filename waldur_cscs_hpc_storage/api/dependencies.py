@@ -1,5 +1,4 @@
 import logging
-from dataclasses import replace
 from typing import Annotated, Optional, Union
 
 from fastapi import Depends
@@ -51,9 +50,8 @@ def get_gid_service(
     if config.hpc_user_api:
         # Pass development_mode to the service for fallback behavior within the real client
         # (The real client uses dev mode to return mock data if the API is unreachable)
-        updated_hpc_config = replace(
-            config.hpc_user_api,
-            development_mode=config.backend_settings.development_mode,
+        updated_hpc_config = config.hpc_user_api.model_copy(
+            update={"development_mode": config.backend_settings.development_mode}
         )
         try:
             service = GidService(updated_hpc_config)
