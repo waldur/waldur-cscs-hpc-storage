@@ -13,6 +13,7 @@ from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.utils import paginate_response
 
 logger = logging.getLogger(__name__)
 
@@ -93,36 +94,16 @@ class StorageOrchestrator:
         )
 
         # 4. Serialize and Paginate
-        serialized_resources = [r.model_dump(by_alias=True) for r in filtered_resources]
-
-        # Calculate pagination based on the filtered list size
-        # Note: This represents the "view" pagination, not necessarily 1:1 with API pages
-        # due to hierarchy expansion (adding parent nodes) and filtering.
-        total_items = len(filtered_resources)
-        total_pages = (
-            (total_items + filters.page_size - 1) // filters.page_size
-            if total_items > 0
-            else 0
-        )
-
-        return {
-            "status": "success",
-            "resources": serialized_resources,
-            "pagination": {
-                "current": filters.page,
-                "limit": filters.page_size,
-                "offset": (filters.page - 1) * filters.page_size,
-                "pages": total_pages,
-                "total": total_items,
-                "api_total": total_api_count,
-            },
-            "filters_applied": {
-                "offering_slugs": offering_slugs,
-                "data_type": filters.data_type.value if filters.data_type else None,
-                "status": filters.status.value if filters.status else None,
-                "state": filters.state.value if filters.state else None,
-            },
+        extra_filters = {
+            "offering_slugs": offering_slugs,
         }
+
+        return paginate_response(
+            resources=filtered_resources,
+            filters=filters,
+            total_api_count=total_api_count,
+            extra_filters=extra_filters,
+        )
 
     async def _process_resources(
         self, raw_resources: List[ParsedWaldurResource]
