@@ -83,9 +83,7 @@ The application uses **Pydantic Settings**. Configuration is loaded in the follo
 1. **Environment Variables**
 2. **Default Values**
 
-
 Set variables in the environment or use a `.env` file (e.g., via Docker Compose or Kubernetes Secrets).
-
 
 ### 4.2. Detailed Configuration Reference
 
@@ -266,9 +264,12 @@ export DEBUG=true
 To test without Authentication (Local Dev Only):
 
 ```bash
+export DEVELOPMENT_MODE=true
 export DISABLE_AUTH=true
-export DISABLE_AUTH=true
-uvicorn waldur_cscs_hpc_storage.api.main:app
+export WALDUR_API_URL=http://127.0.0.1:8000/
+export WALDUR_API_TOKEN=e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e
+export STORAGE_SYSTEMS='{"capstor": "capstor"}'
+uv run uvicorn waldur_cscs_hpc_storage.api.main:app --host 127.0.0.1 --port 8080
 ```
 
 ### SOCKS Proxy Testing
