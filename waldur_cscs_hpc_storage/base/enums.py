@@ -9,6 +9,7 @@ class TargetStatus(StrEnum):
     REMOVING = "removing"
     REMOVED = "removed"
     ERROR = "error"
+    UPDATING = "updating"
     UNKNOWN = "unknown"
 
 

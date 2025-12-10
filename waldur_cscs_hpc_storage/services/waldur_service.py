@@ -2,6 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, Union
 
+import httpx
 from waldur_api_client import AuthenticatedClient
 from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
@@ -40,7 +41,7 @@ class WaldurService:
         self.client = AuthenticatedClient(
             base_url=url,
             token=waldur_api_config.access_token,
-            timeout=600,
+            timeout=httpx.Timeout(600),
             headers=headers,
             verify_ssl=waldur_api_config.verify_ssl,
             httpx_args=httpx_args,
@@ -93,7 +94,6 @@ class WaldurService:
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
-        exclude_pending: bool = False,
         **kwargs,
     ):
         """Fetch resources from Waldur API.
@@ -120,12 +120,9 @@ class WaldurService:
 
         if offering_slug:
             if isinstance(offering_slug, list):
-                filters["offering_slug"] = ",".join(offering_slug)
+                filters["offering_slug"] = [",".join(offering_slug)]
             else:
-                filters["offering_slug"] = offering_slug
-
-        if exclude_pending:
-            filters["exclude_pending_transitional"] = True
+                filters["offering_slug"] = [offering_slug]
 
         filters.update(kwargs)
 

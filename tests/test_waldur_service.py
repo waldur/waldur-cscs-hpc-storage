@@ -85,23 +85,5 @@ class TestWaldurService:
         await service.list_resources(offering_slug=["slug1", "slug2"])
 
         mock_list.asyncio_detailed.assert_called_once_with(
-            client=service.client, offering_slug="slug1,slug2", page=1, page_size=100
-        )
-
-    @pytest.mark.asyncio
-    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
-    async def test_list_resources_exclude_pending(self, mock_list, service):
-        mock_response = Mock()
-        mock_response.parsed = []
-        mock_response.headers = {}
-        mock_list.asyncio_detailed = AsyncMock(return_value=mock_response)
-
-        await service.list_resources(offering_uuid="uuid", exclude_pending=True)
-
-        mock_list.asyncio_detailed.assert_called_once_with(
-            client=service.client,
-            offering_uuid=["uuid"],
-            exclude_pending_transitional=True,
-            page=1,
-            page_size=100,
+            client=service.client, offering_slug=["slug1,slug2"], page=1, page_size=100
         )

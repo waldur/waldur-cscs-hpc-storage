@@ -18,7 +18,7 @@ TARGET_STATUS_MAPPING: dict[ResourceState, TargetStatus] = {
     ResourceState.ERRED: TargetStatus.ERROR,
     ResourceState.TERMINATING: TargetStatus.REMOVING,
     ResourceState.TERMINATED: TargetStatus.REMOVED,
-    ResourceState.UPDATING: TargetStatus.PENDING,
+    ResourceState.UPDATING: TargetStatus.UPDATING,
 }
 
 # Mapping from storage data type to target type
@@ -30,7 +30,7 @@ DATA_TYPE_TO_TARGET_MAPPING: dict[StorageDataType, TargetType] = {
 }
 
 
-def get_target_status_from_waldur_state(state: str) -> TargetStatus:
+def get_target_status_from_waldur_state(state: ResourceState) -> TargetStatus:
     """Map Waldur resource state string to target item status.
 
     Args:
