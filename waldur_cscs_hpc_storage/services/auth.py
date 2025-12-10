@@ -1,4 +1,3 @@
-import os
 from fastapi.logger import logger
 from pydantic import BaseModel
 
@@ -47,49 +46,11 @@ def mock_user() -> User:
 
 
 def setup_auth(app, config):
-    CSCS_KEYCLOAK_URL = os.getenv("CSCS_KEYCLOAK_URL")
-    if CSCS_KEYCLOAK_URL is None and config.auth:
-        CSCS_KEYCLOAK_URL = config.auth.keycloak_url
-    if CSCS_KEYCLOAK_URL is None:
-        CSCS_KEYCLOAK_URL = "https://auth-tds.cscs.ch/auth/"
-
-    CSCS_KEYCLOAK_REALM = os.getenv("CSCS_KEYCLOAK_REALM")
-    if CSCS_KEYCLOAK_REALM is None and config.auth:
-        CSCS_KEYCLOAK_REALM = config.auth.keycloak_realm
-    if CSCS_KEYCLOAK_REALM is None:
-        CSCS_KEYCLOAK_REALM = "cscs"
-
-    CSCS_KEYCLOAK_CLIENT_ID = os.getenv("CSCS_KEYCLOAK_CLIENT_ID")
-    if CSCS_KEYCLOAK_CLIENT_ID is None and config.auth:
-        CSCS_KEYCLOAK_CLIENT_ID = config.auth.keycloak_client_id
-
-    CSCS_KEYCLOAK_CLIENT_SECRET = os.getenv("CSCS_KEYCLOAK_CLIENT_SECRET")
-    if CSCS_KEYCLOAK_CLIENT_SECRET is None and config.auth:
-        CSCS_KEYCLOAK_CLIENT_SECRET = config.auth.keycloak_client_secret
-
-    logger.info("Setting up Keycloak authentication")
-    logger.info("Keycloak URL: %s", CSCS_KEYCLOAK_URL)
-    logger.info("Keycloak Realm: %s", CSCS_KEYCLOAK_REALM)
-    logger.info("Keycloak Client ID: %s", CSCS_KEYCLOAK_CLIENT_ID)
-    logger.info(
-        "Keycloak Client Secret: %s",
-        "***REDACTED***" if CSCS_KEYCLOAK_CLIENT_SECRET else "NOT SET",
-    )
-
-    if not CSCS_KEYCLOAK_CLIENT_ID or not CSCS_KEYCLOAK_CLIENT_SECRET:
-        logger.error(
-            "Missing required Keycloak configuration: CLIENT_ID or CLIENT_SECRET not set"
-        )
-        error_msg = (
-            "CSCS_KEYCLOAK_CLIENT_ID and CSCS_KEYCLOAK_CLIENT_SECRET must be set"
-        )
-        raise ValueError(error_msg)
-
     keycloak_config = KeycloakConfiguration(
-        url=CSCS_KEYCLOAK_URL,
-        realm=CSCS_KEYCLOAK_REALM,
-        client_id=CSCS_KEYCLOAK_CLIENT_ID,
-        client_secret=CSCS_KEYCLOAK_CLIENT_SECRET,
+        url=config.auth.keycloak_url,
+        realm=config.auth.keycloak_realm,
+        client_id=config.auth.keycloak_client_id,
+        client_secret=config.auth.keycloak_client_secret,
         # Allow missing claims and handle them in user_mapper
         reject_on_missing_claim=False,
         # Specify required claims based on your token structure

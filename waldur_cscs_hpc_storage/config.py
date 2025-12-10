@@ -26,10 +26,17 @@ class AuthConfig(BaseModel):
     """Authentication configuration."""
 
     disable_auth: bool = Field(default=False, validation_alias="DISABLE_AUTH")
-    keycloak_url: str = "https://auth-tds.cscs.ch/auth/"
-    keycloak_realm: str = "cscs"
-    keycloak_client_id: Optional[str] = None
-    keycloak_client_secret: Optional[str] = None
+    keycloak_url: str = Field(
+        default="https://auth-tds.cscs.ch/auth/",
+        validation_alias="CSCS_KEYCLOAK_URL",
+    )
+    keycloak_realm: str = Field(default="cscs", validation_alias="CSCS_KEYCLOAK_REALM")
+    keycloak_client_id: Optional[str] = Field(
+        default=None, validation_alias="CSCS_KEYCLOAK_CLIENT_ID"
+    )
+    keycloak_client_secret: Optional[str] = Field(
+        default=None, validation_alias="CSCS_KEYCLOAK_CLIENT_SECRET"
+    )
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -115,12 +122,13 @@ class StorageProxyConfig(BaseSettings):
     3. Defaults
     """
 
-    waldur_api: WaldurApiConfig = Field(default_factory=WaldurApiConfig)
+    debug: bool = Field(default=False, validation_alias="DEBUG")
+    waldur_api: WaldurApiConfig
     backend_settings: BackendConfig = Field(default_factory=BackendConfig)
     storage_systems: dict[str, str]
-    auth: Optional[AuthConfig] = None
+    auth: Optional[AuthConfig] = Field(default_factory=AuthConfig)
     hpc_user_api: Optional[HpcUserApiConfig] = None
-    sentry: SentryConfig = Field(default_factory=SentryConfig)
+    sentry: Optional[SentryConfig] = None
 
     model_config = SettingsConfigDict(
         # We handle env vars manually via aliases on fields or nested models,
