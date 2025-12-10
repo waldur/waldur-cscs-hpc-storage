@@ -13,7 +13,6 @@ backend_settings:
   inode_soft_coefficient: 1.33  # Multiplier for soft inode limits
   inode_hard_coefficient: 2.0  # Multiplier for hard inode limits
   use_mock_target_items: false  # Enable mock data for development
-  development_mode: false # Enable development mode with fallback mock GID values
 
 # Storage systems configuration - maps storage_system names to offering slugs
 # The API will fetch resources from all configured offering slugs

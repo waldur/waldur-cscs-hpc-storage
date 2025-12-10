@@ -10,7 +10,7 @@ from fastapi_keycloak_middleware import get_user
 from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.models.user import User
 
-from waldur_cscs_hpc_storage.api.config_parser import parse_configuration
+from waldur_cscs_hpc_storage.api.config_parser import load_config
 from waldur_cscs_hpc_storage.api.dependencies import (
     get_orchestrator,
     set_global_config,
@@ -37,8 +37,8 @@ from waldur_cscs_hpc_storage.base.enums import (
 from waldur_cscs_hpc_storage.services.auth import mock_user, setup_auth
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
 
-# Parse all configuration
-config, waldur_api_config, hpc_user_api_config, DISABLE_AUTH = parse_configuration()
+# Load configuration
+config = load_config()
 
 # Initialize global config for dependency injection
 set_global_config(config)
@@ -53,6 +53,8 @@ app.add_exception_handler(ConfigurationError, configuration_error_handler)
 app.add_exception_handler(StorageProxyError, storage_proxy_error_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
+
+DISABLE_AUTH = config.auth.disable_auth if config.auth else False
 
 if not DISABLE_AUTH:
     setup_auth(app, config)

@@ -3,15 +3,9 @@
 import logging
 import os
 import sys
-from typing import Optional, Tuple
-
 from pydantic import ValidationError
 
-from waldur_cscs_hpc_storage.config import (
-    HpcUserApiConfig,
-    StorageProxyConfig,
-    WaldurApiConfig,
-)
+from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.sentry_config import initialize_sentry
 
 logger = logging.getLogger(__name__)
@@ -40,27 +34,24 @@ def setup_logging() -> bool:
 
 
 def load_config() -> StorageProxyConfig:
-    """Load configuration using pydantic-settings.
+    """Load and validate configuration.
+
+    - Loads configuration from env vars and YAML (via pydantic-settings).
+    - Sets up logging based on debug mode.
+    - Initializes Sentry if configured.
+    - Synchronizes development_mode.
 
     Returns:
         StorageProxyConfig object.
     """
+    setup_logging()
+
     try:
-        # Pydantic settings loads env vars and yaml automatically
         config = StorageProxyConfig()
     except (ValidationError, Exception) as e:
         logger.exception("Failed to load or validate configuration: %s", e)
         sys.exit(1)
 
-    return config
-
-
-def initialize_sentry_from_config(config: StorageProxyConfig) -> None:
-    """Initialize Sentry if configured.
-
-    Args:
-        config: The storage proxy configuration.
-    """
     try:
         initialize_sentry(
             dsn=config.sentry.dsn,
@@ -69,32 +60,5 @@ def initialize_sentry_from_config(config: StorageProxyConfig) -> None:
         )
     except Exception as e:
         logger.error("Failed to initialize Sentry: %s", e)
-        # Continue without Sentry - don't fail the application startup
 
-
-def parse_configuration() -> Tuple[
-    StorageProxyConfig, WaldurApiConfig, Optional[HpcUserApiConfig], bool
-]:
-    """Parse all configuration.
-
-    Returns:
-        Tuple of (config, waldur_api_config, hpc_user_api_config, disable_auth).
-
-    """
-    setup_logging()
-    config = load_config()
-    initialize_sentry_from_config(config)
-
-    waldur_api_config = config.waldur_api
-    hpc_user_api_config = config.hpc_user_api
-
-    # disable_auth is now part of config.auth or env var override handled by pydantic
-    disable_auth = False
-    if config.auth:
-        disable_auth = config.auth.disable_auth
-
-    disable_auth_env = os.getenv("DISABLE_AUTH")
-    if disable_auth_env is not None:
-        disable_auth = disable_auth_env.lower() in ("true", "yes", "1")
-
-    return config, waldur_api_config, hpc_user_api_config, disable_auth
+    return config

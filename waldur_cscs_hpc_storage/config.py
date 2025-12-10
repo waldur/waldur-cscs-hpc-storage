@@ -78,7 +78,6 @@ class BackendConfig(BaseModel):
     inode_hard_coefficient: float = Field(default=2.0, gt=0)
     inode_base_multiplier: float = Field(default=1_000_000, gt=0)
     use_mock_target_items: bool = False
-    development_mode: bool = False
 
     @model_validator(mode="after")
     def check_coefficients(self) -> "BackendConfig":

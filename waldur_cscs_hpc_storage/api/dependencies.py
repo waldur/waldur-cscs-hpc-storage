@@ -48,23 +48,21 @@ def get_gid_service(
     """
     # 1. Try to initialize the real HPC User API client
     if config.hpc_user_api:
-        # Pass development_mode to the service for fallback behavior within the real client
-        # (The real client uses dev mode to return mock data if the API is unreachable)
-        updated_hpc_config = config.hpc_user_api.model_copy(
-            update={"development_mode": config.backend_settings.development_mode}
-        )
         try:
-            service = GidService(updated_hpc_config)
+            # development_mode is already synced in config_parser.py
+            service = GidService(config.hpc_user_api)
             logger.info("Initialized real HPC User API client")
             return service
         except Exception as e:
             logger.warning("Failed to initialize real GidService: %s", e)
-            if not config.backend_settings.development_mode:
+            if not config.hpc_user_api.development_mode:
                 raise
 
     # 2. Fallback to Mock service
     logger.info("Using MockGidService (HPC User API not configured or failed)")
-    return MockGidService(config.backend_settings.development_mode)
+    # Default to False if hpc_user_api is not configured
+    dev_mode = config.hpc_user_api.development_mode if config.hpc_user_api else False
+    return MockGidService(dev_mode)
 
 
 def get_mapper(
