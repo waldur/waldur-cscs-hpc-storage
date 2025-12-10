@@ -1,9 +1,10 @@
-from typing import Any, Optional, Annotated
+from typing import Optional, Annotated
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
+from waldur_api_client.models.order_details import OrderDetails
+from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource import Resource
 from waldur_api_client.models.resource_state import ResourceState
-from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.types import Unset
 
 # Re-importing Enums from your existing structure to ensure compatibility
@@ -45,6 +46,8 @@ class ResourceLimits(BaseModel):
     storage: Optional[float] = Field(
         default=0, ge=0, description="Storage limit in Terabytes"
     )
+
+    model_config = {"extra": "ignore"}
 
 
 class ResourceAttributes(BaseModel):
@@ -100,6 +103,8 @@ class ResourceOptions(BaseModel):
         None, pattern=r"^[0-7]{3,4}$", description="Override permissions"
     )
 
+    model_config = {"extra": "ignore"}
+
 
 class ResourceBackendMetadata(BaseModel):
     """
@@ -148,7 +153,9 @@ class ParsedWaldurResource(BaseModel):
     )
 
     # Optional order info
-    order_in_progress: Optional[Any] = None
+    order_in_progress: Optional[OrderDetails] = None
+
+    model_config = {"arbitrary_types_allowed": True}
 
     @classmethod
     def from_waldur_resource(cls, resource: Resource) -> "ParsedWaldurResource":
@@ -205,6 +212,9 @@ class ParsedWaldurResource(BaseModel):
         inode_base_multiplier: float,
         inode_soft_coefficient: float,
         inode_hard_coefficient: float,
+        # Allow overriding limits/options for "old/new" calculations
+        override_limits: Optional[ResourceLimits] = None,
+        override_options: Optional[ResourceOptions] = None,
     ) -> Optional[list[Quota]]:
         """Calculate and render quota objects.
 
@@ -212,22 +222,27 @@ class ParsedWaldurResource(BaseModel):
             inode_base_multiplier: Multiplier for base inode calculation (e.g., 1_000_000)
             inode_soft_coefficient: Coefficient for soft inode quota (e.g., 0.9)
             inode_hard_coefficient: Coefficient for hard inode quota (e.g., 1.0)
+            override_limits: Optional limits to use instead of self.limits
+            override_options: Optional options to use instead of self.options
 
         Returns:
             List of Quota objects, or None if no quotas are set
         """
+        limits = override_limits if override_limits is not None else self.limits
+        options = override_options if override_options is not None else self.options
+
         # Get storage limit
-        storage_limit = self.limits.storage or 0.0
+        storage_limit = limits.storage or 0.0
 
         # Calculate effective storage quotas (with option overrides)
         storage_quota_soft_tb = (
-            self.options.soft_quota_space
-            if self.options.soft_quota_space is not None
+            options.soft_quota_space
+            if options.soft_quota_space is not None
             else storage_limit
         )
         storage_quota_hard_tb = (
-            self.options.hard_quota_space
-            if self.options.hard_quota_space is not None
+            options.hard_quota_space
+            if options.hard_quota_space is not None
             else storage_limit
         )
 
@@ -238,13 +253,13 @@ class ParsedWaldurResource(BaseModel):
 
         # Calculate effective inode quotas (with option overrides)
         inode_soft = (
-            self.options.soft_quota_inodes
-            if self.options.soft_quota_inodes is not None
+            options.soft_quota_inodes
+            if options.soft_quota_inodes is not None
             else base_soft_inode
         )
         inode_hard = (
-            self.options.hard_quota_inodes
-            if self.options.hard_quota_inodes is not None
+            options.hard_quota_inodes
+            if options.hard_quota_inodes is not None
             else base_hard_inode
         )
 

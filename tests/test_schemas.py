@@ -1,6 +1,6 @@
-import pytest
 from unittest.mock import Mock
 from waldur_api_client.models.order_state import OrderState
+from waldur_api_client.models.order_details import OrderDetails
 from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
 
 
@@ -16,7 +16,7 @@ class TestParsedWaldurResource:
         assert resource.callback_urls == {}
 
     def test_callback_urls_pending_provider(self):
-        mock_order = Mock()
+        mock_order = Mock(spec=OrderDetails)
         mock_order.state = OrderState.PENDING_PROVIDER
         mock_order.url = "http://example.com/api/orders/123/"
 
@@ -41,7 +41,7 @@ class TestParsedWaldurResource:
         )
 
     def test_callback_urls_executing(self):
-        mock_order = Mock()
+        mock_order = Mock(spec=OrderDetails)
         mock_order.state = OrderState.EXECUTING
         mock_order.url = "http://example.com/api/orders/123/"
 
@@ -66,7 +66,7 @@ class TestParsedWaldurResource:
         )
 
     def test_callback_urls_done(self):
-        mock_order = Mock()
+        mock_order = Mock(spec=OrderDetails)
         mock_order.state = OrderState.DONE
         mock_order.url = "http://example.com/api/orders/123/"
 

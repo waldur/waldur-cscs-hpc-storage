@@ -62,20 +62,6 @@ class TestWaldurService:
 
     @pytest.mark.asyncio
     @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
-    async def test_list_resources_basic(self, mock_list, service):
-        mock_response = Mock()
-        mock_response.parsed = []
-        mock_response.headers = {}
-        mock_list.asyncio_detailed = AsyncMock(return_value=mock_response)
-
-        await service.list_resources(offering_uuid="uuid", page=1, page_size=10)
-
-        mock_list.asyncio_detailed.assert_called_once_with(
-            client=service.client, offering_uuid=["uuid"], page=1, page_size=10
-        )
-
-    @pytest.mark.asyncio
-    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
     async def test_list_resources_with_slug_list(self, mock_list, service):
         mock_response = Mock()
         mock_response.parsed = []

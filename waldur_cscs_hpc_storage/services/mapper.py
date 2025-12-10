@@ -1,6 +1,8 @@
 import logging
 from typing import Optional
 
+from waldur_api_client.models.request_types import RequestTypes
+
 from waldur_cscs_hpc_storage.base.enums import (
     TargetStatus,
     TargetType,
@@ -25,7 +27,11 @@ from waldur_cscs_hpc_storage.base.models import (
 from waldur_cscs_hpc_storage.base.mount_points import (
     generate_project_mount_point,
 )
-from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
+from waldur_cscs_hpc_storage.base.schemas import (
+    ParsedWaldurResource,
+    ResourceLimits,
+    ResourceOptions,
+)
 from waldur_cscs_hpc_storage.base.target_ids import (
     generate_customer_target_id,
     generate_project_target_id,
@@ -115,8 +121,20 @@ class ResourceMapper:
             inode_hard_coefficient=self.config.inode_hard_coefficient,
         )
 
-        # 4. Generate Mount Point
-        # Note: Even for User targets, we currently generate a project-level mount point structure
+        # 4. Calculate Pending Update Quotas (if applicable)
+        old_quotas = None
+        new_quotas = None
+
+        try:
+            old_quotas, new_quotas = self._calculate_update_quotas(waldur_resource)
+        except Exception as e:
+            logger.warning(
+                "Failed to calculate update quotas for resource %s: %s",
+                resource_uuid,
+                e,
+            )
+
+        # 5. Generate Mount Point
         mount_point_path = generate_project_mount_point(
             storage_system=storage_system,
             tenant_id=waldur_resource.provider_slug,
@@ -125,16 +143,18 @@ class ResourceMapper:
             data_type=storage_data_type_str,
         )
 
-        # 5. Determine Status
+        # 6. Determine Status
         cscs_status = get_target_status_from_waldur_state(waldur_resource.state)
 
-        # 6. Assemble the StorageResource
+        # 7. Assemble the StorageResource
         return StorageResource(
             itemId=resource_uuid,
             status=cscs_status,
             mountPoint=MountPoint(default=mount_point_path),
             permission=Permission(value=waldur_resource.effective_permissions),
             quotas=quotas,
+            oldQuotas=old_quotas,
+            newQuotas=new_quotas,
             target=target,
             storageSystem=StorageItem(
                 itemId=generate_storage_system_target_id(storage_system),
@@ -158,6 +178,89 @@ class ResourceMapper:
             **waldur_resource.callback_urls,
         )
 
+    def _calculate_update_quotas(self, resource: ParsedWaldurResource):
+        """
+        Calculate old and new quotas if an update order is in progress.
+        Returns: (old_quotas, new_quotas)
+        """
+        order = resource.order_in_progress
+
+        # Basic Validation
+        if not order or order.type_ != RequestTypes.UPDATE:
+            return None, None
+
+        # Attributes are often a plain dict or a property wrapper
+        attrs = order.attributes
+        if not attrs:
+            return None, None
+
+        old_limits_override = None
+        new_limits_override = None
+        old_options_override = None
+        new_options_override = None
+
+        has_limit_update = "old_limits" in attrs
+        has_option_update = "old_options" in attrs or "new_options" in attrs
+
+        # Scenario 1: Limits Update
+        # Attributes should contain 'old_limits' (dict).
+        # The 'new' limits are typically found on the order object itself (limits field).
+        if has_limit_update:
+            old_limits_data = attrs.get("old_limits")
+            if old_limits_data:
+                old_limits_override = ResourceLimits(**old_limits_data)
+
+            # Extract new limits from order.limits (if present)
+            order_limits = order.limits
+            if order_limits:
+                # order.limits might be a model or dict
+                limits_dict = order_limits.additional_properties
+                if limits_dict:
+                    new_limits_override = ResourceLimits(**limits_dict)
+
+        # Scenario 2: Options Update
+        # Attributes should contain 'old_options' and 'new_options' (dicts)
+        if has_option_update:
+            old_options_data = attrs.get("old_options")
+            if old_options_data:
+                old_options_override = ResourceOptions(**old_options_data)
+
+            new_options_data = attrs.get("new_options")
+            if new_options_data:
+                new_options_override = ResourceOptions(**new_options_data)
+
+        # If neither scenario matched sufficiently, return None
+        if not (
+            old_limits_override
+            or new_limits_override
+            or old_options_override
+            or new_options_override
+        ):
+            return None, None
+
+        # Generate Quotas using overrides
+        # We pass the overrides. If an override is None, render_quotas uses the current resource state (self.limits/options)
+        # This acts as a fallback or base.
+        # For example, if we only updated limits, options stay the same.
+
+        old_quotas = resource.render_quotas(
+            inode_base_multiplier=self.config.inode_base_multiplier,
+            inode_soft_coefficient=self.config.inode_soft_coefficient,
+            inode_hard_coefficient=self.config.inode_hard_coefficient,
+            override_limits=old_limits_override,
+            override_options=old_options_override,
+        )
+
+        new_quotas = resource.render_quotas(
+            inode_base_multiplier=self.config.inode_base_multiplier,
+            inode_soft_coefficient=self.config.inode_soft_coefficient,
+            inode_hard_coefficient=self.config.inode_hard_coefficient,
+            override_limits=new_limits_override,
+            override_options=new_options_override,
+        )
+
+        return old_quotas, new_quotas
+
     async def _build_target_item(
         self, waldur_resource: ParsedWaldurResource, target_type: TargetType
     ) -> Optional[TargetItem]:
@@ -165,8 +268,6 @@ class ResourceMapper:
         Construct the specific TargetItem subclass based on the TargetType.
         Handles checking backend_metadata first, then falling back to generation/lookup.
         """
-        # 1. Check if the backend_metadata already contains the fully formed item
-        # This supports cases where the backend might have pre-populated data
         if not self.config.use_mock_target_items:
             target_item_field = f"{target_type.value}_item"
             pre_existing_data = getattr(
@@ -175,16 +276,12 @@ class ResourceMapper:
             if pre_existing_data:
                 return pre_existing_data
 
-        # 2. Generate data based on type
         if target_type == TargetType.PROJECT:
             return await self._build_project_target(waldur_resource)
 
         elif target_type == TargetType.USER:
             return await self._build_user_target(waldur_resource)
 
-        # Ideally, orchestration handles Tenant/Customer creation via HierarchyBuilder,
-        # but if logic dictates mapping them here (e.g. for specialized resources),
-        # we include fallback logic similar to the original backend.py
         elif target_type == TargetType.TENANT:
             return TenantTargetItem(
                 itemId=generate_tenant_target_id(waldur_resource.provider_slug),
@@ -230,9 +327,6 @@ class ResourceMapper:
     ) -> Optional[UserTargetItem]:
         """
         Build UserTargetItem.
-
-        Note: The user logic in the original backend contained placeholders for
-        UID and Email generation. This logic is preserved here.
         """
         target_status = get_target_status_from_waldur_state(waldur_resource.state)
         project_slug = waldur_resource.project_slug or "default-project"

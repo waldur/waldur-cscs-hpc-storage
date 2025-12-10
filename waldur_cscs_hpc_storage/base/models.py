@@ -114,4 +114,7 @@ class StorageResource(BaseModel):
     storageDataType: StorageItem
     target: Target
     quotas: Optional[list[Quota]] = None
+    # New fields for Update orders
+    oldQuotas: Optional[list[Quota]] = None
+    newQuotas: Optional[list[Quota]] = None
     parentItemId: Optional[str] = None

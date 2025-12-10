@@ -89,7 +89,6 @@ class WaldurService:
 
     async def list_resources(
         self,
-        offering_uuid: Optional[str] = None,
         offering_slug: Optional[list[str]] = None,
         state: Optional[ResourceState] = None,
         page: int = 1,
@@ -99,7 +98,6 @@ class WaldurService:
         """Fetch resources from Waldur API.
 
         Args:
-            offering_uuid: Optional UUID of the offering
             offering_slug: Optional slug or list of slugs of the offering
             state: Optional resource state filter
             page: Page number
@@ -114,24 +112,22 @@ class WaldurService:
         if state:
             filters["state"] = [state]
 
-        if offering_uuid:
-            # The API client expects a list for offering_uuid
-            filters["offering_uuid"] = [offering_uuid]
-
         if offering_slug:
-            if isinstance(offering_slug, list):
-                filters["offering_slug"] = [",".join(offering_slug)]
-            else:
-                filters["offering_slug"] = [offering_slug]
+            filters["offering_slug"] = [",".join(offering_slug)]
 
         filters.update(kwargs)
 
-        response = await marketplace_resources_list.asyncio_detailed(
-            client=self.client,
-            page=page,
-            page_size=page_size,
-            **filters,
-        )
+        try:
+            response = await marketplace_resources_list.asyncio_detailed(
+                client=self.client,
+                page=page,
+                page_size=page_size,
+                **filters,
+            )
+        except Exception as e:
+            msg = f"Failed to fetch resources for offerings {offering_slug}"
+            logger.exception(msg)
+            raise WaldurClientError(msg, original_error=e) from e
 
         parsed_resources = [
             ParsedWaldurResource.from_waldur_resource(r) for r in response.parsed
