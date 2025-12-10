@@ -6,6 +6,8 @@ from fastapi_keycloak_middleware import (
     setup_keycloak_middleware,
 )
 
+from waldur_cscs_hpc_storage.config.auth import AuthConfig
+
 
 class User(BaseModel):
     """Model for OIDC user."""
@@ -45,12 +47,12 @@ def mock_user() -> User:
     return User(preferred_username="dev_user")
 
 
-def setup_auth(app, config):
+def setup_auth(app, config: AuthConfig):
     keycloak_config = KeycloakConfiguration(
-        url=config.auth.keycloak_url,
-        realm=config.auth.keycloak_realm,
-        client_id=config.auth.keycloak_client_id,
-        client_secret=config.auth.keycloak_client_secret,
+        url=str(config.keycloak_url),
+        realm=config.keycloak_realm,
+        client_id=config.keycloak_client_id,
+        client_secret=config.keycloak_client_secret,
         # Allow missing claims and handle them in user_mapper
         reject_on_missing_claim=False,
         # Specify required claims based on your token structure

@@ -42,10 +42,8 @@ app.add_exception_handler(StorageProxyError, storage_proxy_error_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
 
-DISABLE_AUTH = config.auth.disable_auth if config.auth else False
-
-if not DISABLE_AUTH:
-    setup_auth(app, config)
+if config.auth and not config.auth.disable_auth:
+    setup_auth(app, config.auth)
     user_dependency = get_user
 else:
     logger.warning(
