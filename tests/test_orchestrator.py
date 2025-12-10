@@ -32,8 +32,10 @@ from waldur_cscs_hpc_storage.config import (
 from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
+from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 
@@ -96,7 +98,8 @@ class TestStorageOrchestratorBase:
         """Helper to create orchestrator instance with mocks."""
         # Initialize dependencies
         gid_service = MockGidService()
-        mapper = ResourceMapper(self.orchestrator_config, gid_service)
+        quota_calculator = QuotaCalculator(self.orchestrator_config)
+        mapper = ResourceMapper(self.orchestrator_config, gid_service, quota_calculator)
 
         # Inject mock waldur_service for testing
         self.mock_waldur_service = Mock(spec=WaldurService)
@@ -498,6 +501,13 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_attributes.storage_data_type = "store"
         mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
         mock_resource.backend_metadata = Mock(
             tenant_item=None, customer_item=None, project_item=None, user_item=None
         )
@@ -548,6 +558,13 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_limits = Mock()
         mock_limits.storage = 50
         mock_resource.limits = mock_limits
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
         mock_resource.render_quotas.return_value = create_mock_quotas(50)
         mock_resource.callback_urls = {}
 
@@ -608,10 +625,23 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.project_slug = "physics"
         mock_resource.state = "OK"
 
-        # Create mock limits with non-zero storage
         mock_limits = Mock()
         mock_limits.storage = 42.5  # Use float value
         mock_resource.limits = mock_limits
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
+        mock_resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
 
         mock_attributes = Mock()
         mock_attributes.storage_data_type = "store"

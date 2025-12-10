@@ -11,6 +11,7 @@ from waldur_cscs_hpc_storage.base.enums import (
 from waldur_cscs_hpc_storage.base.models import Quota
 from waldur_cscs_hpc_storage.config import BackendConfig
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
 from waldur_api_client.types import Unset
 
 
@@ -68,7 +69,8 @@ class TestResourceMapper:
 
     @pytest.fixture
     def mapper(self, backend_settings, mock_gid_service):
-        return ResourceMapper(backend_settings, mock_gid_service)
+        quota_calculator = QuotaCalculator(backend_settings)
+        return ResourceMapper(backend_settings, mock_gid_service, quota_calculator)
 
     @pytest.mark.asyncio
     async def test_map_resource_basic(self, mapper):

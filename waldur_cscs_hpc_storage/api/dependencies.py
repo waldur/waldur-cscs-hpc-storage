@@ -8,6 +8,7 @@ from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
+from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 logger = logging.getLogger(__name__)
@@ -65,14 +66,24 @@ def get_gid_service(
     return MockGidService(dev_mode)
 
 
+def get_quota_calculator(
+    config: Annotated[StorageProxyConfig, Depends(get_config)],
+) -> QuotaCalculator:
+    """
+    Creates the QuotaCalculator.
+    """
+    return QuotaCalculator(config.backend_settings)
+
+
 def get_mapper(
     config: Annotated[StorageProxyConfig, Depends(get_config)],
     gid_service: Annotated[Union[GidService, MockGidService], Depends(get_gid_service)],
+    quota_calculator: Annotated[QuotaCalculator, Depends(get_quota_calculator)],
 ) -> ResourceMapper:
     """
     Creates the ResourceMapper, injecting the specific GID service strategy.
     """
-    return ResourceMapper(config.backend_settings, gid_service)
+    return ResourceMapper(config.backend_settings, gid_service, quota_calculator)
 
 
 def get_orchestrator(

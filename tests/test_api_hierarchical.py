@@ -49,7 +49,12 @@ def mock_config():
         waldur_api=WaldurApiConfig(
             api_url="http://mock-waldur", access_token="mock-token"
         ),
-        backend_settings=BackendConfig(development_mode=True),
+        backend_settings=BackendConfig(
+            development_mode=True,
+            inode_base_multiplier=1000000,
+            inode_soft_coefficient=0.9,
+            inode_hard_coefficient=1.0,
+        ),
         storage_systems={"capstor": "capstor", "vast": "vast", "iopsstor": "iopsstor"},
         auth=None,
         hpc_user_api=HpcUserApiConfig(development_mode=True),
@@ -106,6 +111,16 @@ def mock_waldur_resources():
         # Mock limits
         resource.limits = Mock()
         resource.limits.additional_properties = {"storage": storage_limit}
+        resource.limits.storage = storage_limit
+
+        # Mock options
+        resource.options = Mock(
+            soft_quota_space=None,
+            hard_quota_space=None,
+            soft_quota_inodes=None,
+            hard_quota_inodes=None,
+            permissions=None,
+        )
 
         # Mock attributes
         resource.attributes = Mock()

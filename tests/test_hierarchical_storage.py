@@ -23,6 +23,7 @@ from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo, HierarchyBui
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
+from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 
@@ -39,7 +40,8 @@ def backend():
     )
 
     gid_service = MockGidService()
-    mapper = ResourceMapper(backend_settings, gid_service)
+    quota_calculator = QuotaCalculator(backend_settings)
+    mapper = ResourceMapper(backend_settings, gid_service, quota_calculator)
 
     # Inject mock waldur_service for testing
     waldur_service = Mock(spec=WaldurService)

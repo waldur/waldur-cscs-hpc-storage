@@ -1,7 +1,6 @@
 import logging
 from typing import Optional
 
-from waldur_api_client.models.request_types import RequestTypes
 
 from waldur_cscs_hpc_storage.base.enums import (
     TargetStatus,
@@ -29,8 +28,6 @@ from waldur_cscs_hpc_storage.base.mount_points import (
 )
 from waldur_cscs_hpc_storage.base.schemas import (
     ParsedWaldurResource,
-    ResourceLimits,
-    ResourceOptions,
 )
 from waldur_cscs_hpc_storage.base.target_ids import (
     generate_customer_target_id,
@@ -48,6 +45,7 @@ from waldur_cscs_hpc_storage.exceptions import (
 )
 from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
+from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
 
 
 logger = logging.getLogger(__name__)
@@ -64,16 +62,23 @@ class ResourceMapper:
     - Creation of the Target object (Project/User).
     """
 
-    def __init__(self, config: BackendConfig, gid_service: GidService | MockGidService):
+    def __init__(
+        self,
+        config: BackendConfig,
+        gid_service: GidService | MockGidService,
+        quota_calculator: QuotaCalculator,
+    ):
         """
         Initialize the mapper with configuration and services.
 
         Args:
             config: Backend configuration containing coefficients and system names.
             gid_service: Service to lookup UNIX GIDs.
+            quota_calculator: Service to calculate storage quotas.
         """
         self.config = config
         self.gid_service = gid_service
+        self.quota_calculator = quota_calculator
 
     async def map_resource(
         self,
@@ -115,18 +120,17 @@ class ResourceMapper:
         target = Target(targetType=target_type, targetItem=target_item)
 
         # 3. Calculate Quotas
-        quotas = waldur_resource.render_quotas(
-            inode_base_multiplier=self.config.inode_base_multiplier,
-            inode_soft_coefficient=self.config.inode_soft_coefficient,
-            inode_hard_coefficient=self.config.inode_hard_coefficient,
-        )
+        # 3. Calculate Quotas
+        quotas = self.quota_calculator.calculate_quotas(waldur_resource)
 
         # 4. Calculate Pending Update Quotas (if applicable)
         old_quotas = None
         new_quotas = None
 
         try:
-            old_quotas, new_quotas = self._calculate_update_quotas(waldur_resource)
+            old_quotas, new_quotas = self.quota_calculator.calculate_update_quotas(
+                waldur_resource
+            )
         except Exception as e:
             logger.warning(
                 "Failed to calculate update quotas for resource %s: %s",
@@ -177,89 +181,6 @@ class ResourceMapper:
             parentItemId=parent_item_id,
             **waldur_resource.callback_urls,
         )
-
-    def _calculate_update_quotas(self, resource: ParsedWaldurResource):
-        """
-        Calculate old and new quotas if an update order is in progress.
-        Returns: (old_quotas, new_quotas)
-        """
-        order = resource.order_in_progress
-
-        # Basic Validation
-        if not order or order.type_ != RequestTypes.UPDATE:
-            return None, None
-
-        # Attributes are often a plain dict or a property wrapper
-        attrs = order.attributes
-        if not attrs:
-            return None, None
-
-        old_limits_override = None
-        new_limits_override = None
-        old_options_override = None
-        new_options_override = None
-
-        has_limit_update = "old_limits" in attrs
-        has_option_update = "old_options" in attrs or "new_options" in attrs
-
-        # Scenario 1: Limits Update
-        # Attributes should contain 'old_limits' (dict).
-        # The 'new' limits are typically found on the order object itself (limits field).
-        if has_limit_update:
-            old_limits_data = attrs.get("old_limits")
-            if old_limits_data:
-                old_limits_override = ResourceLimits(**old_limits_data)
-
-            # Extract new limits from order.limits (if present)
-            order_limits = order.limits
-            if order_limits:
-                # order.limits might be a model or dict
-                limits_dict = order_limits.additional_properties
-                if limits_dict:
-                    new_limits_override = ResourceLimits(**limits_dict)
-
-        # Scenario 2: Options Update
-        # Attributes should contain 'old_options' and 'new_options' (dicts)
-        if has_option_update:
-            old_options_data = attrs.get("old_options")
-            if old_options_data:
-                old_options_override = ResourceOptions(**old_options_data)
-
-            new_options_data = attrs.get("new_options")
-            if new_options_data:
-                new_options_override = ResourceOptions(**new_options_data)
-
-        # If neither scenario matched sufficiently, return None
-        if not (
-            old_limits_override
-            or new_limits_override
-            or old_options_override
-            or new_options_override
-        ):
-            return None, None
-
-        # Generate Quotas using overrides
-        # We pass the overrides. If an override is None, render_quotas uses the current resource state (self.limits/options)
-        # This acts as a fallback or base.
-        # For example, if we only updated limits, options stay the same.
-
-        old_quotas = resource.render_quotas(
-            inode_base_multiplier=self.config.inode_base_multiplier,
-            inode_soft_coefficient=self.config.inode_soft_coefficient,
-            inode_hard_coefficient=self.config.inode_hard_coefficient,
-            override_limits=old_limits_override,
-            override_options=old_options_override,
-        )
-
-        new_quotas = resource.render_quotas(
-            inode_base_multiplier=self.config.inode_base_multiplier,
-            inode_soft_coefficient=self.config.inode_soft_coefficient,
-            inode_hard_coefficient=self.config.inode_hard_coefficient,
-            override_limits=new_limits_override,
-            override_options=new_options_override,
-        )
-
-        return old_quotas, new_quotas
 
     async def _build_target_item(
         self, waldur_resource: ParsedWaldurResource, target_type: TargetType

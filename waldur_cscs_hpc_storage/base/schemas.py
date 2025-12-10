@@ -9,15 +9,11 @@ from waldur_api_client.types import Unset
 
 # Re-importing Enums from your existing structure to ensure compatibility
 from waldur_cscs_hpc_storage.base.enums import (
-    EnforcementType,
-    QuotaType,
-    QuotaUnit,
     StorageDataType,
     StorageSystem,
     TargetStatus,
 )
 from waldur_cscs_hpc_storage.base.models import (
-    Quota,
     TenantTargetItem,
     CustomerTargetItem,
     ProjectTargetItem,
@@ -206,92 +202,6 @@ class ParsedWaldurResource(BaseModel):
     def effective_permissions(self) -> str:
         """Logic extracted from _extract_permissions"""
         return self.options.permissions or self.attributes.permissions
-
-    def render_quotas(
-        self,
-        inode_base_multiplier: float,
-        inode_soft_coefficient: float,
-        inode_hard_coefficient: float,
-        # Allow overriding limits/options for "old/new" calculations
-        override_limits: Optional[ResourceLimits] = None,
-        override_options: Optional[ResourceOptions] = None,
-    ) -> Optional[list[Quota]]:
-        """Calculate and render quota objects.
-
-        Args:
-            inode_base_multiplier: Multiplier for base inode calculation (e.g., 1_000_000)
-            inode_soft_coefficient: Coefficient for soft inode quota (e.g., 0.9)
-            inode_hard_coefficient: Coefficient for hard inode quota (e.g., 1.0)
-            override_limits: Optional limits to use instead of self.limits
-            override_options: Optional options to use instead of self.options
-
-        Returns:
-            List of Quota objects, or None if no quotas are set
-        """
-        limits = override_limits if override_limits is not None else self.limits
-        options = override_options if override_options is not None else self.options
-
-        # Get storage limit
-        storage_limit = limits.storage or 0.0
-
-        # Calculate effective storage quotas (with option overrides)
-        storage_quota_soft_tb = (
-            options.soft_quota_space
-            if options.soft_quota_space is not None
-            else storage_limit
-        )
-        storage_quota_hard_tb = (
-            options.hard_quota_space
-            if options.hard_quota_space is not None
-            else storage_limit
-        )
-
-        # Calculate base inode quotas
-        base_inodes = storage_limit * inode_base_multiplier
-        base_soft_inode = int(base_inodes * inode_soft_coefficient)
-        base_hard_inode = int(base_inodes * inode_hard_coefficient)
-
-        # Calculate effective inode quotas (with option overrides)
-        inode_soft = (
-            options.soft_quota_inodes
-            if options.soft_quota_inodes is not None
-            else base_soft_inode
-        )
-        inode_hard = (
-            options.hard_quota_inodes
-            if options.hard_quota_inodes is not None
-            else base_hard_inode
-        )
-
-        if storage_quota_soft_tb <= 0 and storage_quota_hard_tb <= 0:
-            return None
-
-        return [
-            Quota(
-                type=QuotaType.SPACE,
-                quota=float(storage_quota_soft_tb),
-                unit=QuotaUnit.TERA,
-                enforcementType=EnforcementType.SOFT,
-            ),
-            Quota(
-                type=QuotaType.SPACE,
-                quota=float(storage_quota_hard_tb),
-                unit=QuotaUnit.TERA,
-                enforcementType=EnforcementType.HARD,
-            ),
-            Quota(
-                type=QuotaType.INODES,
-                quota=float(inode_soft),
-                unit=QuotaUnit.NONE,
-                enforcementType=EnforcementType.SOFT,
-            ),
-            Quota(
-                type=QuotaType.INODES,
-                quota=float(inode_hard),
-                unit=QuotaUnit.NONE,
-                enforcementType=EnforcementType.HARD,
-            ),
-        ]
 
     @property
     def callback_urls(self) -> dict[str, str]:

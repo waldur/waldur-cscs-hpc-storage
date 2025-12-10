@@ -16,6 +16,7 @@ from waldur_cscs_hpc_storage.base.schemas import (
 )
 from waldur_cscs_hpc_storage.config import BackendConfig
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
 
 # --- Fixtures ---
 
@@ -46,7 +47,8 @@ def mock_gid_service():
 
 @pytest.fixture
 def mapper(mock_config, mock_gid_service):
-    return ResourceMapper(mock_config, mock_gid_service)
+    quota_calculator = QuotaCalculator(mock_config)
+    return ResourceMapper(mock_config, mock_gid_service, quota_calculator)
 
 
 @pytest.fixture
@@ -274,7 +276,7 @@ async def test_calculate_update_quotas_direct_method(mapper, base_resource):
     attributes = {"new_options": {"soft_quota_inodes": 999}}
     base_resource.order_in_progress = create_mock_order(RequestTypes.UPDATE, attributes)
 
-    old_q, new_q = mapper._calculate_update_quotas(base_resource)
+    old_q, new_q = mapper.quota_calculator.calculate_update_quotas(base_resource)
 
     # Old Quotas: Should use calculated defaults based on 1TB
     # 1TB * 1M * 0.5 (config soft coeff) = 500,000
