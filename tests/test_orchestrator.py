@@ -84,7 +84,8 @@ class TestStorageOrchestratorBase:
             development_mode=True,  # Enable development mode for tests
         )
         self.waldur_api_config = WaldurApiConfig(
-            api_url="https://example.com", access_token="token"
+            api_url="https://example.com",
+            access_token="22222222222222222222222222222222",
         )
 
         # Mock StorageProxyConfig for Orchestrator

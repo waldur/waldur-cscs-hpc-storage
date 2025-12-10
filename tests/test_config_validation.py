@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
+    HpcUserApiConfig,
     SentryConfig,
     StorageProxyConfig,
     WaldurApiConfig,
@@ -79,6 +80,25 @@ class TestWaldurApiConfigValidation:
         assert "Field required" in str(exc.value)
         assert "WALDUR_API_URL" in str(exc.value)
 
+    def test_token_format_validation(self):
+        """Test that access_token must be a 32-char hex string."""
+        # Correct length but invalid chars (Z is not hex)
+        invalid_token = "Z" * 32
+        with pytest.raises(ValidationError) as exc:
+            WaldurApiConfig(
+                api_url="http://example.com",
+                access_token=invalid_token,
+            )
+        assert "String should match pattern" in str(exc.value)
+
+        # Valid hex token
+        valid_token = "a" * 32
+        config = WaldurApiConfig(
+            api_url="http://example.com",
+            access_token=valid_token,
+        )
+        assert config.access_token == valid_token
+
 
 class TestStorageProxyConfigValidation:
     """Test cases for StorageProxyConfig validation."""
@@ -86,17 +106,30 @@ class TestStorageProxyConfigValidation:
     def test_storage_systems_non_empty(self):
         """Test that storage_systems map cannot be empty."""
         # We must provide valid waldur_api to reach the storage_systems validation
-        valid_waldur_api = {"api_url": "u", "access_token": "t"}
+        valid_waldur_api = {
+            "api_url": "http://u.com",
+            # 32 chars hex
+            "access_token": "a" * 32,
+        }
 
         with pytest.raises(ValidationError) as exc:
-            StorageProxyConfig(waldur_api=valid_waldur_api, storage_systems={})
+            StorageProxyConfig(
+                waldur_api=valid_waldur_api,
+                storage_systems={},
+                hpc_user_api=HpcUserApiConfig(development_mode=True),
+            )
         assert "At least one storage_system mapping is required" in str(exc.value)
 
     def test_storage_systems_valid(self):
         """Test successful validation with at least one storage system."""
-        valid_waldur_api = {"api_url": "u", "access_token": "t"}
+        valid_waldur_api = {
+            "api_url": "http://u.com",
+            "access_token": "a" * 32,
+        }
         config = StorageProxyConfig(
-            waldur_api=valid_waldur_api, storage_systems={"sys": "slug"}
+            waldur_api=valid_waldur_api,
+            storage_systems={"sys": "slug"},
+            hpc_user_api=HpcUserApiConfig(development_mode=True),
         )
         assert config.storage_systems == {"sys": "slug"}
 
@@ -109,3 +142,37 @@ class TestSentryConfigValidation:
         with pytest.raises(ValidationError) as exc:
             SentryConfig(traces_sample_rate="invalid-float")
         assert "Input should be a valid number" in str(exc.value)
+
+
+class TestHpcUserApiConfigValidation:
+    """Test cases for HpcUserApiConfig validation."""
+
+    def test_prod_requirements_missing(self):
+        """Test failure when prod requirements are missing in strict mode."""
+        # By default development_mode is False
+        with pytest.raises(ValidationError) as exc:
+            HpcUserApiConfig()
+
+        err_msg = str(exc.value)
+        assert "Connection credentials" in err_msg
+        assert "api_url" in err_msg
+        assert "client_id" in err_msg
+        assert "client_secret" in err_msg
+
+    def test_prod_requirements_satisfied(self):
+        """Test success when prod requirements are met."""
+        config = HpcUserApiConfig(
+            api_url="http://hpc.api",
+            client_id="cid",
+            client_secret="secret",
+            development_mode=False,
+        )
+        assert str(config.api_url) == "http://hpc.api/"
+        assert config.client_id == "cid"
+
+    def test_dev_mode_relaxed(self):
+        """Test that dev mode relaxes requirements."""
+        # development_mode=True should allow missing credentials
+        config = HpcUserApiConfig(development_mode=True)
+        assert config.development_mode is True
+        assert config.api_url is None

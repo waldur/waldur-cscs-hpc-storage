@@ -47,7 +47,8 @@ def mock_config():
     """Create a mock configuration with development mode enabled."""
     return StorageProxyConfig(
         waldur_api=WaldurApiConfig(
-            api_url="http://mock-waldur", access_token="mock-token"
+            api_url="http://mock-waldur",
+            access_token="11111111111111111111111111111111",
         ),
         backend_settings=BackendConfig(
             development_mode=True,

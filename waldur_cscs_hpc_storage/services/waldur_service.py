@@ -31,7 +31,7 @@ class WaldurService:
             if waldur_api_config.agent_header
             else {}
         )
-        url = waldur_api_config.api_url.rstrip("/api")
+        url = str(waldur_api_config.api_url).rstrip("/api")
 
         # Configure httpx args with proxy if specified
         httpx_args = {}

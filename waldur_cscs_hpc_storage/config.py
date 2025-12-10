@@ -1,12 +1,12 @@
 """Configuration loader for CSCS Storage Proxy."""
 
-import logging
 import os
 from pathlib import Path
 from typing import Any, Optional, Tuple, Type
 
 from pydantic import (
     Field,
+    HttpUrl,
     field_validator,
     model_validator,
 )
@@ -16,15 +16,21 @@ from pydantic_settings import (
     SettingsConfigDict,
     YamlConfigSettingsSource as PydanticYamlConfigSettingsSource,
 )
+import logging
 
 logger = logging.getLogger(__name__)
+
+
+# Pydantic v2 HttpUrl is an object, but we often want the string for headers/clients.
+# We can use a custom type or validation logic, but Pydantic's correct approach is strict typing.
+# The user of the config will need to cast to str(url).
 
 
 class AuthConfig(BaseSettings):
     """Authentication configuration."""
 
     disable_auth: bool = Field(default=False, alias="DISABLE_AUTH")
-    keycloak_url: str = Field(
+    keycloak_url: HttpUrl = Field(
         default="https://auth-tds.cscs.ch/auth/",
         alias="CSCS_KEYCLOAK_URL",
     )
@@ -38,14 +44,25 @@ class AuthConfig(BaseSettings):
 
     model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
+    @model_validator(mode="after")
+    def validate_auth_requirements(self) -> "AuthConfig":
+        if not self.disable_auth:
+            if not self.keycloak_client_id:
+                raise ValueError("keycloak_client_id is required when auth is enabled.")
+            if not self.keycloak_client_secret:
+                raise ValueError(
+                    "keycloak_client_secret is required when auth is enabled."
+                )
+        return self
+
 
 class HpcUserApiConfig(BaseSettings):
     """HPC User API configuration."""
 
-    api_url: Optional[str] = Field(None, alias="HPC_USER_API_URL")
+    api_url: Optional[HttpUrl] = Field(None, alias="HPC_USER_API_URL")
     client_id: Optional[str] = Field(None, alias="HPC_USER_CLIENT_ID")
     client_secret: Optional[str] = Field(None, alias="HPC_USER_CLIENT_SECRET")
-    oidc_token_url: Optional[str] = Field(None, alias="HPC_USER_OIDC_TOKEN_URL")
+    oidc_token_url: Optional[HttpUrl] = Field(None, alias="HPC_USER_OIDC_TOKEN_URL")
     oidc_scope: Optional[str] = Field(None, alias="HPC_USER_OIDC_SCOPE")
     socks_proxy: Optional[str] = Field(
         None,
@@ -60,12 +77,36 @@ class HpcUserApiConfig(BaseSettings):
 
     model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
+    @model_validator(mode="after")
+    def validate_prod_requirements(self) -> "HpcUserApiConfig":
+        if not self.development_mode:
+            missing = []
+            if not self.api_url:
+                missing.append("api_url")
+            if not self.client_id:
+                missing.append("client_id")
+            if not self.client_secret:
+                missing.append("client_secret")
+
+            if missing:
+                raise ValueError(
+                    f"Connection credentials ({', '.join(missing)}) are required "
+                    "when development_mode is disabled."
+                )
+        return self
+
 
 class WaldurApiConfig(BaseSettings):
     """Waldur API configuration."""
 
-    api_url: str = Field(..., alias="WALDUR_API_URL")
-    access_token: str = Field(..., alias="WALDUR_API_TOKEN", min_length=32)
+    api_url: HttpUrl = Field(..., alias="WALDUR_API_URL")
+    access_token: str = Field(
+        ...,
+        alias="WALDUR_API_TOKEN",
+        min_length=32,
+        max_length=32,
+        pattern=r"^[0-9a-fA-F]{32}$",
+    )
     verify_ssl: bool = Field(True, alias="WALDUR_VERIFY_SSL")
     socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
@@ -100,9 +141,11 @@ class BackendConfig(BaseSettings):
 class SentryConfig(BaseSettings):
     """Sentry configuration."""
 
-    dsn: Optional[str] = Field(None, alias="SENTRY_DSN")
+    dsn: Optional[HttpUrl] = Field(None, alias="SENTRY_DSN")
     environment: Optional[str] = Field(None, alias="SENTRY_ENVIRONMENT")
-    traces_sample_rate: Optional[float] = Field(None, alias="SENTRY_TRACES_SAMPLE_RATE")
+    traces_sample_rate: Optional[float] = Field(
+        None, alias="SENTRY_TRACES_SAMPLE_RATE", ge=0.0, le=1.0
+    )
 
     model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 

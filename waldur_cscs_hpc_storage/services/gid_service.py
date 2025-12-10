@@ -30,10 +30,12 @@ class GidService:
         if not api_config.client_secret:
             raise ConfigurationError("client_secret is required via HpcUserApiConfig")
 
-        self.api_url = api_config.api_url.rstrip("/")
+        self.api_url = str(api_config.api_url).rstrip("/")
         self.client_id = api_config.client_id
         self.client_secret = api_config.client_secret
-        self.oidc_token_url = api_config.oidc_token_url
+        self.oidc_token_url = (
+            str(api_config.oidc_token_url) if api_config.oidc_token_url else None
+        )
         self.oidc_scope = api_config.oidc_scope or "openid"
         self.socks_proxy = api_config.socks_proxy
         self.development_mode = api_config.development_mode

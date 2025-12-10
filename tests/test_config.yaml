@@ -1,6 +1,6 @@
 # Test configuration for storage proxy tests
 waldur_api_url: "https://test.api.url/api/"
-waldur_api_token: "test-token"
+waldur_api_token: "00000000000000000000000000000000"
 waldur_verify_ssl: false
 
 backend_settings:
@@ -16,3 +16,6 @@ storage_systems:
 
 auth:
   disable_auth: true
+
+hpc_user_api:
+  development_mode: true

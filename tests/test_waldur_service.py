@@ -8,7 +8,10 @@ from waldur_cscs_hpc_storage.exceptions import WaldurClientError
 class TestWaldurService:
     @pytest.fixture
     def waldur_api_config(self):
-        return WaldurApiConfig(api_url="https://example.com", access_token="token")
+        return WaldurApiConfig(
+            api_url="https://example.com",
+            access_token="33333333333333333333333333333333",
+        )
 
     @pytest.fixture
     def service(self, waldur_api_config):

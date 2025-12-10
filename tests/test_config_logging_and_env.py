@@ -57,17 +57,18 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
     # Setup minimal valid environment
     env = {
         "WALDUR_API_URL": "http://test.com",
-        "WALDUR_API_TOKEN": "real-token",
+        "WALDUR_API_TOKEN": "44444444444444444444444444444444",
         "STORAGE_SYSTEMS": '{"sys": "lustre"}',
         "DEBUG": "true",
         "CSCS_KEYCLOAK_CLIENT_SECRET": "s3cr3t",
+        "HPC_USER_DEVELOPMENT_MODE": "true",
     }
 
     with mock.patch.dict(os.environ, env):
         config = load_config()
 
     # Check if config was loaded correctly
-    assert config.waldur_api.access_token == "real-token"
+    assert config.waldur_api.access_token == "44444444444444444444444444444444"
     assert config.auth.keycloak_client_secret == "s3cr3t"
 
     # Verify logger usage
@@ -97,14 +98,14 @@ def test_env_loading_flat_fields():
     """Test loading flat fields in nested config from environment variables."""
     env = {
         "WALDUR_API_URL": "http://env-url.com",
-        "WALDUR_API_TOKEN": "env-token",
+        "WALDUR_API_TOKEN": "55555555555555555555555555555555",
     }
 
     with mock.patch.dict(os.environ, env):
         # We can instantiate the nested config directly to test
         config = WaldurApiConfig()
-        assert config.api_url == "http://env-url.com"
-        assert config.access_token == "env-token"
+        assert str(config.api_url) == "http://env-url.com/"
+        assert config.access_token == "55555555555555555555555555555555"
 
 
 def test_env_loading_nested_in_main_config():
@@ -112,21 +113,22 @@ def test_env_loading_nested_in_main_config():
     env = {
         # WaldurApiConfig fields
         "WALDUR_API_URL": "http://main-env.com",
-        "WALDUR_API_TOKEN": "main-token",
+        "WALDUR_API_TOKEN": "66666666666666666666666666666666",
         # AuthConfig fields
         "CSCS_KEYCLOAK_CLIENT_ID": "env-client-id",
         "DISABLE_AUTH": "true",
         # StorageProxyConfig field
         "STORAGE_SYSTEMS": '{"main": "lustre"}',
         "DEBUG": "true",
+        "HPC_USER_DEVELOPMENT_MODE": "true",
     }
 
     with mock.patch.dict(os.environ, env):
         config = StorageProxyConfig()
 
         # Verify WaldurApiConfig via main config
-        assert config.waldur_api.api_url == "http://main-env.com"
-        assert config.waldur_api.access_token == "main-token"
+        assert str(config.waldur_api.api_url) == "http://main-env.com/"
+        assert config.waldur_api.access_token == "66666666666666666666666666666666"
 
         # Verify AuthConfig via main config
         assert config.auth.keycloak_client_id == "env-client-id"
