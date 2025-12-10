@@ -1,6 +1,6 @@
 """Configuration loader for CSCS Storage Proxy."""
 
-from typing import Optional, Tuple, Type
+from typing import Optional
 from waldur_cscs_hpc_storage.base.enums import StorageSystem
 
 from pydantic import (
@@ -11,7 +11,6 @@ from pydantic import (
 )
 from pydantic_settings import (
     BaseSettings,
-    PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
 import logging
@@ -40,7 +39,12 @@ class AuthConfig(BaseSettings):
         default=None, alias="CSCS_KEYCLOAK_CLIENT_SECRET"
     )
 
-    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        populate_by_name=True,
+        extra="ignore",
+    )
 
     @model_validator(mode="after")
     def validate_auth_requirements(self) -> "AuthConfig":
@@ -73,7 +77,12 @@ class HpcUserApiConfig(BaseSettings):
         alias="HPC_USER_DEVELOPMENT_MODE",
     )
 
-    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        populate_by_name=True,
+        extra="ignore",
+    )
 
     @field_validator("socks_proxy")
     @classmethod
@@ -120,7 +129,12 @@ class WaldurApiConfig(BaseSettings):
     socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
 
-    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        populate_by_name=True,
+        extra="ignore",
+    )
 
     @field_validator("socks_proxy")
     @classmethod
@@ -155,7 +169,12 @@ class BackendConfig(BaseSettings):
             raise ValueError(msg)
         return self
 
-    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        populate_by_name=True,
+        extra="ignore",
+    )
 
 
 class SentryConfig(BaseSettings):
@@ -167,7 +186,12 @@ class SentryConfig(BaseSettings):
         None, alias="SENTRY_TRACES_SAMPLE_RATE", ge=0.0, le=1.0
     )
 
-    model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        populate_by_name=True,
+        extra="ignore",
+    )
 
 
 class StorageProxyConfig(BaseSettings):
@@ -187,6 +211,8 @@ class StorageProxyConfig(BaseSettings):
     sentry: Optional[SentryConfig] = Field(default_factory=SentryConfig)
 
     model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
         # We handle env vars manually via aliases on fields or nested models,
         # so we disable generic env prefixing to avoid pollution/confusion.
         env_nested_delimiter=None,
@@ -202,19 +228,3 @@ class StorageProxyConfig(BaseSettings):
         if not v:
             raise ValueError("At least one storage_system mapping is required")
         return v
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: Type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        """Define configuration source priority."""
-        return (
-            init_settings,
-            env_settings,
-            file_secret_settings,
-        )
