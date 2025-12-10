@@ -65,7 +65,7 @@ class WaldurApiConfig(BaseSettings):
     """Waldur API configuration."""
 
     api_url: str = Field(..., alias="WALDUR_API_URL")
-    access_token: str = Field(..., alias="WALDUR_API_TOKEN")
+    access_token: str = Field(..., alias="WALDUR_API_TOKEN", min_length=32)
     verify_ssl: bool = Field(True, alias="WALDUR_VERIFY_SSL")
     socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
