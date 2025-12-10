@@ -60,7 +60,7 @@ class StorageOrchestrator:
         # Fetch resources for the specific storage_system
         if filters.storage_system:
             storage_system_offering_slug = self.config.storage_systems[
-                filters.storage_system.value
+                filters.storage_system
             ]
             offering_slugs = [storage_system_offering_slug]
         else:

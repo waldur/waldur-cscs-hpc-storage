@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 from typing import Any, Optional, Tuple, Type
+from waldur_cscs_hpc_storage.base.enums import StorageSystem
 
 from pydantic import (
     Field,
@@ -77,6 +78,17 @@ class HpcUserApiConfig(BaseSettings):
 
     model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
 
+    @field_validator("socks_proxy")
+    @classmethod
+    def validate_proxy_url(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            allowed_schemes = ("socks5://", "socks5h://", "http://", "https://")
+            if not v.lower().startswith(allowed_schemes):
+                raise ValueError(
+                    f"Proxy URL must start with one of: {', '.join(allowed_schemes)}"
+                )
+        return v
+
     @model_validator(mode="after")
     def validate_prod_requirements(self) -> "HpcUserApiConfig":
         if not self.development_mode:
@@ -112,6 +124,17 @@ class WaldurApiConfig(BaseSettings):
     agent_header: Optional[str] = None
 
     model_config = SettingsConfigDict(populate_by_name=True, extra="ignore")
+
+    @field_validator("socks_proxy")
+    @classmethod
+    def validate_proxy_url(cls, v: Optional[str]) -> Optional[str]:
+        if v:
+            allowed_schemes = ("socks5://", "socks5h://", "http://", "https://")
+            if not v.lower().startswith(allowed_schemes):
+                raise ValueError(
+                    f"Proxy URL must start with one of: {', '.join(allowed_schemes)}"
+                )
+        return v
 
 
 class BackendConfig(BaseSettings):
@@ -162,7 +185,7 @@ class StorageProxyConfig(BaseSettings):
     debug: bool = Field(default=False, alias="DEBUG")
     waldur_api: WaldurApiConfig = Field(default_factory=WaldurApiConfig)
     backend_settings: BackendConfig = Field(default_factory=BackendConfig)
-    storage_systems: dict[str, str]
+    storage_systems: dict[StorageSystem, str]
     auth: Optional[AuthConfig] = Field(default_factory=AuthConfig)
     hpc_user_api: Optional[HpcUserApiConfig] = Field(default_factory=HpcUserApiConfig)
     sentry: Optional[SentryConfig] = Field(default_factory=SentryConfig)
@@ -177,7 +200,9 @@ class StorageProxyConfig(BaseSettings):
 
     @field_validator("storage_systems")
     @classmethod
-    def check_storage_systems(cls, v: dict[str, str]) -> dict[str, str]:
+    def check_storage_systems(
+        cls, v: dict[StorageSystem, str]
+    ) -> dict[StorageSystem, str]:
         if not v:
             raise ValueError("At least one storage_system mapping is required")
         return v

@@ -8,6 +8,7 @@ from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
 )
+from waldur_cscs_hpc_storage.base.enums import StorageSystem
 
 
 def test_mask_sensitive_data():
@@ -58,7 +59,7 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
     env = {
         "WALDUR_API_URL": "http://test.com",
         "WALDUR_API_TOKEN": "44444444444444444444444444444444",
-        "STORAGE_SYSTEMS": '{"sys": "lustre"}',
+        "STORAGE_SYSTEMS": '{"capstor": "lustre"}',
         "DEBUG": "true",
         "CSCS_KEYCLOAK_CLIENT_SECRET": "s3cr3t",
         "HPC_USER_DEVELOPMENT_MODE": "true",
@@ -70,6 +71,11 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
     # Check if config was loaded correctly
     assert config.waldur_api.access_token == "44444444444444444444444444444444"
     assert config.auth.keycloak_client_secret == "s3cr3t"
+
+    # Verify storage systems loaded correctly
+    # Note: keys in dictionary are now Enum members, but input JSON keys are strings.
+    # Pydantic should convert them if possible.
+    assert config.storage_systems[StorageSystem.CAPSTOR] == "lustre"
 
     # Verify logger usage
     # We expect an INFO log with "Merged configuration"
@@ -118,7 +124,7 @@ def test_env_loading_nested_in_main_config():
         "CSCS_KEYCLOAK_CLIENT_ID": "env-client-id",
         "DISABLE_AUTH": "true",
         # StorageProxyConfig field
-        "STORAGE_SYSTEMS": '{"main": "lustre"}',
+        "STORAGE_SYSTEMS": '{"capstor": "lustre"}',
         "DEBUG": "true",
         "HPC_USER_DEVELOPMENT_MODE": "true",
     }
@@ -136,4 +142,4 @@ def test_env_loading_nested_in_main_config():
 
         # Verify StorageProxyConfig direct fields
         assert config.debug is True
-        assert config.storage_systems == {"main": "lustre"}
+        assert config.storage_systems == {StorageSystem.CAPSTOR: "lustre"}

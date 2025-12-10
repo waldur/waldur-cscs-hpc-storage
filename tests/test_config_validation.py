@@ -10,6 +10,7 @@ from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
 )
+from waldur_cscs_hpc_storage.base.enums import StorageSystem
 
 
 @pytest.fixture(autouse=True)
@@ -128,10 +129,10 @@ class TestStorageProxyConfigValidation:
         }
         config = StorageProxyConfig(
             waldur_api=valid_waldur_api,
-            storage_systems={"sys": "slug"},
+            storage_systems={StorageSystem.CAPSTOR: "slug"},
             hpc_user_api=HpcUserApiConfig(development_mode=True),
         )
-        assert config.storage_systems == {"sys": "slug"}
+        assert config.storage_systems == {StorageSystem.CAPSTOR: "slug"}
 
 
 class TestSentryConfigValidation:
@@ -176,3 +177,56 @@ class TestHpcUserApiConfigValidation:
         config = HpcUserApiConfig(development_mode=True)
         assert config.development_mode is True
         assert config.api_url is None
+
+
+class TestSocksProxyValidation:
+    """Test cases for socks_proxy validation."""
+
+    def test_valid_proxy_urls(self):
+        """Test valid proxy URLs."""
+        valid_urls = [
+            "socks5://localhost:1080",
+            "socks5h://user:pass@proxy.example.com:1234",
+            "http://proxy.com",
+            "https://proxy.com",
+            None,
+        ]
+
+        # Test HpcUserApiConfig
+        for url in valid_urls:
+            config = HpcUserApiConfig(development_mode=True, socks_proxy=url)
+            assert config.socks_proxy == url
+
+        # Test WaldurApiConfig
+        valid_token = "a" * 32
+        for url in valid_urls:
+            config = WaldurApiConfig(
+                api_url="http://example.com", access_token=valid_token, socks_proxy=url
+            )
+            assert config.socks_proxy == url
+
+    def test_invalid_proxy_urls(self):
+        """Test invalid proxy URLs."""
+        invalid_urls = [
+            "localhost:1080",
+            "tcp://localhost:1080",
+            "ftp://proxy.com",
+            "random-string",
+        ]
+
+        # Test HpcUserApiConfig
+        for url in invalid_urls:
+            with pytest.raises(ValidationError) as exc:
+                HpcUserApiConfig(development_mode=True, socks_proxy=url)
+            assert "Proxy URL must start with one of" in str(exc.value)
+
+        # Test WaldurApiConfig
+        valid_token = "a" * 32
+        for url in invalid_urls:
+            with pytest.raises(ValidationError) as exc:
+                WaldurApiConfig(
+                    api_url="http://example.com",
+                    access_token=valid_token,
+                    socks_proxy=url,
+                )
+            assert "Proxy URL must start with one of" in str(exc.value)
