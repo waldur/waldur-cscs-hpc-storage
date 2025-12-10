@@ -315,10 +315,19 @@ class ParsedWaldurResource(BaseModel):
         allowed_actions = set()
 
         if order_state == OrderState.PENDING_PROVIDER:
-            allowed_actions.update(["approve_by_provider", "reject_by_provider"])
+            allowed_actions.update(
+                [
+                    "approve_by_provider",
+                    "reject_by_provider",
+                    "set_backend_id",
+                    "set_state_done",
+                ]
+            )
 
         if order_state == OrderState.EXECUTING:
-            allowed_actions.update(["set_state_done", "set_state_erred"])
+            allowed_actions.update(
+                ["set_state_done", "set_state_erred", "set_backend_id"]
+            )
 
         if order_state == OrderState.DONE:
             allowed_actions.add("set_backend_id")

@@ -290,3 +290,214 @@ export WALDUR_SOCKS_PROXY="socks5://localhost:1080"
 ```
 
 Logs will indicate: `Using SOCKS proxy for API request...`
+
+---
+
+## 8. Integrator Guide
+
+This section is for developers building **Storage Provisioners** (drivers) that consume this proxy's API.
+
+### 8.1. Resource Lifecycle
+
+The provisioner should run a reconciliation loop (e.g., every minute) that:
+
+1. Calls to `GET /api/storage-resources/` to list all resources.
+2. Iterates through the list and checks the `status` field.
+3. Performs the necessary action (Create, Update, Delete) based on the status.
+4. Reports back to Waldur via the `callback_url` (if provided) to finalize the state.
+
+### 8.2. The 3-Step Provisioning Protocol
+
+A complete provisioning flow involves three distinct callbacks to Waldur. This ensures the Order transitions correctly through its state machine:
+
+1. **Approve/Reject** (`approve_by_provider_url`):
+    * **When**: Order is in `PENDING_PROVIDER` state.
+    * **Purpose**: Acknowledges the request. Moves Order to `EXECUTING`.
+2. **Set State Done** (`set_state_done_url`):
+    * **When**: Order is in `EXECUTING` state (provisioning finished).
+    * **Purpose**: Confirms the work is complete. Moves Order to `DONE`.
+3. **Set Backend ID** (`set_backend_id_url`):
+    * **When**: Order is in `DONE` state (or `EXECUTING`).
+    * **Purpose**: Links the Waldur resource to the specific backend identifier.
+
+**Note**: You can send `set_backend_id` earlier (during `EXECUTING`), but `set_state_done` **must** be called to finalize the order.
+
+### 8.3. The Create Flow
+
+**Trigger**: A user creates a resource in Waldur.
+**Proxy Status**: `pending`
+
+The JSON payload will look like this:
+
+```json
+{
+  "itemId": "uuid-1234",
+  "status": "pending",
+  "quotas": [
+      { "type": "space", "quota": 10.0, "unit": "tera", "enforcementType": "hard" },
+      { "type": "inodes", "quota": 10000000, "unit": "none", "enforcementType": "hard" }
+  ],
+  "target": {
+    "targetType": "project",
+    "targetItem": {
+        "unixGid": 30500,
+        "name": "project-slug"
+    }
+  },
+  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/approve_by_provider/",
+  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/reject_by_provider/",
+  "set_state_done_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_state_done/",
+  "set_backend_id_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_backend_id/"
+}
+```
+
+**Action**:
+
+1. Create the filesystem directory/fileset.
+2. Set the Quotas (Space & Inodes from `quotas`).
+3. Set the Ownership (GID from `target.targetItem.unixGid`).
+4. **POST** to `approve_by_provider_url` (empty body) to signal completion.
+
+Once approved, the resource state in Waldur becomes `OK`, and the proxy status becomes `active`.
+
+### 8.4. The Update Flow
+
+**Trigger**: A user changes the storage limit in Waldur.
+**Proxy Status**: `updating`
+
+The proxy provides both `oldQuotas` (current state) and `newQuotas` (desired state).
+
+```json
+{
+  "itemId": "uuid-1234",
+  "status": "updating",
+  "quotas": [ ... ],
+  "oldQuotas": [
+      { "type": "space", "quota": 10.0, "unit": "tera", "enforcementType": "hard" }
+  ],
+  "newQuotas": [
+      { "type": "space", "quota": 20.0, "unit": "tera", "enforcementType": "hard" }
+  ],
+  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/approve_by_provider/",
+  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/reject_by_provider/",
+  "set_state_done_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_state_done/",
+}
+```
+
+**Action**:
+
+1. Apply the new quotas from `newQuotas`.
+2. **POST** to `set_state_done_url` to confirm the update.
+
+### 8.5. The Terminate Flow
+
+**Trigger**: A user deletes the resource in Waldur.
+**Proxy Status**: `removing`
+
+```json
+{
+  "itemId": "uuid-1234",
+  "status": "removing",
+  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/approve_by_provider/",
+  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/reject_by_provider/",
+  "set_state_done_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_state_done/",
+}
+```
+
+**Action**:
+
+1. Archive or delete the data on the filesystem.
+2. Remove any configuration.
+3. **POST** to `set_state_done_url`.
+
+### 8.6. Detailed Waldur Workflow
+
+To better understand the lifecycle, it helps to know the underlying Waldur states.
+
+#### Order States
+
+Orders progress through a carefully managed state machine with approval workflows:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_CONSUMER : Order created
+
+    PENDING_CONSUMER --> PENDING_PROVIDER : Consumer approves
+    PENDING_CONSUMER --> PENDING_PROJECT : Consumer approves & project start date is future
+    PENDING_CONSUMER --> PENDING_START_DATE : Consumer approves & no provider review & order start date is future
+    PENDING_CONSUMER --> CANCELED : Consumer cancels
+    PENDING_CONSUMER --> REJECTED : Consumer rejects
+
+    PENDING_PROVIDER --> PENDING_START_DATE : Provider approves & order start date is future
+    PENDING_PROVIDER --> EXECUTING : Provider approves
+    PENDING_PROVIDER --> CANCELED : Provider cancels
+    PENDING_PROVIDER --> REJECTED : Provider rejects
+
+    PENDING_PROJECT --> PENDING_PROVIDER: Project activates & provider review needed
+    PENDING_PROJECT --> PENDING_START_DATE: Project activates & no provider review & order start date is future
+    PENDING_PROJECT --> EXECUTING: Project activates
+    PENDING_PROJECT --> CANCELED : Project issues
+
+    PENDING_START_DATE --> EXECUTING : Start date reached
+    PENDING_START_DATE --> CANCELED : User cancels
+
+    EXECUTING --> DONE : Processing complete
+    EXECUTING --> ERRED : Processing failed
+
+    DONE --> [*]
+    ERRED --> [*]
+    CANCELED --> [*]
+    REJECTED --> [*]
+```
+
+#### Order State Descriptions
+
+| State | Description | Triggers |
+|-------|-------------|----------|
+| **PENDING_CONSUMER** | Awaiting customer approval | Order creation |
+| **PENDING_PROVIDER** | Awaiting service provider approval | Consumer approval |
+| **PENDING_PROJECT** | Awaiting project activation | Provider approval |
+| **PENDING_START_DATE** | Awaiting the order's specified start date. | Activation when a future start date is set on the order. |
+| **EXECUTING** | Resource provisioning in progress | Processor execution |
+| **DONE** | Order completed successfully | Resource provisioning success |
+| **ERRED** | Order failed with errors | Processing errors |
+| **CANCELED** | Order canceled by user/system | User cancellation |
+| **REJECTED** | Order rejected by provider | Provider rejection |
+
+#### Resource States
+
+Resources maintain their own lifecycle independent of orders:
+
+```mermaid
+stateDiagram-v2
+    [*] --> CREATING : Order approved
+
+    CREATING --> OK : Provisioning success
+    CREATING --> ERRED : Provisioning failed
+
+    OK --> UPDATING : Update requested
+    OK --> TERMINATING : Deletion requested
+
+    UPDATING --> OK : Update success
+    UPDATING --> ERRED : Update failed
+
+    TERMINATING --> TERMINATED : Deletion success
+    TERMINATING --> ERRED : Deletion failed
+
+    ERRED --> OK : Error resolved
+    ERRED --> UPDATING : Retry update
+    ERRED --> TERMINATING : Force deletion
+
+    TERMINATED --> [*]
+```
+
+#### Resource State Descriptions
+
+| State | Description | Operations Allowed |
+|-------|-------------|-------------------|
+| **CREATING** | Resource being provisioned | Monitor progress |
+| **OK** | Resource active and healthy | Update, delete, use |
+| **UPDATING** | Resource being modified | Monitor progress |
+| **TERMINATING** | Resource being deleted | Monitor progress |
+| **TERMINATED** | Resource deleted | Archive, billing |
+| **ERRED** | Resource in error state | Retry, investigate, delete |
