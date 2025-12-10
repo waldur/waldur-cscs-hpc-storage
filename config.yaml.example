@@ -2,17 +2,18 @@
 # This configuration is used by the waldur_storage_proxy API service
 
 # Waldur API Connection Settings
+# These can be flat (legacy support) or nested under 'waldur_api'
 waldur_api_url: "http://127.0.0.1:8000/api/"  # URL of Waldur API
 waldur_api_token: "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"  # Token to access the Waldur API
 waldur_verify_ssl: false  # Whether to verify SSL certificates for Waldur API
 
 # Storage Backend Settings
 backend_settings:
-  output_directory: "cscs-storage-orders/"  # Output directory for JSON files
-  storage_file_system: "lustre"  # Storage file system type
+  storage_file_system: "lustre"  # Storage file system type (e.g. lustre, gpfs)
   inode_soft_coefficient: 1.33  # Multiplier for soft inode limits
   inode_hard_coefficient: 2.0  # Multiplier for hard inode limits
   use_mock_target_items: false  # Enable mock data for development
+  development_mode: false # Enable development mode with fallback mock GID values
 
 # Storage systems configuration - maps storage_system names to offering slugs
 # The API will fetch resources from all configured offering slugs
@@ -32,3 +33,18 @@ auth:
   keycloak_realm: "cscs"
   keycloak_client_id: "YOUR_CLIENT_ID"
   keycloak_client_secret: "YOUR_CLIENT_SECRET"
+
+# HPC User API Configuration (for GID lookup)
+hpc_user_api:
+  api_url: "https://api-user.hpc-user.tds.cscs.ch"
+  client_id: "hpc-user-client"
+  client_secret: "hpc-user-secret"
+  oidc_token_url: "https://auth-tds.cscs.ch/auth/realms/cscs/protocol/openid-connect/token"
+  oidc_scope: "openid profile email"
+  socks_proxy: null # Optional SOCKS proxy
+
+# Sentry Error Tracking (Optional)
+sentry:
+  dsn: "" # Data Source Name for Sentry
+  environment: "production" # Environment name: production, staging, development
+  traces_sample_rate: 0.1 # Performance monitoring sample rate (0.0 to 1.0)

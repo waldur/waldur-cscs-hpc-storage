@@ -27,7 +27,6 @@ pip install .
 - **Configurable quotas**: Automatic inode quota calculation based on storage size
 - **UNIX GID from Waldur API**: Fetches project Unix GID values from Waldur project metadata
 - **GID caching**: Project GID values are cached in memory until server restart to reduce API calls
-- **Configurable GID field**: Specify custom backend_metadata field name for Unix GID lookup
 - **Mock data support**: Development/testing mode with generated target item data and fallback GID values
 - **Flexible configuration**: Customizable file system types and quota coefficients
 - **API Filtering**: Supports filtering by storage system, data type, status, and pagination
@@ -42,7 +41,6 @@ backend_settings:
   inode_soft_coefficient: 1.33                # Multiplier for soft inode limits
   inode_hard_coefficient: 2.0                 # Multiplier for hard inode limits
   use_mock_target_items: false                # Enable mock data for development
-  unix_gid_field: "unix_gid"                  # Field name in project backend_metadata for Unix GID (default: "unix_gid")
   development_mode: false                     # Enable development mode with fallback mock GID values
 
 # Optional Sentry configuration for error tracking
@@ -484,9 +482,9 @@ flowchart TD
     CHECK_CACHE -->|No| FETCH["Fetch project from<br/>Waldur API"]
 
     FETCH --> API_CALL["GET /api/projects/{uuid}/<br/>with client credentials"]
-    API_CALL --> CHECK_META{"backend_metadata<br/>has GID field?"}
+    API_CALL --> CHECK_META{"backend_metadata<br/>has unix_gid?"}
 
-    CHECK_META -->|Yes| EXTRACT["Extract GID from<br/>backend_metadata[unix_gid_field]"]
+    CHECK_META -->|Yes| EXTRACT["Extract GID from<br/>backend_metadata[unix_gid]"]
     CHECK_META -->|No| CHECK_DEV{"Development<br/>mode enabled?"}
 
     EXTRACT --> CACHE["Cache GID by<br/>project UUID"]
@@ -514,8 +512,7 @@ flowchart TD
 **Key Features:**
 
 - **Direct Waldur API integration**: Uses `projects_retrieve` endpoint to fetch project details
-- **Configurable field name**: The `unix_gid_field` setting
-  (default: `"unix_gid"`) specifies which field in `backend_metadata` contains the GID
+- **Hardcoded field name**: The backend looks for `"unix_gid"` in `backend_metadata`
 - **In-memory caching**: Project GID values are cached by UUID until server restart to minimize API calls
 - **Development mode fallback**: When `development_mode: true`, generates deterministic mock GID values if not found in metadata
 - **Production error handling**: In production mode, raises `BackendError` if GID is not found in project metadata
@@ -525,7 +522,6 @@ flowchart TD
 
 ```yaml
 backend_settings:
-  unix_gid_field: "unix_gid"          # Field name in project.backend_metadata (default: "unix_gid")
   development_mode: false             # Enable fallback to mock GID values (default: false)
 ```
 
@@ -539,25 +535,6 @@ The backend expects the Unix GID to be stored in the project's `backend_metadata
   "name": "My Project",
   "backend_metadata": {
     "unix_gid": 30042
-  }
-}
-```
-
-**Custom Field Example:**
-
-If your Waldur deployment uses a different field name:
-
-```yaml
-backend_settings:
-  unix_gid_field: "custom_gid_field"
-```
-
-Then the backend will look for:
-
-```json
-{
-  "backend_metadata": {
-    "custom_gid_field": 30042
   }
 }
 ```

@@ -42,7 +42,7 @@ def mock_config():
         waldur_api=WaldurApiConfig(
             api_url="http://mock-waldur", access_token="mock-token"
         ),
-        backend_config=BackendConfig(development_mode=True),
+        backend_settings=BackendConfig(development_mode=True),
         storage_systems={"capstor": "capstor", "vast": "vast", "iopsstor": "iopsstor"},
         auth=None,
         hpc_user_api=None,

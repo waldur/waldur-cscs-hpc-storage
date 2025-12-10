@@ -73,7 +73,7 @@ class GidService:
         if not self.oidc_token_url:
             error_msg = (
                 "OIDC authentication failed: hpc_user_oidc_token_url not configured. "
-                "Set 'hpc_user_oidc_token_url' in backend_config for production use."
+                "Set 'hpc_user_oidc_token_url' in backend_settings for production use."
             )
             logger.error(error_msg)
             raise ConfigurationError(error_msg)

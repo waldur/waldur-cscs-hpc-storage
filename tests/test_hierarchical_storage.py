@@ -29,7 +29,7 @@ from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 @pytest.fixture
 def backend():
     """Create a orchestrator instance for testing (mimicking backend interface)."""
-    backend_config = BackendConfig(
+    backend_settings = BackendConfig(
         storage_file_system="lustre",
         inode_soft_coefficient=1.33,
         inode_hard_coefficient=2.0,
@@ -39,13 +39,13 @@ def backend():
     )
 
     gid_service = MockGidService()
-    mapper = ResourceMapper(backend_config, gid_service)
+    mapper = ResourceMapper(backend_settings, gid_service)
 
     # Inject mock waldur_service for testing
     waldur_service = Mock(spec=WaldurService)
 
     orchestrator = StorageOrchestrator(
-        backend_config, waldur_service=waldur_service, mapper=mapper
+        backend_settings, waldur_service=waldur_service, mapper=mapper
     )
     return orchestrator
 

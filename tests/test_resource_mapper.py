@@ -50,7 +50,7 @@ class TestResourceMapper:
     """Tests for ResourceMapper class."""
 
     @pytest.fixture
-    def backend_config(self):
+    def backend_settings(self):
         return BackendConfig(
             storage_file_system="lustre",
             inode_soft_coefficient=1.5,
@@ -67,8 +67,8 @@ class TestResourceMapper:
         return service
 
     @pytest.fixture
-    def mapper(self, backend_config, mock_gid_service):
-        return ResourceMapper(backend_config, mock_gid_service)
+    def mapper(self, backend_settings, mock_gid_service):
+        return ResourceMapper(backend_settings, mock_gid_service)
 
     @pytest.mark.asyncio
     async def test_map_resource_basic(self, mapper):

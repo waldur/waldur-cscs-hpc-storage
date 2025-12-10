@@ -52,7 +52,8 @@ def get_gid_service(
         # Pass development_mode to the service for fallback behavior within the real client
         # (The real client uses dev mode to return mock data if the API is unreachable)
         updated_hpc_config = replace(
-            config.hpc_user_api, development_mode=config.backend_config.development_mode
+            config.hpc_user_api,
+            development_mode=config.backend_settings.development_mode,
         )
         try:
             service = GidService(updated_hpc_config)
@@ -60,12 +61,12 @@ def get_gid_service(
             return service
         except Exception as e:
             logger.warning("Failed to initialize real GidService: %s", e)
-            if not config.backend_config.development_mode:
+            if not config.backend_settings.development_mode:
                 raise
 
     # 2. Fallback to Mock service
     logger.info("Using MockGidService (HPC User API not configured or failed)")
-    return MockGidService(config.backend_config.development_mode)
+    return MockGidService(config.backend_settings.development_mode)
 
 
 def get_mapper(
@@ -75,7 +76,7 @@ def get_mapper(
     """
     Creates the ResourceMapper, injecting the specific GID service strategy.
     """
-    return ResourceMapper(config.backend_config, gid_service)
+    return ResourceMapper(config.backend_settings, gid_service)
 
 
 def get_orchestrator(
@@ -90,5 +91,5 @@ def get_orchestrator(
     but creating a new instance is cheap and safe.
     """
     return StorageOrchestrator(
-        config=config.backend_config, waldur_service=waldur_service, mapper=mapper
+        config=config.backend_settings, waldur_service=waldur_service, mapper=mapper
     )

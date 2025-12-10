@@ -1,204 +1,180 @@
 """Configuration loader for CSCS Storage Proxy."""
 
 import logging
-from dataclasses import dataclass
+import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Tuple, Type
 
-import yaml
-from waldur_cscs_hpc_storage.exceptions import ConfigurationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    YamlConfigSettingsSource as PydanticYamlConfigSettingsSource,
+)
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class AuthConfig:
+class AuthConfig(BaseModel):
     """Authentication configuration."""
 
-    disable_auth: bool = False
+    disable_auth: bool = Field(default=False, validation_alias="DISABLE_AUTH")
     keycloak_url: str = "https://auth-tds.cscs.ch/auth/"
     keycloak_realm: str = "cscs"
     keycloak_client_id: Optional[str] = None
     keycloak_client_secret: Optional[str] = None
 
+    model_config = ConfigDict(populate_by_name=True)
 
-@dataclass(frozen=True)
-class HpcUserApiConfig:
+
+class HpcUserApiConfig(BaseModel):
     """HPC User API configuration."""
 
-    api_url: Optional[str] = None
-    client_id: Optional[str] = None
-    client_secret: Optional[str] = None
-    oidc_token_url: Optional[str] = None
-    oidc_scope: Optional[str] = None
-    socks_proxy: Optional[str] = (
-        None  # SOCKS proxy URL (e.g., "socks5://localhost:12345")
+    api_url: Optional[str] = Field(None, validation_alias="HPC_USER_API_URL")
+    client_id: Optional[str] = Field(None, validation_alias="HPC_USER_CLIENT_ID")
+    client_secret: Optional[str] = Field(
+        None, validation_alias="HPC_USER_CLIENT_SECRET"
     )
-    development_mode: bool = False  # Enable mock fallback when API lookup fails
+    oidc_token_url: Optional[str] = Field(
+        None, validation_alias="HPC_USER_OIDC_TOKEN_URL"
+    )
+    oidc_scope: Optional[str] = Field(None, validation_alias="HPC_USER_OIDC_SCOPE")
+    socks_proxy: Optional[str] = Field(
+        None,
+        description='SOCKS proxy URL (e.g., "socks5://localhost:12345")',
+        validation_alias="HPC_USER_SOCKS_PROXY",
+    )
+    development_mode: bool = Field(
+        default=False, description="Enable mock fallback when API lookup fails"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
-@dataclass(frozen=True)
-class WaldurApiConfig:
+class WaldurApiConfig(BaseModel):
     """Waldur API configuration."""
 
-    api_url: str
-    access_token: str
-    verify_ssl: bool = True
-    socks_proxy: Optional[str] = None
+    api_url: str = Field(..., validation_alias="WALDUR_API_URL")
+    access_token: str = Field(..., validation_alias="WALDUR_API_TOKEN")
+    verify_ssl: bool = Field(True, validation_alias="WALDUR_VERIFY_SSL")
+    socks_proxy: Optional[str] = Field(None, validation_alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
 
+    model_config = ConfigDict(populate_by_name=True)
 
-@dataclass(frozen=True)
-class BackendConfig:
+
+class BackendConfig(BaseModel):
     """Backend configuration settings."""
 
-    storage_file_system: str = "lustre"
-    inode_soft_coefficient: float = 1.33
-    inode_hard_coefficient: float = 2.0
-    inode_base_multiplier: float = 1_000_000
+    storage_file_system: str = Field(default="lustre", min_length=1)
+    inode_soft_coefficient: float = Field(default=1.33, gt=0)
+    inode_hard_coefficient: float = Field(default=2.0, gt=0)
+    inode_base_multiplier: float = Field(default=1_000_000, gt=0)
     use_mock_target_items: bool = False
     development_mode: bool = False
 
-    def validate(self) -> None:
-        """Validate backend configuration."""
-        if (
-            not isinstance(self.inode_soft_coefficient, (int, float))
-            or self.inode_soft_coefficient <= 0
-        ):
-            msg = "inode_soft_coefficient must be a positive number"
-            raise ConfigurationError(msg)
-
-        if (
-            not isinstance(self.inode_hard_coefficient, (int, float))
-            or self.inode_hard_coefficient <= 0
-        ):
-            msg = "inode_hard_coefficient must be a positive number"
-            raise ConfigurationError(msg)
-
+    @model_validator(mode="after")
+    def check_coefficients(self) -> "BackendConfig":
+        """Validate logical relationship between coefficients."""
         if self.inode_hard_coefficient < self.inode_soft_coefficient:
             msg = (
                 f"inode_hard_coefficient {self.inode_hard_coefficient} must be greater than "
                 f"inode_soft_coefficient {self.inode_soft_coefficient}"
             )
-            raise ConfigurationError(msg)
+            # Pydantic will wrap this ValueError into a ValidationError
+            raise ValueError(msg)
+        return self
 
-        if (
-            not isinstance(self.storage_file_system, str)
-            or not self.storage_file_system.strip()
-        ):
-            msg = "storage_file_system must be a non-empty string"
-            raise ConfigurationError(msg)
-
-        if (
-            not isinstance(self.inode_base_multiplier, (int, float))
-            or self.inode_base_multiplier <= 0
-        ):
-            msg = "inode_base_multiplier must be a positive number"
-            raise ConfigurationError(msg)
+    model_config = ConfigDict(populate_by_name=True)
 
 
-@dataclass(frozen=True)
-class StorageProxyConfig:
-    """Configuration for the CSCS Storage Proxy."""
+class SentryConfig(BaseModel):
+    """Sentry configuration."""
 
-    waldur_api: Optional[WaldurApiConfig]
-    backend_config: BackendConfig
+    dsn: Optional[str] = Field(None, validation_alias="SENTRY_DSN")
+    environment: Optional[str] = Field(None, validation_alias="SENTRY_ENVIRONMENT")
+    traces_sample_rate: Optional[float] = Field(
+        None, validation_alias="SENTRY_TRACES_SAMPLE_RATE"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class StorageProxyConfig(BaseSettings):
+    """Configuration for the CSCS Storage Proxy.
+
+    Loads configuration from:
+    1. Environment variables (specific aliases only)
+    2. YAML file (specified by WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH)
+    3. Defaults
+    """
+
+    waldur_api: WaldurApiConfig = Field(default_factory=WaldurApiConfig)
+    backend_settings: BackendConfig = Field(default_factory=BackendConfig)
     storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = None
     hpc_user_api: Optional[HpcUserApiConfig] = None
-    # Sentry settings
-    sentry_dsn: Optional[str] = None
-    sentry_environment: Optional[str] = None
-    sentry_traces_sample_rate: Optional[float] = None
+    sentry: SentryConfig = Field(default_factory=SentryConfig)
+
+    model_config = SettingsConfigDict(
+        # We handle env vars manually via aliases on fields or nested models,
+        # so we disable generic env prefixing to avoid pollution/confusion.
+        env_nested_delimiter=None,
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    @field_validator("storage_systems")
+    @classmethod
+    def check_storage_systems(cls, v: dict[str, str]) -> dict[str, str]:
+        if not v:
+            raise ValueError("At least one storage_system mapping is required")
+        return v
 
     @classmethod
-    def from_yaml(cls, config_path: Union[str, Path]) -> "StorageProxyConfig":
-        """Load configuration from YAML file."""
-        config_path = Path(config_path)
-        if not config_path.exists():
-            raise ConfigurationError(f"Configuration file not found: {config_path}")
-
-        with config_path.open() as f:
-            data = yaml.safe_load(f)
-
-        # Parse waldur api config if present
-        waldur_api_config = None
-        if "waldur_api_url" in data and "waldur_api_token" in data:
-            waldur_api_config = WaldurApiConfig(
-                api_url=data["waldur_api_url"],
-                access_token=data["waldur_api_token"],
-                verify_ssl=data.get("waldur_verify_ssl", True),
-                socks_proxy=data.get("waldur_socks_proxy"),
-            )
-
-        # Parse auth config if present
-        auth_config = None
-        if "auth" in data:
-            auth_data = data["auth"]
-            auth_config = AuthConfig(
-                disable_auth=auth_data.get("disable_auth", False),
-                keycloak_url=auth_data.get(
-                    "keycloak_url", "https://auth-tds.cscs.ch/auth/"
-                ),
-                keycloak_realm=auth_data.get("keycloak_realm", "cscs"),
-                keycloak_client_id=auth_data.get("keycloak_client_id"),
-                keycloak_client_secret=auth_data.get("keycloak_client_secret"),
-            )
-
-        # Parse HPC User API config if present
-        hpc_user_api_config = None
-        if "hpc_user_api" in data:
-            hpc_api_data = data["hpc_user_api"]
-            hpc_user_api_config = HpcUserApiConfig(
-                api_url=hpc_api_data.get("api_url"),
-                client_id=hpc_api_data.get("client_id"),
-                client_secret=hpc_api_data.get("client_secret"),
-                oidc_token_url=hpc_api_data.get("oidc_token_url"),
-                oidc_scope=hpc_api_data.get("oidc_scope"),
-                socks_proxy=hpc_api_data.get("socks_proxy"),
-            )
-
-        # Parse backend settings
-        backend_settings_data = data.get("backend_settings", {})
-        backend_config = BackendConfig(
-            storage_file_system=backend_settings_data.get(
-                "storage_file_system", "lustre"
-            ),
-            inode_soft_coefficient=backend_settings_data.get(
-                "inode_soft_coefficient", 1.33
-            ),
-            inode_hard_coefficient=backend_settings_data.get(
-                "inode_hard_coefficient", 2.0
-            ),
-            inode_base_multiplier=backend_settings_data.get(
-                "inode_base_multiplier", 1_000_000
-            ),
-            use_mock_target_items=backend_settings_data.get(
-                "use_mock_target_items", False
-            ),
-            development_mode=backend_settings_data.get("development_mode", False),
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        """Define configuration source priority."""
+        return (
+            init_settings,
+            env_settings,
+            YamlConfigSettingsSource(settings_cls),
+            file_secret_settings,
         )
 
-        return cls(
-            waldur_api=waldur_api_config,
-            backend_config=backend_config,
-            storage_systems=data.get("storage_systems", {}),
-            auth=auth_config,
-            hpc_user_api=hpc_user_api_config,
-            sentry_dsn=data.get("sentry_dsn"),
-            sentry_environment=data.get("sentry_environment"),
-            sentry_traces_sample_rate=data.get("sentry_traces_sample_rate"),
-        )
 
-    def validate(self) -> None:
-        """Validate the configuration."""
-        if not self.waldur_api:
-            msg = "waldur_api configuration is required (waldur_api_url and waldur_api_token)"
-            raise ConfigurationError(msg)
-        if not self.storage_systems:
-            msg = "At least one storage_system mapping is required"
-            raise ConfigurationError(msg)
+class YamlConfigSettingsSource(PydanticYamlConfigSettingsSource):
+    """Custom YAML settings source."""
 
-        logger.info("Configuration validated successfully")
-        logger.info("  Waldur API URL: %s", self.waldur_api.api_url)
-        logger.info("  Storage systems: %s", self.storage_systems)
+    def __init__(self, settings_cls: Type[BaseSettings]):
+        config_path = os.getenv("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH")
+        yaml_file = Path(config_path) if config_path else None
+        super().__init__(settings_cls, yaml_file=yaml_file)
+
+    def __call__(self) -> dict[str, Any]:
+        """Load and transform YAML data to match model structure."""
+        d = super().__call__()
+
+        # Transform flat Waldur API config
+        if "waldur_api" not in d and "waldur_api_url" in d and "waldur_api_token" in d:
+            d["waldur_api"] = {
+                "api_url": d.get("waldur_api_url"),
+                "access_token": d.get("waldur_api_token"),
+                "verify_ssl": d.get("waldur_verify_ssl", True),
+                "socks_proxy": d.get("waldur_socks_proxy"),
+            }
+
+        return d
