@@ -11,11 +11,12 @@ from waldur_cscs_hpc_storage.sentry_config import initialize_sentry
 logger = logging.getLogger(__name__)
 
 
-def setup_logging() -> bool:
-    """Set up logging configuration.
+def load_config() -> StorageProxyConfig:
+    """Load and validate configuration.
 
-    Returns:
-        True if debug mode is enabled.
+    - Loads configuration from env vars and YAML (via pydantic-settings).
+    - Sets up logging based on debug mode.
+    - Initializes Sentry if configured.
     """
     debug_mode = os.getenv("DEBUG", "false").lower() in ("true", "yes", "1")
     log_level = logging.DEBUG if debug_mode else logging.INFO
@@ -29,22 +30,6 @@ def setup_logging() -> bool:
         logger.info("Debug mode is enabled")
         cscs_logger = logging.getLogger(__name__)
         cscs_logger.setLevel(logging.DEBUG)
-
-    return debug_mode
-
-
-def load_config() -> StorageProxyConfig:
-    """Load and validate configuration.
-
-    - Loads configuration from env vars and YAML (via pydantic-settings).
-    - Sets up logging based on debug mode.
-    - Initializes Sentry if configured.
-    - Synchronizes development_mode.
-
-    Returns:
-        StorageProxyConfig object.
-    """
-    setup_logging()
 
     try:
         config = StorageProxyConfig()
