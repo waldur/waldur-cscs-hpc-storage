@@ -1,12 +1,14 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.base.enums import StorageDataType, TargetStatus
 from waldur_cscs_hpc_storage.base.models import StorageResource
-from waldur_cscs_hpc_storage.base.schemas import ParsedWaldurResource
-from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.base.schemas import (
+    ParsedWaldurResource,
+    StorageResourceFilter,
+)
+from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
@@ -23,7 +25,7 @@ class StorageOrchestrator:
 
     def __init__(
         self,
-        config: BackendConfig,
+        config: StorageProxyConfig,
         waldur_service: WaldurService,
         mapper: ResourceMapper,
     ):
@@ -41,12 +43,7 @@ class StorageOrchestrator:
 
     async def get_resources(
         self,
-        offering_slugs: Union[str, List[str]],
-        state: Optional[ResourceState] = None,
-        page: int = 1,
-        page_size: int = 100,
-        data_type: Optional[StorageDataType] = None,
-        status: Optional[TargetStatus] = None,
+        filters: "StorageResourceFilter",
     ) -> Dict[str, Any]:
         """
         Main entry point to retrieve and format storage resources.
@@ -59,86 +56,73 @@ class StorageOrchestrator:
         5. Apply post-fetch filters (data_type, status).
         6. Calculate pagination and format response.
         """
-        # Normalize slugs to list
-        slugs_list = (
-            [offering_slugs] if isinstance(offering_slugs, str) else offering_slugs
+        # Fetch resources for the specific storage_system
+        if filters.storage_system:
+            storage_system_offering_slug = self.config.storage_systems[
+                filters.storage_system.value
+            ]
+            offering_slugs = [storage_system_offering_slug]
+        else:
+            # Fetch resources for all storage_systems
+            offering_slugs = list(self.config.storage_systems.values())
+
+        logger.info("Orchestrating resource fetch for slugs: %s", offering_slugs)
+
+        # 1. Fetch raw data from Waldur
+        response = await self.waldur_service.list_resources(
+            page=filters.page,
+            page_size=filters.page_size,
+            offering_slug=offering_slugs,
+            state=filters.state,
+        )
+        raw_resources = response.resources
+        total_api_count = response.total_count
+
+        # 2. Process resources if any exist
+        if raw_resources:
+            processed_resources = await self._process_resources(raw_resources)
+        else:
+            processed_resources = []
+
+        # 3. Apply post-processing filters (Memory-side filtering)
+        # Note: We filter *after* hierarchy building because the API
+        # might return a 'Project' that we want, but we also need its
+        # 'Tenant' and 'Customer' parents which are generated locally.
+        filtered_resources = self._filter_resources(
+            processed_resources, filters.data_type, filters.status
         )
 
-        try:
-            logger.info("Orchestrating resource fetch for slugs: %s", slugs_list)
+        # 4. Serialize and Paginate
+        serialized_resources = [r.model_dump(by_alias=True) for r in filtered_resources]
 
-            # 1. Fetch raw data from Waldur
-            response = await self.waldur_service.list_resources(
-                page=page,
-                page_size=page_size,
-                offering_slug=slugs_list,
-                state=state,
-            )
-            raw_resources = response.resources
-            total_api_count = response.total_count
+        # Calculate pagination based on the filtered list size
+        # Note: This represents the "view" pagination, not necessarily 1:1 with API pages
+        # due to hierarchy expansion (adding parent nodes) and filtering.
+        total_items = len(filtered_resources)
+        total_pages = (
+            (total_items + filters.page_size - 1) // filters.page_size
+            if total_items > 0
+            else 0
+        )
 
-            logger.info(
-                "Fetched %d resources from Waldur (Total API count: %d)",
-                len(raw_resources),
-                total_api_count,
-            )
-
-            # 2. Process resources if any exist
-            if raw_resources:
-                processed_resources = await self._process_resources(raw_resources)
-            else:
-                processed_resources = []
-
-            # 3. Apply post-processing filters (Memory-side filtering)
-            # Note: We filter *after* hierarchy building because the API
-            # might return a 'Project' that we want, but we also need its
-            # 'Tenant' and 'Customer' parents which are generated locally.
-            filtered_resources = self._filter_resources(
-                processed_resources, data_type, status
-            )
-
-            # 4. Serialize and Paginate
-            serialized_resources = [
-                r.model_dump(by_alias=True, exclude_none=True)
-                for r in filtered_resources
-            ]
-
-            # Calculate pagination based on the filtered list size
-            # Note: This represents the "view" pagination, not necessarily 1:1 with API pages
-            # due to hierarchy expansion (adding parent nodes) and filtering.
-            total_items = len(filtered_resources)
-            total_pages = (
-                (total_items + page_size - 1) // page_size if total_items > 0 else 0
-            )
-
-            return {
-                "status": "success",
-                "resources": serialized_resources,
-                "pagination": {
-                    "current": page,
-                    "limit": page_size,
-                    "offset": (page - 1) * page_size,
-                    "pages": total_pages,
-                    "total": total_items,
-                    "api_total": total_api_count,
-                },
-                "filters_applied": {
-                    "offering_slugs": slugs_list,
-                    "data_type": data_type.value if data_type else None,
-                    "status": status.value if status else None,
-                    "state": state.value if state else None,
-                },
-            }
-
-        except Exception as e:
-            logger.error(
-                "Orchestration failed for slugs %s: %s", slugs_list, e, exc_info=True
-            )
-            return {
-                "status": "error",
-                "message": f"Failed to fetch storage resources: {str(e)}",
-                "code": 500,
-            }
+        return {
+            "status": "success",
+            "resources": serialized_resources,
+            "pagination": {
+                "current": filters.page,
+                "limit": filters.page_size,
+                "offset": (filters.page - 1) * filters.page_size,
+                "pages": total_pages,
+                "total": total_items,
+                "api_total": total_api_count,
+            },
+            "filters_applied": {
+                "offering_slugs": offering_slugs,
+                "data_type": filters.data_type.value if filters.data_type else None,
+                "status": filters.status.value if filters.status else None,
+                "state": filters.state.value if filters.state else None,
+            },
+        }
 
     async def _process_resources(
         self, raw_resources: List[ParsedWaldurResource]
@@ -156,7 +140,9 @@ class StorageOrchestrator:
             all_offering_customers.update(customers)
 
         # B. Initialize a fresh HierarchyBuilder for this request
-        hierarchy_builder = HierarchyBuilder(self.config.storage_file_system)
+        hierarchy_builder = HierarchyBuilder(
+            self.config.backend_settings.storage_file_system
+        )
         project_resources: List[StorageResource] = []
 
         logger.debug("Processing %d raw resources", len(raw_resources))

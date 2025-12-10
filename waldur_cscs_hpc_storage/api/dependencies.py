@@ -87,5 +87,5 @@ def get_orchestrator(
     but creating a new instance is cheap and safe.
     """
     return StorageOrchestrator(
-        config=config.backend_settings, waldur_service=waldur_service, mapper=mapper
+        config=config, waldur_service=waldur_service, mapper=mapper
     )

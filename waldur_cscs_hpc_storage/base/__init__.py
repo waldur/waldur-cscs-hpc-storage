@@ -44,7 +44,6 @@ from waldur_cscs_hpc_storage.base.schemas import (
     ResourceLimits,
     ResourceOptions,
 )
-from waldur_cscs_hpc_storage.base.serializers import JsonSerializer
 from waldur_cscs_hpc_storage.base.target_ids import (
     generate_customer_target_id,
     generate_project_target_id,
@@ -96,8 +95,6 @@ __all__ = [
     "ResourceBackendMetadata",
     "ResourceLimits",
     "ResourceOptions",
-    # serializers
-    "JsonSerializer",
     # target_ids
     "generate_customer_target_id",
     "generate_project_target_id",

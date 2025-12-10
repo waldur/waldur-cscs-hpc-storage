@@ -12,6 +12,8 @@ from waldur_cscs_hpc_storage.base.enums import (
     QuotaType,
     QuotaUnit,
     StorageDataType,
+    StorageSystem,
+    TargetStatus,
 )
 from waldur_cscs_hpc_storage.base.models import (
     Quota,
@@ -308,3 +310,25 @@ class ParsedWaldurResource(BaseModel):
 
         base = order_url.rstrip("/")
         return {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}
+
+
+class StorageResourceFilter(BaseModel):
+    """Filter parameters for storage resources endpoint."""
+
+    storage_system: Annotated[
+        Optional[StorageSystem],
+        Field(description="Storage system filter"),
+    ] = None
+    state: Optional[ResourceState] = None
+    page: Annotated[int, Field(ge=1, description="Page number (starts from 1)")] = 1
+    page_size: Annotated[
+        int, Field(ge=1, le=500, description="Number of items per page")
+    ] = 100
+    data_type: Annotated[
+        Optional[StorageDataType],
+        Field(description="Data type filter"),
+    ] = None
+    status: Annotated[
+        Optional[TargetStatus],
+        Field(description="Status filter"),
+    ] = None

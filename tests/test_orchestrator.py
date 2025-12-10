@@ -20,12 +20,17 @@ from waldur_cscs_hpc_storage.base.enums import (
 from waldur_cscs_hpc_storage.base.models import Quota
 from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
 from waldur_cscs_hpc_storage.base.schemas import (
+    ParsedWaldurResource,
+    StorageResourceFilter,
     ResourceAttributes,
 )
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
+    StorageProxyConfig,
     WaldurApiConfig,
 )
+from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
+from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
@@ -79,6 +84,12 @@ class TestStorageOrchestratorBase:
         self.waldur_api_config = WaldurApiConfig(
             api_url="https://example.com", access_token="token"
         )
+
+        # Mock StorageProxyConfig for Orchestrator
+        self.proxy_config = Mock(spec=StorageProxyConfig)
+        self.proxy_config.backend_settings = self.orchestrator_config
+        self.proxy_config.storage_systems = {"lustre": "slug"}
+
         self.orchestrator = self._create_orchestrator()
 
     def _create_orchestrator(self):
@@ -91,7 +102,7 @@ class TestStorageOrchestratorBase:
         self.mock_waldur_service = Mock(spec=WaldurService)
 
         orchestrator = StorageOrchestrator(
-            self.orchestrator_config,
+            self.proxy_config,
             waldur_service=self.mock_waldur_service,
             mapper=mapper,
         )
@@ -881,7 +892,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         self.orchestrator.waldur_service.get_offering_customers.return_value = {}
 
         # Case 1: Default pagination (page=1, page_size=100)
-        await self.orchestrator.get_resources(["slug"])
+        await self.orchestrator.get_resources(filters=StorageResourceFilter())
 
         # Verify call args
         call_args = self.orchestrator.waldur_service.list_resources.call_args
@@ -894,7 +905,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         self.orchestrator.waldur_service.list_resources.reset_mock()
 
         # Case 2: Explicit pagination
-        await self.orchestrator.get_resources(["slug"], page=2, page_size=50)
+        await self.orchestrator.get_resources(
+            filters=StorageResourceFilter(page=2, page_size=50)
+        )
 
         call_args = self.orchestrator.waldur_service.list_resources.call_args
         assert call_args is not None

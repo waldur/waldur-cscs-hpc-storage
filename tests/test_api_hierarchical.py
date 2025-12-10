@@ -8,19 +8,26 @@ import pytest
 from fastapi.testclient import TestClient
 
 from waldur_cscs_hpc_storage.config import (
-    StorageProxyConfig,
     BackendConfig,
+    HpcUserApiConfig,
+    StorageProxyConfig,
     WaldurApiConfig,
 )
+from pathlib import Path
 
-pytestmark = pytest.mark.skipif(
-    not os.getenv("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"),
-    reason="WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH not set - skipping API integration tests",
-)
+# Set up environment before importing the app
+test_config_path = Path(__file__).parent / "test_config.yaml"
+os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
+os.environ["DISABLE_AUTH"] = "true"  # Also disable auth for these tests
+
+# Remove skipif since we set the config path
+# pytestmark = pytest.mark.skipif(...)
+
 
 try:
     from waldur_cscs_hpc_storage.api.main import app
     from waldur_cscs_hpc_storage.api.dependencies import get_waldur_service, get_config
+    from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo
 except SystemExit:
     # If import fails due to configuration issues, skip all tests
     pytest.skip("Configuration not available for API tests", allow_module_level=True)
@@ -45,7 +52,7 @@ def mock_config():
         backend_settings=BackendConfig(development_mode=True),
         storage_systems={"capstor": "capstor", "vast": "vast", "iopsstor": "iopsstor"},
         auth=None,
-        hpc_user_api=None,
+        hpc_user_api=HpcUserApiConfig(development_mode=True),
     )
 
 
@@ -114,15 +121,14 @@ def mock_waldur_resources():
         resource.backend_metadata.user_item = None
         resource.callback_urls = {}
 
-        # Mock render_quotas to return a list of mock objects providing to_dict
-        mock_quota = Mock()
-        mock_quota.to_dict.return_value = {
+        # Mock render_quotas to return a list of dicts compatible with Quota model
+        quota_dict = {
             "type": "space",
             "quota": storage_limit,
-            "unit": "GB",
+            "unit": "tera",
             "enforcementType": "hard",
         }
-        resource.render_quotas = Mock(return_value=[mock_quota])
+        resource.render_quotas = Mock(return_value=[quota_dict])
 
         return resource
 
@@ -158,18 +164,16 @@ def mock_waldur_resources():
 def mock_offering_customers():
     """Mock customer data from offering."""
     return {
-        "mch": {
-            "itemId": "mch-customer-id",
-            "key": "mch",
-            "name": "MCH",
-            "uuid": "mch-customer-uuid",
-        },
-        "eth": {
-            "itemId": "eth-customer-id",
-            "key": "eth",
-            "name": "ETH",
-            "uuid": "eth-customer-uuid",
-        },
+        "mch": CustomerInfo(
+            itemId="mch-customer-id",
+            key="mch",
+            name="MCH",
+        ),
+        "eth": CustomerInfo(
+            itemId="eth-customer-id",
+            key="eth",
+            name="ETH",
+        ),
     }
 
 

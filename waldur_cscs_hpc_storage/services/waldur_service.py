@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
 import httpx
 from waldur_api_client import AuthenticatedClient
@@ -90,7 +90,7 @@ class WaldurService:
     async def list_resources(
         self,
         offering_uuid: Optional[str] = None,
-        offering_slug: Optional[Union[str, list[str]]] = None,
+        offering_slug: Optional[list[str]] = None,
         state: Optional[ResourceState] = None,
         page: int = 1,
         page_size: int = 100,
