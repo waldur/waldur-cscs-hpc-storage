@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi_keycloak_middleware import get_user
 from waldur_api_client.models.user import User
 
-from waldur_cscs_hpc_storage.api.config_parser import load_config
+from waldur_cscs_hpc_storage.config import load_config
 from waldur_cscs_hpc_storage.api.dependencies import (
     get_orchestrator,
     set_global_config,

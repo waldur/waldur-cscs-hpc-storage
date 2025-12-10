@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from waldur_cscs_hpc_storage.config import SentryConfig
+from waldur_cscs_hpc_storage.config.sentry import SentryConfig
 
 logger = logging.getLogger(__name__)
 

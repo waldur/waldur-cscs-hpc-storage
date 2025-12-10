@@ -3,7 +3,7 @@
 import os
 from unittest import mock
 import pytest
-from waldur_cscs_hpc_storage.api.config_parser import load_config, mask_sensitive_data
+from waldur_cscs_hpc_storage.config.parser import load_config, mask_sensitive_data
 from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
@@ -51,8 +51,8 @@ def clean_env():
         os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = old_path
 
 
-@mock.patch("waldur_cscs_hpc_storage.api.config_parser.logging.basicConfig")
-@mock.patch("waldur_cscs_hpc_storage.api.config_parser.logger")
+@mock.patch("waldur_cscs_hpc_storage.config.parser.logging.basicConfig")
+@mock.patch("waldur_cscs_hpc_storage.config.parser.logger")
 def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
     """Test that load_config logs the configuration with masked data."""
     # Setup minimal valid environment

@@ -1,7 +1,7 @@
 from unittest import mock
 import pytest
 from pydantic import ValidationError
-from waldur_cscs_hpc_storage.api.config_parser import (
+from waldur_cscs_hpc_storage.config.parser import (
     _format_validation_error,
     load_config,
 )
