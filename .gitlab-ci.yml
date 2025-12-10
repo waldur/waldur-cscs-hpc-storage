@@ -105,7 +105,7 @@ Publish multiarch docker image latest:
     - docker context create builder
     - docker buildx version
     - docker buildx create builder --use
-    - docker buildx build --platform linux/amd64,linux/arm64 --build-arg DOCKER_REGISTRY=${DOCKER_REGISTRY} -f Dockerfile -t opennode/waldur-cscs-storage-proxy:latest --push .
+    - docker buildx build --platform linux/amd64 --build-arg DOCKER_REGISTRY=${DOCKER_REGISTRY} -f Dockerfile -t opennode/waldur-cscs-storage-proxy:latest --push .
 
 Publish multiarch docker image with version:
   stage: release
