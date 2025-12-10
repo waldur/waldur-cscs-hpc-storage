@@ -47,9 +47,9 @@ DISABLE_AUTH = config.auth.disable_auth if config.auth else False
 # Check if auth should be enabled and if required config is available
 # Note: keycloak_client_secret is optional for public clients
 auth_config_complete = (
-    config.auth 
-    and config.auth.keycloak_client_id 
-    and config.auth.keycloak_url 
+    config.auth
+    and config.auth.keycloak_client_id
+    and config.auth.keycloak_url
     and config.auth.keycloak_realm
 )
 
