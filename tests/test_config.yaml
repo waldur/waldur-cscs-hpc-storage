@@ -1,7 +1,8 @@
 # Test configuration for storage proxy tests
-waldur_api_url: "https://test.api.url/api/"
-waldur_api_token: "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"
-waldur_verify_ssl: false
+waldur_api:
+  api_url: "https://test.api.url/api/"
+  access_token: "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"
+  verify_ssl: false
 
 backend_settings:
   storage_file_system: "lustre"
