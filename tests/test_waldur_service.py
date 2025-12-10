@@ -10,7 +10,7 @@ class TestWaldurService:
     def waldur_api_config(self):
         return WaldurApiConfig(
             api_url="https://example.com",
-            access_token="33333333333333333333333333333333",
+            access_token="e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
         )
 
     @pytest.fixture

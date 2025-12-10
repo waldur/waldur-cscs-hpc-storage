@@ -49,7 +49,7 @@ def mock_config():
     return StorageProxyConfig(
         waldur_api=WaldurApiConfig(
             api_url="http://mock-waldur",
-            access_token="11111111111111111111111111111111",
+            access_token="e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
         ),
         backend_settings=BackendConfig(
             development_mode=True,

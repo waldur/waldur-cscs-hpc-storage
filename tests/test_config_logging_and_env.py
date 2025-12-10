@@ -58,7 +58,7 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
     # Setup minimal valid environment
     env = {
         "WALDUR_API_URL": "http://test.com",
-        "WALDUR_API_TOKEN": "44444444444444444444444444444444",
+        "WALDUR_API_TOKEN": "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
         "STORAGE_SYSTEMS": '{"capstor": "lustre"}',
         "DEBUG": "true",
         "CSCS_KEYCLOAK_CLIENT_SECRET": "s3cr3t",
@@ -69,7 +69,7 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
         config = load_config()
 
     # Check if config was loaded correctly
-    assert config.waldur_api.access_token == "44444444444444444444444444444444"
+    assert config.waldur_api.access_token == "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"
     assert config.auth.keycloak_client_secret == "s3cr3t"
 
     # Verify storage systems loaded correctly
@@ -104,14 +104,14 @@ def test_env_loading_flat_fields():
     """Test loading flat fields in nested config from environment variables."""
     env = {
         "WALDUR_API_URL": "http://env-url.com",
-        "WALDUR_API_TOKEN": "55555555555555555555555555555555",
+        "WALDUR_API_TOKEN": "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
     }
 
     with mock.patch.dict(os.environ, env):
         # We can instantiate the nested config directly to test
         config = WaldurApiConfig()
         assert str(config.api_url) == "http://env-url.com/"
-        assert config.access_token == "55555555555555555555555555555555"
+        assert config.access_token == "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"
 
 
 def test_env_loading_nested_in_main_config():
@@ -119,7 +119,7 @@ def test_env_loading_nested_in_main_config():
     env = {
         # WaldurApiConfig fields
         "WALDUR_API_URL": "http://main-env.com",
-        "WALDUR_API_TOKEN": "66666666666666666666666666666666",
+        "WALDUR_API_TOKEN": "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
         # AuthConfig fields
         "CSCS_KEYCLOAK_CLIENT_ID": "env-client-id",
         "DISABLE_AUTH": "true",
@@ -134,7 +134,9 @@ def test_env_loading_nested_in_main_config():
 
         # Verify WaldurApiConfig via main config
         assert str(config.waldur_api.api_url) == "http://main-env.com/"
-        assert config.waldur_api.access_token == "66666666666666666666666666666666"
+        assert (
+            config.waldur_api.access_token == "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"
+        )
 
         # Verify AuthConfig via main config
         assert config.auth.keycloak_client_id == "env-client-id"

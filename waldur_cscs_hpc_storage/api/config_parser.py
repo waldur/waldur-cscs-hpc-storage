@@ -22,7 +22,10 @@ def load_config() -> StorageProxyConfig:
 
     try:
         config = StorageProxyConfig()
-    except (ValidationError, Exception) as e:
+    except ValidationError as e:
+        print(_format_validation_error(e), file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
         logger.exception("Failed to load or validate configuration: %s", e)
         sys.exit(1)
 
@@ -58,3 +61,21 @@ def mask_sensitive_data(data: Any) -> Any:
     if isinstance(data, list):
         return [mask_sensitive_data(item) for item in data]
     return data
+
+
+def _format_validation_error(e: ValidationError) -> str:
+    """Format a Pydantic ValidationError into a human-readable string.
+
+    Args:
+        e: The ValidationError to format.
+
+    Returns:
+        A formatted string summary of the errors.
+    """
+    error_messages = []
+    for error in e.errors():
+        loc = ".".join(str(i) for i in error["loc"])
+        msg = error["msg"]
+        error_messages.append(f"  - {loc}: {msg}")
+
+    return "Configuration Error:\n" + "\n".join(error_messages)

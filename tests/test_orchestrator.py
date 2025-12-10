@@ -85,7 +85,7 @@ class TestStorageOrchestratorBase:
         )
         self.waldur_api_config = WaldurApiConfig(
             api_url="https://example.com",
-            access_token="22222222222222222222222222222222",
+            access_token="e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
         )
 
         # Mock StorageProxyConfig for Orchestrator

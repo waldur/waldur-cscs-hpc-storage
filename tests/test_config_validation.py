@@ -82,9 +82,9 @@ class TestWaldurApiConfigValidation:
         assert "WALDUR_API_URL" in str(exc.value)
 
     def test_token_format_validation(self):
-        """Test that access_token must be a 32-char hex string."""
+        """Test that access_token must be a 40-char hex string."""
         # Correct length but invalid chars (Z is not hex)
-        invalid_token = "Z" * 32
+        invalid_token = "Z" * 40
         with pytest.raises(ValidationError) as exc:
             WaldurApiConfig(
                 api_url="http://example.com",
@@ -93,7 +93,7 @@ class TestWaldurApiConfigValidation:
         assert "String should match pattern" in str(exc.value)
 
         # Valid hex token
-        valid_token = "a" * 32
+        valid_token = "a" * 40
         config = WaldurApiConfig(
             api_url="http://example.com",
             access_token=valid_token,
@@ -109,8 +109,8 @@ class TestStorageProxyConfigValidation:
         # We must provide valid waldur_api to reach the storage_systems validation
         valid_waldur_api = {
             "api_url": "http://u.com",
-            # 32 chars hex
-            "access_token": "a" * 32,
+            # 40 chars hex
+            "access_token": "a" * 40,
         }
 
         with pytest.raises(ValidationError) as exc:
@@ -125,7 +125,7 @@ class TestStorageProxyConfigValidation:
         """Test successful validation with at least one storage system."""
         valid_waldur_api = {
             "api_url": "http://u.com",
-            "access_token": "a" * 32,
+            "access_token": "a" * 40,
         }
         config = StorageProxyConfig(
             waldur_api=valid_waldur_api,
@@ -198,7 +198,7 @@ class TestSocksProxyValidation:
             assert config.socks_proxy == url
 
         # Test WaldurApiConfig
-        valid_token = "a" * 32
+        valid_token = "a" * 40
         for url in valid_urls:
             config = WaldurApiConfig(
                 api_url="http://example.com", access_token=valid_token, socks_proxy=url

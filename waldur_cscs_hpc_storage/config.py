@@ -115,9 +115,9 @@ class WaldurApiConfig(BaseSettings):
     access_token: str = Field(
         ...,
         alias="WALDUR_API_TOKEN",
-        min_length=32,
-        max_length=32,
-        pattern=r"^[0-9a-fA-F]{32}$",
+        min_length=40,
+        max_length=40,
+        pattern=r"^[0-9a-fA-F]{40}$",
     )
     verify_ssl: bool = Field(True, alias="WALDUR_VERIFY_SSL")
     socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
