@@ -11,9 +11,6 @@ class StorageProxyError(Exception):
         self.original_error = original_error
 
 
-# --- Category 1: Upstream Service Failures (HTTP 502/503/504) ---
-
-
 class UpstreamServiceError(StorageProxyError):
     """Base for external API failures."""
 
@@ -24,9 +21,6 @@ class WaldurClientError(UpstreamServiceError):
 
 class HpcUserApiClientError(UpstreamServiceError):
     """HPC User/GID API returned an error or timed out."""
-
-
-# --- Category 2: Domain/Data Processing Failures (HTTP 422/500) ---
 
 
 class ResourceProcessingError(StorageProxyError):
@@ -41,13 +35,6 @@ class MissingIdentityError(ResourceProcessingError):
             f"Could not resolve identity '{identity_key}' for resource {resource_uuid}"
         )
         self.resource_uuid = resource_uuid
-
-
-class InvalidQuotaConfigError(ResourceProcessingError):
-    """Math or config error when calculating quotas."""
-
-
-# --- Category 3: Configuration Errors (HTTP 500) ---
 
 
 class ConfigurationError(StorageProxyError):
