@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional, Tuple, Type
+from typing import Optional, Tuple, Type
 from waldur_cscs_hpc_storage.base.enums import StorageSystem
 
 from pydantic import (
