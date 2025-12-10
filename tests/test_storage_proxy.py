@@ -1,7 +1,7 @@
 """Tests for CSCS HPC Storage Proxy API."""
 
 import os
-from pathlib import Path
+
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -10,9 +10,21 @@ from fastapi.testclient import TestClient
 from waldur_api_client.models.resource_state import ResourceState
 
 # Set up environment before importing the app
-test_config_path = Path(__file__).parent / "test_config.yaml"
-os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
+# Set up environment before importing the app
+os.environ["WALDUR_API_URL"] = "https://test.api.url/api/"
+os.environ["WALDUR_API_TOKEN"] = "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e"
+os.environ["WALDUR_VERIFY_SSL"] = "false"
+os.environ["STORAGE_SYSTEMS"] = (
+    '{"capstor": "capstor", "vast": "vast", "iopsstor": "iopsstor"}'
+)
 os.environ["DISABLE_AUTH"] = "true"
+os.environ["HPC_USER_DEVELOPMENT_MODE"] = "true"
+
+# Backend settings
+os.environ["STORAGE_FILE_SYSTEM"] = "lustre"
+os.environ["INODE_SOFT_COEFFICIENT"] = "1.0"
+os.environ["INODE_HARD_COEFFICIENT"] = "1.0"
+os.environ["USE_MOCK_TARGET_ITEMS"] = "true"
 
 from waldur_cscs_hpc_storage.base.enums import (
     StorageDataType,

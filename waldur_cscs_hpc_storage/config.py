@@ -1,7 +1,5 @@
 """Configuration loader for CSCS Storage Proxy."""
 
-import os
-from pathlib import Path
 from typing import Optional, Tuple, Type
 from waldur_cscs_hpc_storage.base.enums import StorageSystem
 
@@ -15,7 +13,6 @@ from pydantic_settings import (
     BaseSettings,
     PydanticBaseSettingsSource,
     SettingsConfigDict,
-    YamlConfigSettingsSource as PydanticYamlConfigSettingsSource,
 )
 import logging
 
@@ -178,8 +175,7 @@ class StorageProxyConfig(BaseSettings):
 
     Loads configuration from:
     1. Environment variables (specific aliases only)
-    2. YAML file (specified by WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH)
-    3. Defaults
+    2. Defaults
     """
 
     debug: bool = Field(default=False, alias="DEBUG")
@@ -220,15 +216,5 @@ class StorageProxyConfig(BaseSettings):
         return (
             init_settings,
             env_settings,
-            YamlConfigSettingsSource(settings_cls),
             file_secret_settings,
         )
-
-
-class YamlConfigSettingsSource(PydanticYamlConfigSettingsSource):
-    """Custom YAML settings source."""
-
-    def __init__(self, settings_cls: Type[BaseSettings]):
-        config_path = os.getenv("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH")
-        yaml_file = Path(config_path) if config_path else None
-        super().__init__(settings_cls, yaml_file=yaml_file)

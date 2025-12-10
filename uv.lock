@@ -1520,7 +1520,6 @@ dependencies = [
     { name = "fastapi-keycloak-middleware" },
     { name = "httpx", extra = ["socks"] },
     { name = "pydantic-settings" },
-    { name = "pyyaml" },
     { name = "sentry-sdk", extra = ["fastapi"] },
     { name = "waldur-api-client" },
 ]
@@ -1539,7 +1538,6 @@ requires-dist = [
     { name = "fastapi-keycloak-middleware", specifier = ">=1.3.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.24.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "pyyaml", specifier = ">=6.0" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.0.0" },
     { name = "waldur-api-client", specifier = ">=7.9.2" },
 ]

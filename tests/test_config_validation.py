@@ -9,20 +9,9 @@ from waldur_cscs_hpc_storage.config import (
     SentryConfig,
     StorageProxyConfig,
     WaldurApiConfig,
+    AuthConfig,
 )
 from waldur_cscs_hpc_storage.base.enums import StorageSystem
-
-
-@pytest.fixture(autouse=True)
-def clean_env():
-    """Ensure no config file is loaded from env during validation tests."""
-    import os
-
-    # Remove config path to prevent YamlConfigSettingsSource from loading the test config
-    old_path = os.environ.pop("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH", None)
-    yield
-    if old_path:
-        os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = old_path
 
 
 class TestBackendConfigValidation:
@@ -118,6 +107,7 @@ class TestStorageProxyConfigValidation:
                 waldur_api=valid_waldur_api,
                 storage_systems={},
                 hpc_user_api=HpcUserApiConfig(development_mode=True),
+                auth=AuthConfig(disable_auth=True),
             )
         assert "At least one storage_system mapping is required" in str(exc.value)
 
@@ -131,6 +121,7 @@ class TestStorageProxyConfigValidation:
             waldur_api=valid_waldur_api,
             storage_systems={StorageSystem.CAPSTOR: "slug"},
             hpc_user_api=HpcUserApiConfig(development_mode=True),
+            auth=AuthConfig(disable_auth=True),
         )
         assert config.storage_systems == {StorageSystem.CAPSTOR: "slug"}
 

@@ -80,90 +80,80 @@ graph TD
 
 The application uses **Pydantic Settings**. Configuration is loaded in the following priority order:
 
-1. **Environment Variables** (Highest priority)
-2. **YAML Configuration File** (If `WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH` is set)
-3. **Default Values**
+1. **Environment Variables**
+2. **Default Values**
 
-### 4.1. Configuration Methods
 
-**Method A: YAML (Recommended)**
-Point to your file:
+Set variables in the environment or use a `.env` file (e.g., via Docker Compose or Kubernetes Secrets).
 
-```bash
-export WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH="/etc/waldur-cscs-proxy/config.yaml"
-```
-
-**Method B: Environment Variables**
-Directly set variables in the environment (e.g., via Docker Compose or Kubernetes Secrets).
 
 ### 4.2. Detailed Configuration Reference
 
 #### A. General Settings
 
-| YAML Key          | Env Variable      | Type | Default      | Description                                                           |
-| :---------------- | :---------------- | :--- | :----------- | :-------------------------------------------------------------------- |
-| `debug`           | `DEBUG`           | Bool | `False`      | Enables verbose logging.                                              |
-| `storage_systems` | `STORAGE_SYSTEMS` | Dict | **Required** | Maps the API `storage_system` parameter to Waldur **Offering Slugs**. |
+| Env Variable      | Type | Default      | Description                                                           |
+| :---------------- | :--- | :----------- | :-------------------------------------------------------------------- |
+| `DEBUG`           | Bool | `False`      | Enables verbose logging.                                              |
+| `STORAGE_SYSTEMS` | Dict | **Required** | Maps the API `storage_system` parameter to Waldur **Offering Slugs**. |
 
 **Example:**
 
-```yaml
-storage_systems:
-  capstor: "cscs-capstor-offering"
-  vast: "cscs-vast-offering"
+```bash
+STORAGE_SYSTEMS='{"capstor": "cscs-capstor-offering", "vast": "cscs-vast-offering"}'
 ```
 
 #### B. Waldur API (Source of Truth)
 
-| YAML Key                  | Env Variable         | Default      | Description                                        |
-| :------------------------ | :------------------- | :----------- | :------------------------------------------------- |
-| `waldur_api.api_url`      | `WALDUR_API_URL`     | **Required** | Full URL to Waldur API.                            |
-| `waldur_api.access_token` | `WALDUR_API_TOKEN`   | **Required** | Token for a Service Provider user in Waldur.       |
-| `waldur_api.verify_ssl`   | `WALDUR_VERIFY_SSL`  | `True`       | Validate SSL certificates.                         |
-| `waldur_api.socks_proxy`  | `WALDUR_SOCKS_PROXY` | `None`       | Optional SOCKS proxy (e.g., `socks5://host:port`). |
+| Env Variable         | Default      | Description                                        |
+| :------------------- | :----------- | :------------------------------------------------- |
+| `WALDUR_API_URL`     | **Required** | Full URL to Waldur API.                            |
+| `WALDUR_API_TOKEN`   | **Required** | Token for a Service Provider user in Waldur.       |
+| `WALDUR_VERIFY_SSL`  | `True`       | Validate SSL certificates.                         |
+| `WALDUR_SOCKS_PROXY` | `None`       | Optional SOCKS proxy (e.g., `socks5://host:port`). |
 
 #### C. Authentication (Incoming Security)
 
 Controls how clients authenticate *to this proxy*.
 
-| YAML Key                  | Env Variable              | Default | Description                              |
-| :------------------------ | :------------------------ | :------ | :--------------------------------------- |
-| `auth.disable_auth`       | `DISABLE_AUTH`            | `False` | **DANGER**: Disables all auth. Dev only. |
-| `auth.keycloak_url`       | `CSCS_KEYCLOAK_URL`       | `...`   | Base URL of Keycloak.                    |
-| `auth.keycloak_realm`     | `CSCS_KEYCLOAK_REALM`     | `cscs`  | The Realm to validate tokens against.    |
-| `auth.keycloak_client_id` | `CSCS_KEYCLOAK_CLIENT_ID` | `None`  | Optional validation of `aud` claim.      |
+| Env Variable              | Default | Description                              |
+| :------------------------ | :------ | :--------------------------------------- |
+| `DISABLE_AUTH`            | `False` | **DANGER**: Disables all auth. Dev only. |
+| `CSCS_KEYCLOAK_URL`       | `...`   | Base URL of Keycloak.                    |
+| `CSCS_KEYCLOAK_REALM`     | `cscs`       | The Realm to validate tokens against.    |
+| `CSCS_KEYCLOAK_CLIENT_ID` | **Required** | Client ID to validate `aud` claim.       |
+| `CSCS_KEYCLOAK_CLIENT_SECRET` | **Required** | Client Secret for intospection.      |
 
 #### D. HPC User API (Identity Resolution)
 
 Used to fetch Unix GIDs for projects. This service authenticates itself to the API using OIDC Client Credentials.
 
-| YAML Key                        | Env Variable              | Description                                                                   |
-| :------------------------------ | :------------------------ | :---------------------------------------------------------------------------- |
-| `hpc_user_api.api_url`          | `HPC_USER_API_URL`        | Base URL of the User/GID service.                                             |
-| `hpc_user_api.client_id`        | `HPC_USER_CLIENT_ID`      | Client ID for machine-to-machine auth.                                        |
-| `hpc_user_api.client_secret`    | `HPC_USER_CLIENT_SECRET`  | Client Secret for machine-to-machine auth.                                    |
-| `hpc_user_api.oidc_token_url`   | `HPC_USER_OIDC_TOKEN_URL` | Endpoint to fetch the machine token.                                          |
-| `hpc_user_api.socks_proxy`      | `HPC_USER_SOCKS_PROXY`    | Specific SOCKS proxy for this connection.                                     |
-| `hpc_user_api.development_mode` | -                         | If `True`, generates mock GIDs instead of crashing if the API is unreachable. |
+| Env Variable              | Description                                                                   |
+| :------------------------ | :---------------------------------------------------------------------------- |
+| `HPC_USER_API_URL`        | Base URL of the User/GID service.                                             |
+| `HPC_USER_CLIENT_ID`      | Client ID for machine-to-machine auth.                                        |
+| `HPC_USER_CLIENT_SECRET`  | Client Secret for machine-to-machine auth.                                    |
+| `HPC_USER_OIDC_TOKEN_URL` | Endpoint to fetch the machine token.                                          |
+| `HPC_USER_SOCKS_PROXY`    | Specific SOCKS proxy for this connection.                                     |
+| `HPC_USER_DEVELOPMENT_MODE` | If `True`, generates mock GIDs instead of crashing if the API is unreachable. |
 
 #### E. Backend Logic (Quotas & Filesystem)
 
-| YAML Key                                  | Default     | Description                                                  |
-| :---------------------------------------- | :---------- | :----------------------------------------------------------- |
-| `backend_settings.storage_file_system`    | `lustre`    | The string identifier returned in JSON (e.g., GPFS, LUSTRE). |
-| `backend_settings.inode_base_multiplier`  | `1,000,000` | How many inodes per TB of storage.                           |
-| `backend_settings.inode_soft_coefficient` | `1.33`      | Multiplier for Soft Quota.                                   |
-| `backend_settings.inode_hard_coefficient` | `2.0`       | Multiplier for Hard Quota.                                   |
+| Env Variable             | Default     | Description                                                  |
+| :----------------------- | :---------- | :----------------------------------------------------------- |
+| `STORAGE_FILE_SYSTEM`    | `lustre`    | The string identifier returned in JSON (e.g., GPFS, LUSTRE). |
+| `INODE_BASE_MULTIPLIER`  | `1,000,000` | How many inodes per TB of storage.                           |
+| `INODE_SOFT_COEFFICIENT` | `1.33`      | Multiplier for Soft Quota.                                   |
+| `INODE_HARD_COEFFICIENT` | `2.0`       | Multiplier for Hard Quota.                                   |
 
 *Validation Rule:* `inode_hard_coefficient` must be greater than `inode_soft_coefficient`.
 
 #### F. Sentry (Error Tracking)
 
-| YAML Key                    | Env Variable                | Description                          |
-| :-------------------------- | :-------------------------- | :----------------------------------- |
-| `sentry.dsn`                | `SENTRY_DSN`                | The Sentry DSN URL.                  |
-| `sentry.environment`        | `SENTRY_ENVIRONMENT`        | Tag (e.g., `production`).            |
-| `sentry.traces_sample_rate` | `SENTRY_TRACES_SAMPLE_RATE` | 0.0 to 1.0 (Performance monitoring). |
+| Env Variable                | Description                          |
+| :-------------------------- | :----------------------------------- |
+| `SENTRY_DSN`                | The Sentry DSN URL.                  |
+| `SENTRY_ENVIRONMENT`        | Tag (e.g., `production`).            |
+| `SENTRY_TRACES_SAMPLE_RATE` | 0.0 to 1.0 (Performance monitoring). |
 
 ---
 
@@ -277,7 +267,7 @@ To test without Authentication (Local Dev Only):
 
 ```bash
 export DISABLE_AUTH=true
-export WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH=config_dev.yaml
+export DISABLE_AUTH=true
 uvicorn waldur_cscs_hpc_storage.api.main:app
 ```
 
