@@ -232,18 +232,3 @@ class YamlConfigSettingsSource(PydanticYamlConfigSettingsSource):
         config_path = os.getenv("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH")
         yaml_file = Path(config_path) if config_path else None
         super().__init__(settings_cls, yaml_file=yaml_file)
-
-    def __call__(self) -> dict[str, Any]:
-        """Load and transform YAML data to match model structure."""
-        d = super().__call__()
-
-        # Transform flat Waldur API config
-        if "waldur_api" not in d and "waldur_api_url" in d and "waldur_api_token" in d:
-            d["waldur_api"] = {
-                "api_url": d.get("waldur_api_url"),
-                "access_token": d.get("waldur_api_token"),
-                "verify_ssl": d.get("waldur_verify_ssl", True),
-                "socks_proxy": d.get("waldur_socks_proxy"),
-            }
-
-        return d
