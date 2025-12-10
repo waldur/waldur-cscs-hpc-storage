@@ -44,13 +44,28 @@ app.add_exception_handler(Exception, general_exception_handler)
 
 DISABLE_AUTH = config.auth.disable_auth if config.auth else False
 
-if not DISABLE_AUTH:
+# Check if auth should be enabled and if required config is available
+# Note: keycloak_client_secret is optional for public clients
+auth_config_complete = (
+    config.auth 
+    and config.auth.keycloak_client_id 
+    and config.auth.keycloak_url 
+    and config.auth.keycloak_realm
+)
+
+if not DISABLE_AUTH and auth_config_complete:
     setup_auth(app, config)
     user_dependency = get_user
 else:
-    logger.warning(
-        "Authentication is disabled! This should only be used in development."
-    )
+    if not DISABLE_AUTH and not auth_config_complete:
+        logger.warning(
+            "Authentication configuration incomplete (missing client_id, keycloak_url, or realm). "
+            "Running in development mode with disabled auth."
+        )
+    else:
+        logger.warning(
+            "Authentication is disabled! This should only be used in development."
+        )
     user_dependency = mock_user
 
 

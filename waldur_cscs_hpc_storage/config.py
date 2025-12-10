@@ -25,18 +25,11 @@ logger = logging.getLogger(__name__)
 class AuthConfig(BaseModel):
     """Authentication configuration."""
 
-    disable_auth: bool = Field(default=False, alias="DISABLE_AUTH")
-    keycloak_url: str = Field(
-        default="https://auth-tds.cscs.ch/auth/",
-        alias="CSCS_KEYCLOAK_URL",
-    )
-    keycloak_realm: str = Field(default="cscs", alias="CSCS_KEYCLOAK_REALM")
-    keycloak_client_id: Optional[str] = Field(
-        default=None, alias="CSCS_KEYCLOAK_CLIENT_ID"
-    )
-    keycloak_client_secret: Optional[str] = Field(
-        default=None, alias="CSCS_KEYCLOAK_CLIENT_SECRET"
-    )
+    disable_auth: bool = Field(default=False)
+    keycloak_url: str = Field(default="https://auth-tds.cscs.ch/auth/")
+    keycloak_realm: str = Field(default="cscs")
+    keycloak_client_id: Optional[str] = Field(default=None)
+    keycloak_client_secret: Optional[str] = Field(default=None)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -125,11 +118,17 @@ class StorageProxyConfig(BaseSettings):
     auth: Optional[AuthConfig] = Field(default_factory=AuthConfig)
     hpc_user_api: Optional[HpcUserApiConfig] = None
     sentry: Optional[SentryConfig] = None
+    
+    # Environment variable aliases for auth config
+    disable_auth: Optional[bool] = Field(default=None, alias="DISABLE_AUTH")
+    keycloak_url: Optional[str] = Field(default=None, alias="CSCS_KEYCLOAK_URL")
+    keycloak_realm: Optional[str] = Field(default=None, alias="CSCS_KEYCLOAK_REALM")
+    keycloak_client_id: Optional[str] = Field(default=None, alias="CSCS_KEYCLOAK_CLIENT_ID")
+    keycloak_client_secret: Optional[str] = Field(default=None, alias="CSCS_KEYCLOAK_CLIENT_SECRET")
 
     model_config = SettingsConfigDict(
-        # We handle env vars manually via aliases on fields or nested models,
-        # so we disable generic env prefixing to avoid pollution/confusion.
-        env_nested_delimiter=None,
+        # Enable nested env var parsing to allow aliases on nested models to work
+        env_nested_delimiter="__",
         case_sensitive=False,
         extra="ignore",
     )
@@ -140,6 +139,26 @@ class StorageProxyConfig(BaseSettings):
         if not v:
             raise ValueError("At least one storage_system mapping is required")
         return v
+    
+    @model_validator(mode="after")
+    def populate_auth_from_env_vars(self) -> "StorageProxyConfig":
+        """Populate auth config from top-level environment variables."""
+        if self.auth is None:
+            self.auth = AuthConfig()
+            
+        # Override auth config fields with environment variables if provided
+        if self.disable_auth is not None:
+            self.auth.disable_auth = self.disable_auth
+        if self.keycloak_url is not None:
+            self.auth.keycloak_url = self.keycloak_url
+        if self.keycloak_realm is not None:
+            self.auth.keycloak_realm = self.keycloak_realm
+        if self.keycloak_client_id is not None:
+            self.auth.keycloak_client_id = self.keycloak_client_id
+        if self.keycloak_client_secret is not None:
+            self.auth.keycloak_client_secret = self.keycloak_client_secret
+            
+        return self
 
     @classmethod
     def settings_customise_sources(
