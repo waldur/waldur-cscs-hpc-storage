@@ -11,7 +11,7 @@ from waldur_cscs_hpc_storage.models.enums import (
 from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.config import BackendConfig
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
-from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
+from waldur_cscs_hpc_storage.mapper import QuotaCalculator
 from waldur_api_client.types import Unset
 
 

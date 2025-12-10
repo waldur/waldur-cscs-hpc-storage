@@ -1,8 +1,13 @@
+from waldur_cscs_hpc_storage.mapper.hierarchy_builder import (
+    CustomerInfo,
+    HierarchyBuilder,
+)
 from waldur_cscs_hpc_storage.mapper.mount_points import (
     generate_customer_mount_point,
     generate_project_mount_point,
     generate_tenant_mount_point,
 )
+from waldur_cscs_hpc_storage.mapper.quota_calculator import QuotaCalculator
 from waldur_cscs_hpc_storage.mapper.resource_mapper import ResourceMapper
 from waldur_cscs_hpc_storage.mapper.state_mappers import (
     DATA_TYPE_TO_TARGET_MAPPING,
@@ -22,7 +27,10 @@ from waldur_cscs_hpc_storage.mapper.target_ids import (
 )
 
 __all__ = [
+    "CustomerInfo",
     "DATA_TYPE_TO_TARGET_MAPPING",
+    "HierarchyBuilder",
+    "QuotaCalculator",
     "ResourceMapper",
     "TARGET_STATUS_MAPPING",
     "generate_customer_mount_point",

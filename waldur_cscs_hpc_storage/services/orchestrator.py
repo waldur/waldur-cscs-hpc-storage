@@ -10,7 +10,7 @@ from waldur_cscs_hpc_storage.models import (
 )
 from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
-from waldur_cscs_hpc_storage.hierarchy_builder import HierarchyBuilder
+from waldur_cscs_hpc_storage.mapper import HierarchyBuilder
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_cscs_hpc_storage.utils import paginate_response

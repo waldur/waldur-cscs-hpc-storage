@@ -2,7 +2,7 @@
 
 import pytest
 
-from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo, HierarchyBuilder
+from waldur_cscs_hpc_storage.mapper import CustomerInfo, HierarchyBuilder
 from waldur_cscs_hpc_storage.models.enums import TargetStatus, TargetType
 from waldur_cscs_hpc_storage.models import StorageResource, MountPoint, Permission
 

@@ -12,18 +12,18 @@ from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
 )
 from waldur_cscs_hpc_storage.models import Quota
-from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
-from waldur_cscs_hpc_storage.base.mount_points import generate_customer_mount_point
-from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_point
+from waldur_cscs_hpc_storage.mapper.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.mapper.mount_points import generate_customer_mount_point
+from waldur_cscs_hpc_storage.mapper.mount_points import generate_tenant_mount_point
 from waldur_cscs_hpc_storage.config import (
     BackendConfig,
 )
 
-from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo, HierarchyBuilder
+from waldur_cscs_hpc_storage.mapper import CustomerInfo, HierarchyBuilder
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
-from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
+from waldur_cscs_hpc_storage.mapper import QuotaCalculator
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 
 

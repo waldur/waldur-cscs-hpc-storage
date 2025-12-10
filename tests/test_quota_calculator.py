@@ -16,7 +16,7 @@ from waldur_cscs_hpc_storage.models import (
     ResourceOptions,
 )
 from waldur_cscs_hpc_storage.config import BackendConfig
-from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
+from waldur_cscs_hpc_storage.mapper import QuotaCalculator
 
 
 @pytest.fixture

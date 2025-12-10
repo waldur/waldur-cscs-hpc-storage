@@ -28,7 +28,7 @@ os.environ["DISABLE_AUTH"] = "true"  # Also disable auth for these tests
 try:
     from waldur_cscs_hpc_storage.api.main import app
     from waldur_cscs_hpc_storage.api.dependencies import get_waldur_service, get_config
-    from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo
+    from waldur_cscs_hpc_storage.mapper import CustomerInfo
 except SystemExit:
     # If import fails due to configuration issues, skip all tests
     pytest.skip("Configuration not available for API tests", allow_module_level=True)

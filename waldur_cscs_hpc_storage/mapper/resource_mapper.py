@@ -45,7 +45,7 @@ from waldur_cscs_hpc_storage.exceptions import (
 )
 from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
-from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator
+from waldur_cscs_hpc_storage.mapper import QuotaCalculator
 
 
 logger = logging.getLogger(__name__)

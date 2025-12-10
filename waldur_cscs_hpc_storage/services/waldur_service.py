@@ -13,7 +13,7 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_cscs_hpc_storage.models import ParsedWaldurResource
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
 from waldur_cscs_hpc_storage.exceptions import WaldurClientError
-from waldur_cscs_hpc_storage.hierarchy_builder import CustomerInfo
+from waldur_cscs_hpc_storage.mapper import CustomerInfo
 
 logger = logging.getLogger(__name__)
 
