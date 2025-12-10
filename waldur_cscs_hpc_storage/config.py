@@ -25,17 +25,17 @@ logger = logging.getLogger(__name__)
 class AuthConfig(BaseModel):
     """Authentication configuration."""
 
-    disable_auth: bool = Field(default=False, validation_alias="DISABLE_AUTH")
+    disable_auth: bool = Field(default=False, alias="DISABLE_AUTH")
     keycloak_url: str = Field(
         default="https://auth-tds.cscs.ch/auth/",
-        validation_alias="CSCS_KEYCLOAK_URL",
+        alias="CSCS_KEYCLOAK_URL",
     )
-    keycloak_realm: str = Field(default="cscs", validation_alias="CSCS_KEYCLOAK_REALM")
+    keycloak_realm: str = Field(default="cscs", alias="CSCS_KEYCLOAK_REALM")
     keycloak_client_id: Optional[str] = Field(
-        default=None, validation_alias="CSCS_KEYCLOAK_CLIENT_ID"
+        default=None, alias="CSCS_KEYCLOAK_CLIENT_ID"
     )
     keycloak_client_secret: Optional[str] = Field(
-        default=None, validation_alias="CSCS_KEYCLOAK_CLIENT_SECRET"
+        default=None, alias="CSCS_KEYCLOAK_CLIENT_SECRET"
     )
 
     model_config = ConfigDict(populate_by_name=True)
@@ -44,22 +44,20 @@ class AuthConfig(BaseModel):
 class HpcUserApiConfig(BaseModel):
     """HPC User API configuration."""
 
-    api_url: Optional[str] = Field(None, validation_alias="HPC_USER_API_URL")
-    client_id: Optional[str] = Field(None, validation_alias="HPC_USER_CLIENT_ID")
-    client_secret: Optional[str] = Field(
-        None, validation_alias="HPC_USER_CLIENT_SECRET"
-    )
-    oidc_token_url: Optional[str] = Field(
-        None, validation_alias="HPC_USER_OIDC_TOKEN_URL"
-    )
-    oidc_scope: Optional[str] = Field(None, validation_alias="HPC_USER_OIDC_SCOPE")
+    api_url: Optional[str] = Field(None, alias="HPC_USER_API_URL")
+    client_id: Optional[str] = Field(None, alias="HPC_USER_CLIENT_ID")
+    client_secret: Optional[str] = Field(None, alias="HPC_USER_CLIENT_SECRET")
+    oidc_token_url: Optional[str] = Field(None, alias="HPC_USER_OIDC_TOKEN_URL")
+    oidc_scope: Optional[str] = Field(None, alias="HPC_USER_OIDC_SCOPE")
     socks_proxy: Optional[str] = Field(
         None,
         description='SOCKS proxy URL (e.g., "socks5://localhost:12345")',
-        validation_alias="HPC_USER_SOCKS_PROXY",
+        alias="HPC_USER_SOCKS_PROXY",
     )
     development_mode: bool = Field(
-        default=False, description="Enable mock fallback when API lookup fails"
+        default=False,
+        description="Enable mock fallback when API lookup fails",
+        alias="HPC_USER_DEVELOPMENT_MODE",
     )
 
     model_config = ConfigDict(populate_by_name=True)
@@ -68,10 +66,10 @@ class HpcUserApiConfig(BaseModel):
 class WaldurApiConfig(BaseModel):
     """Waldur API configuration."""
 
-    api_url: str = Field(..., validation_alias="WALDUR_API_URL")
-    access_token: str = Field(..., validation_alias="WALDUR_API_TOKEN")
-    verify_ssl: bool = Field(True, validation_alias="WALDUR_VERIFY_SSL")
-    socks_proxy: Optional[str] = Field(None, validation_alias="WALDUR_SOCKS_PROXY")
+    api_url: str = Field(..., alias="WALDUR_API_URL")
+    access_token: str = Field(..., alias="WALDUR_API_TOKEN")
+    verify_ssl: bool = Field(True, alias="WALDUR_VERIFY_SSL")
+    socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
@@ -104,11 +102,9 @@ class BackendConfig(BaseModel):
 class SentryConfig(BaseModel):
     """Sentry configuration."""
 
-    dsn: Optional[str] = Field(None, validation_alias="SENTRY_DSN")
-    environment: Optional[str] = Field(None, validation_alias="SENTRY_ENVIRONMENT")
-    traces_sample_rate: Optional[float] = Field(
-        None, validation_alias="SENTRY_TRACES_SAMPLE_RATE"
-    )
+    dsn: Optional[str] = Field(None, alias="SENTRY_DSN")
+    environment: Optional[str] = Field(None, alias="SENTRY_ENVIRONMENT")
+    traces_sample_rate: Optional[float] = Field(None, alias="SENTRY_TRACES_SAMPLE_RATE")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -122,7 +118,7 @@ class StorageProxyConfig(BaseSettings):
     3. Defaults
     """
 
-    debug: bool = Field(default=False, validation_alias="DEBUG")
+    debug: bool = Field(default=False, alias="DEBUG")
     waldur_api: WaldurApiConfig
     backend_settings: BackendConfig = Field(default_factory=BackendConfig)
     storage_systems: dict[str, str]
