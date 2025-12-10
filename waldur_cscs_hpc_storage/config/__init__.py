@@ -1,4 +1,4 @@
-from waldur_cscs_hpc_storage.base.enums import StorageSystem
+from waldur_cscs_hpc_storage.models.enums import StorageSystem
 from waldur_cscs_hpc_storage.config.auth import AuthConfig
 from waldur_cscs_hpc_storage.config.backend import BackendConfig
 from waldur_cscs_hpc_storage.config.hpc_user import HpcUserApiConfig

@@ -2,9 +2,9 @@ import logging
 from typing import Any, Dict, List, Optional
 
 
-from waldur_cscs_hpc_storage.base.enums import StorageDataType, TargetStatus
-from waldur_cscs_hpc_storage.base.models import StorageResource
-from waldur_cscs_hpc_storage.base.schemas import (
+from waldur_cscs_hpc_storage.models.enums import StorageDataType, TargetStatus
+from waldur_cscs_hpc_storage.models import StorageResource
+from waldur_cscs_hpc_storage.models import (
     ParsedWaldurResource,
     StorageResourceFilter,
 )

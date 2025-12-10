@@ -3,13 +3,13 @@ from typing import Optional, List, Tuple
 
 from waldur_api_client.models.request_types import RequestTypes
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
 )
-from waldur_cscs_hpc_storage.base.models import Quota
-from waldur_cscs_hpc_storage.base.schemas import (
+from waldur_cscs_hpc_storage.models import Quota
+from waldur_cscs_hpc_storage.models import (
     ParsedWaldurResource,
     ResourceLimits,
     ResourceOptions,

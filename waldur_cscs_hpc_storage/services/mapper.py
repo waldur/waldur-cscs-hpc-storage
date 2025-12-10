@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     TargetStatus,
     TargetType,
 )
@@ -10,7 +10,7 @@ from waldur_cscs_hpc_storage.base.mappers import (
     get_target_status_from_waldur_state,
     get_target_type_from_data_type,
 )
-from waldur_cscs_hpc_storage.base.models import (
+from waldur_cscs_hpc_storage.models import (
     CustomerTargetItem,
     MountPoint,
     Permission,
@@ -26,7 +26,7 @@ from waldur_cscs_hpc_storage.base.models import (
 from waldur_cscs_hpc_storage.base.mount_points import (
     generate_project_mount_point,
 )
-from waldur_cscs_hpc_storage.base.schemas import (
+from waldur_cscs_hpc_storage.models import (
     ParsedWaldurResource,
 )
 from waldur_cscs_hpc_storage.base.target_ids import (
@@ -119,7 +119,6 @@ class ResourceMapper:
 
         target = Target(targetType=target_type, targetItem=target_item)
 
-        # 3. Calculate Quotas
         # 3. Calculate Quotas
         quotas = self.quota_calculator.calculate_quotas(waldur_resource)
 

@@ -2,13 +2,13 @@ from unittest.mock import Mock, AsyncMock
 from uuid import uuid4
 
 import pytest
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
     TargetType,
 )
-from waldur_cscs_hpc_storage.base.models import Quota
+from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.config import BackendConfig
 from waldur_cscs_hpc_storage.services.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.quota_calculator import QuotaCalculator

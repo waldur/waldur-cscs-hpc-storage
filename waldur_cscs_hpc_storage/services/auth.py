@@ -1,5 +1,5 @@
 from fastapi.logger import logger
-from pydantic import BaseModel
+
 
 from fastapi_keycloak_middleware import (
     KeycloakConfiguration,
@@ -9,10 +9,7 @@ from fastapi_keycloak_middleware import (
 from waldur_cscs_hpc_storage.config.auth import AuthConfig
 
 
-class User(BaseModel):
-    """Model for OIDC user."""
-
-    preferred_username: str
+from waldur_cscs_hpc_storage.models import User
 
 
 async def user_mapper(userinfo: dict) -> User:

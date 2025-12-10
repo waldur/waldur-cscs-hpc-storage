@@ -13,7 +13,7 @@ from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.base.enums import StorageSystem
+from waldur_cscs_hpc_storage.models.enums import StorageSystem
 from pathlib import Path
 
 # Set up environment before importing the app

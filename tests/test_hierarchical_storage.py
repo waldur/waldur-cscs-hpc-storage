@@ -6,12 +6,12 @@ from uuid import uuid4
 
 import pytest
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     QuotaType,
     QuotaUnit,
     EnforcementType,
 )
-from waldur_cscs_hpc_storage.base.models import Quota
+from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
 from waldur_cscs_hpc_storage.base.mount_points import generate_customer_mount_point
 from waldur_cscs_hpc_storage.base.mount_points import generate_tenant_mount_point

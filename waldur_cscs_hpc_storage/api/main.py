@@ -24,7 +24,7 @@ from waldur_cscs_hpc_storage.exceptions import (
     StorageProxyError,
     UpstreamServiceError,
 )
-from waldur_cscs_hpc_storage.base.schemas import StorageResourceFilter
+from waldur_cscs_hpc_storage.models import StorageResourceFilter
 from waldur_cscs_hpc_storage.services.auth import mock_user, setup_auth
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
 

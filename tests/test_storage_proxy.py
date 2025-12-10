@@ -26,7 +26,7 @@ os.environ["INODE_SOFT_COEFFICIENT"] = "1.0"
 os.environ["INODE_HARD_COEFFICIENT"] = "1.0"
 os.environ["USE_MOCK_TARGET_ITEMS"] = "true"
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     StorageDataType,
     StorageSystem,
     TargetStatus,

@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 from pydantic import BaseModel, ConfigDict
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,

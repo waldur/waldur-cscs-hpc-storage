@@ -9,7 +9,7 @@ from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.types import Unset
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
@@ -17,9 +17,9 @@ from waldur_cscs_hpc_storage.base.enums import (
     TargetStatus,
     TargetType,
 )
-from waldur_cscs_hpc_storage.base.models import Quota
+from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.base.mount_points import generate_project_mount_point
-from waldur_cscs_hpc_storage.base.schemas import (
+from waldur_cscs_hpc_storage.models import (
     ParsedWaldurResource,
     StorageResourceFilter,
     ResourceAttributes,

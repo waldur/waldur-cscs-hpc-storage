@@ -11,7 +11,7 @@ from waldur_cscs_hpc_storage.config import (
     WaldurApiConfig,
     AuthConfig,
 )
-from waldur_cscs_hpc_storage.base.enums import StorageSystem
+from waldur_cscs_hpc_storage.models.enums import StorageSystem
 
 
 class TestBackendConfigValidation:

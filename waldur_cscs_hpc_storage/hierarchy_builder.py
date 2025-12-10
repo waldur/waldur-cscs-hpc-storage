@@ -4,8 +4,8 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from waldur_cscs_hpc_storage.base.enums import TargetStatus, TargetType
-from waldur_cscs_hpc_storage.base.models import (
+from waldur_cscs_hpc_storage.models.enums import TargetStatus, TargetType
+from waldur_cscs_hpc_storage.models import (
     CustomerTargetItem,
     MountPoint,
     Permission,

@@ -1,6 +1,6 @@
 """Base package containing core modules for waldur_cscs_hpc_storage."""
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
@@ -17,7 +17,7 @@ from waldur_cscs_hpc_storage.base.mappers import (
     get_target_status_from_waldur_state,
     get_target_type_from_data_type,
 )
-from waldur_cscs_hpc_storage.base.models import (
+from waldur_cscs_hpc_storage.models import (
     CustomerTargetItem,
     MountPoint,
     Permission,
@@ -36,7 +36,7 @@ from waldur_cscs_hpc_storage.base.mount_points import (
     generate_project_mount_point,
     generate_tenant_mount_point,
 )
-from waldur_cscs_hpc_storage.base.schemas import (
+from waldur_cscs_hpc_storage.models import (
     LooseInt,
     ParsedWaldurResource,
     ResourceAttributes,

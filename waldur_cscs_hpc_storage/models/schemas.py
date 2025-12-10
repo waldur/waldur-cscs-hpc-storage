@@ -8,12 +8,12 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.types import Unset
 
 # Re-importing Enums from your existing structure to ensure compatibility
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     StorageDataType,
     StorageSystem,
     TargetStatus,
 )
-from waldur_cscs_hpc_storage.base.models import (
+from waldur_cscs_hpc_storage.models.domain import (
     TenantTargetItem,
     CustomerTargetItem,
     ProjectTargetItem,

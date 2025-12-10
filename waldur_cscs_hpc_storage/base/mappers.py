@@ -3,7 +3,7 @@
 import logging
 from waldur_api_client.models.resource_state import ResourceState
 
-from waldur_cscs_hpc_storage.base.enums import (
+from waldur_cscs_hpc_storage.models.enums import (
     StorageDataType,
     TargetStatus,
     TargetType,
