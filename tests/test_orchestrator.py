@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
+from tests.conftest import make_test_uuid
 from pydantic import ValidationError
 from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource_state import ResourceState
@@ -248,10 +249,10 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.callback_urls = {}
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id="parent-uuid"
+            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
         )
 
-        assert storage_json.itemId == mock_resource.uuid
+        assert str(storage_json.itemId) == mock_resource.uuid
         assert storage_json.status == "pending"
         assert (
             storage_json.mountPoint.default
@@ -325,10 +326,10 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id="parent-uuid"
+            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
         )
 
-        assert storage_json.itemId == mock_resource.uuid
+        assert str(storage_json.itemId) == mock_resource.uuid
         assert (
             storage_json.approve_by_provider_url
             == f"https://waldur.example.com/api/marketplace-orders/{order_uuid}/approve_by_provider/"
@@ -385,10 +386,10 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.callback_urls = {}
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id="parent-uuid"
+            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
         )
 
-        assert storage_json.itemId == mock_resource.uuid
+        assert str(storage_json.itemId) == mock_resource.uuid
         assert not hasattr(storage_json, "approve_by_provider_url")
         assert not hasattr(storage_json, "reject_by_provider_url")
 
@@ -443,10 +444,10 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.callback_urls = {}
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id="parent-uuid"
+            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
         )
 
-        assert storage_json.itemId == mock_resource.uuid
+        assert str(storage_json.itemId) == mock_resource.uuid
         assert not hasattr(storage_json, "approve_by_provider_url")
         assert not hasattr(storage_json, "reject_by_provider_url")
 
@@ -488,7 +489,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
         # Create a mock resource
         mock_resource = Mock()
-        mock_resource.uuid = "test-uuid"
+        mock_resource.uuid = str(make_test_uuid("test-uuid"))
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
@@ -532,7 +533,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
             mock_resource.state = waldur_state
 
             result = await backend.mapper.map_resource(
-                mock_resource, "test-storage", parent_item_id="parent"
+                mock_resource, "test-storage", parent_item_id=str(make_test_uuid("parent"))
             )
 
             assert result.status == expected_status, (
@@ -546,7 +547,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
         # Create a mock resource
         mock_resource = Mock()
-        mock_resource.uuid = "test-uuid"
+        mock_resource.uuid = str(make_test_uuid("test-uuid"))
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
@@ -590,7 +591,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
             mock_resource.effective_permissions = "775"
 
             result = await backend.mapper.map_resource(
-                mock_resource, "test-storage", parent_item_id="parent"
+                mock_resource, "test-storage", parent_item_id=str(make_test_uuid("parent"))
             )
 
             actual_target_type = result.target.targetType
@@ -620,7 +621,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid = "test-uuid"
+        mock_resource.uuid = str(make_test_uuid("test-uuid"))
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
@@ -692,7 +693,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # Create a mock resource
         mock_resource = Mock()
         mock_resource.uuid = Mock()
-        mock_resource.uuid = "test-uuid"
+        mock_resource.uuid = str(make_test_uuid("test-uuid"))
         mock_resource.slug = "test-resource"
         mock_resource.customer_slug = "university"
         mock_resource.project_slug = "physics"
@@ -731,15 +732,15 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         uuid_pattern = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 
         storage_system = result.storageSystem
-        assert re.match(uuid_pattern, storage_system.itemId)
+        assert re.match(uuid_pattern, str(storage_system.itemId))
         assert storage_system.key == "test-storage-system"
 
         storage_file_system = result.storageFileSystem
-        assert re.match(uuid_pattern, storage_file_system.itemId)
+        assert re.match(uuid_pattern, str(storage_file_system.itemId))
         assert storage_file_system.key == "lustre"
 
         storage_data_type = result.storageDataType
-        assert re.match(uuid_pattern, storage_data_type.itemId)
+        assert re.match(uuid_pattern, str(storage_data_type.itemId))
         assert storage_data_type.key == "store"
 
         result2 = await backend.mapper.map_resource(
@@ -752,7 +753,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
         # Test target item UUIDs are also deterministic UUIDs
         target_item = result.target.targetItem
-        assert re.match(uuid_pattern, target_item.itemId)
+        assert re.match(uuid_pattern, str(target_item.itemId))
 
         # Verify determinism for target items too
         target_item2 = result2.target.targetItem

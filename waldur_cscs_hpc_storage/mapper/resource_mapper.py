@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+from uuid import uuid5, NAMESPACE_OID
 
 
 from waldur_cscs_hpc_storage.models.enums import (
@@ -217,7 +218,7 @@ class ResourceMapper:
             )
 
         logger.warning("Unsupported target type: %s", target_type)
-        return TargetItem(itemId="unknown")
+        return TargetItem(itemId=uuid5(NAMESPACE_OID, "unknown"))
 
     async def _build_project_target(
         self, waldur_resource: ParsedWaldurResource

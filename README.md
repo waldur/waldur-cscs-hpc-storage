@@ -322,32 +322,88 @@ The JSON payload will look like this:
 
 ```json
 {
-  "itemId": "uuid-1234",
+  "itemId": "a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
   "status": "pending",
-  "quotas": [
-      { "type": "space", "quota": 10.0, "unit": "tera", "enforcementType": "hard" },
-      { "type": "inodes", "quota": 10000000, "unit": "none", "enforcementType": "hard" }
-  ],
+  "parentItemId": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d",
+  "mountPoint": {
+    "default": "/capstor/store/cscs/customer-slug/project-slug"
+  },
+  "permission": {
+    "value": "2770",
+    "permissionType": "octal"
+  },
+  "storageSystem": {
+    "itemId": "4b4a996a-8d6b-556d-ad60-202cefa6ecc3",
+    "key": "capstor",
+    "name": "CAPSTOR",
+    "active": true
+  },
+  "storageFileSystem": {
+    "itemId": "a04204cf-e3bf-5eb6-8323-0f3121afdd3b",
+    "key": "lustre",
+    "name": "LUSTRE",
+    "active": true
+  },
+  "storageDataType": {
+    "itemId": "6cea66c5-3133-54e1-9e5d-469deb675ceb",
+    "key": "store",
+    "name": "STORE",
+    "active": true,
+    "path": "store"
+  },
   "target": {
     "targetType": "project",
     "targetItem": {
-        "unixGid": 30500,
-        "name": "project-slug"
+      "itemId": "4fab79ed-2eef-5acc-a504-1170e6518736",
+      "key": "project-slug",
+      "name": "Project Name",
+      "unixGid": 30500,
+      "status": "active",
+      "active": true
     }
   },
-  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/approve_by_provider/",
-  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/reject_by_provider/",
-  "set_state_done_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_state_done/",
-  "set_backend_id_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_backend_id/"
+  "quotas": [
+    {
+      "type": "space",
+      "quota": 10.0,
+      "unit": "tera",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "space",
+      "quota": 10.0,
+      "unit": "tera",
+      "enforcementType": "soft"
+    },
+    {
+      "type": "inodes",
+      "quota": 10000000.0,
+      "unit": "none",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "inodes",
+      "quota": 7500000.0,
+      "unit": "none",
+      "enforcementType": "soft"
+    }
+  ],
+  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/approve_by_provider/",
+  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/reject_by_provider/",
+  "set_state_done_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_state_done/",
+  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/"
 }
 ```
 
 **Action**:
 
-1. Create the filesystem directory/fileset.
-2. Set the Quotas (Space & Inodes from `quotas`).
+1. Create the filesystem directory/fileset at the path specified in `mountPoint.default`.
+2. Set the Quotas (Space & Inodes from `quotas` - both soft and hard limits).
 3. Set the Ownership (GID from `target.targetItem.unixGid`).
-4. **POST** to `approve_by_provider_url` (empty body) to signal completion.
+4. Set the Permissions (from `permission.value`).
+5. **POST** to `approve_by_provider_url` (empty body) to acknowledge the request.
+6. **POST** to `set_state_done_url` (empty body) to signal completion.
+7. **POST** to `set_backend_id_url` with the backend identifier.
 
 Once approved, the resource state in Waldur becomes `OK`, and the proxy status becomes `active`.
 
@@ -360,25 +416,136 @@ The proxy provides both `oldQuotas` (current state) and `newQuotas` (desired sta
 
 ```json
 {
-  "itemId": "uuid-1234",
+  "itemId": "a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
   "status": "updating",
-  "quotas": [ ... ],
+  "parentItemId": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d",
+  "mountPoint": {
+    "default": "/capstor/store/cscs/customer-slug/project-slug"
+  },
+  "permission": {
+    "value": "2770",
+    "permissionType": "octal"
+  },
+  "storageSystem": {
+    "itemId": "4b4a996a-8d6b-556d-ad60-202cefa6ecc3",
+    "key": "capstor",
+    "name": "CAPSTOR",
+    "active": true
+  },
+  "storageFileSystem": {
+    "itemId": "a04204cf-e3bf-5eb6-8323-0f3121afdd3b",
+    "key": "lustre",
+    "name": "LUSTRE",
+    "active": true
+  },
+  "storageDataType": {
+    "itemId": "6cea66c5-3133-54e1-9e5d-469deb675ceb",
+    "key": "store",
+    "name": "STORE",
+    "active": true,
+    "path": "store"
+  },
+  "target": {
+    "targetType": "project",
+    "targetItem": {
+      "itemId": "4fab79ed-2eef-5acc-a504-1170e6518736",
+      "key": "project-slug",
+      "name": "Project Name",
+      "unixGid": 30500,
+      "status": "active",
+      "active": true
+    }
+  },
+  "quotas": [
+    {
+      "type": "space",
+      "quota": 20.0,
+      "unit": "tera",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "space",
+      "quota": 18.0,
+      "unit": "tera",
+      "enforcementType": "soft"
+    },
+    {
+      "type": "inodes",
+      "quota": 40000000.0,
+      "unit": "none",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "inodes",
+      "quota": 26600000.0,
+      "unit": "none",
+      "enforcementType": "soft"
+    }
+  ],
   "oldQuotas": [
-      { "type": "space", "quota": 10.0, "unit": "tera", "enforcementType": "hard" }
+    {
+      "type": "space",
+      "quota": 10.0,
+      "unit": "tera",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "space",
+      "quota": 9.0,
+      "unit": "tera",
+      "enforcementType": "soft"
+    },
+    {
+      "type": "inodes",
+      "quota": 20000000.0,
+      "unit": "none",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "inodes",
+      "quota": 13300000.0,
+      "unit": "none",
+      "enforcementType": "soft"
+    }
   ],
   "newQuotas": [
-      { "type": "space", "quota": 20.0, "unit": "tera", "enforcementType": "hard" }
+    {
+      "type": "space",
+      "quota": 20.0,
+      "unit": "tera",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "space",
+      "quota": 18.0,
+      "unit": "tera",
+      "enforcementType": "soft"
+    },
+    {
+      "type": "inodes",
+      "quota": 40000000.0,
+      "unit": "none",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "inodes",
+      "quota": 26600000.0,
+      "unit": "none",
+      "enforcementType": "soft"
+    }
   ],
-  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/approve_by_provider/",
-  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/reject_by_provider/",
-  "set_state_done_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_state_done/",
+  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/b8c0d1e2-f3a4-5b6c-7d8e-9f0a1b2c3d4e/approve_by_provider/",
+  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/b8c0d1e2-f3a4-5b6c-7d8e-9f0a1b2c3d4e/reject_by_provider/",
+  "set_state_done_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_state_done/",
+  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/"
 }
 ```
 
 **Action**:
 
-1. Apply the new quotas from `newQuotas`.
-2. **POST** to `set_state_done_url` to confirm the update.
+1. Apply the new quotas from `newQuotas` to the directory at `mountPoint.default`.
+2. **POST** to `approve_by_provider_url` (empty body) to acknowledge the request.
+3. **POST** to `set_state_done_url` (empty body) to confirm the update.
 
 ### 8.5. The Terminate Flow
 
@@ -387,19 +554,85 @@ The proxy provides both `oldQuotas` (current state) and `newQuotas` (desired sta
 
 ```json
 {
-  "itemId": "uuid-1234",
+  "itemId": "a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
   "status": "removing",
-  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/approve_by_provider/",
-  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/uuid/reject_by_provider/",
-  "set_state_done_url": "https://waldur.example.com/api/marketplace-orders/uuid/set_state_done/",
+  "parentItemId": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d",
+  "mountPoint": {
+    "default": "/capstor/store/cscs/customer-slug/project-slug"
+  },
+  "permission": {
+    "value": "2770",
+    "permissionType": "octal"
+  },
+  "storageSystem": {
+    "itemId": "4b4a996a-8d6b-556d-ad60-202cefa6ecc3",
+    "key": "capstor",
+    "name": "CAPSTOR",
+    "active": true
+  },
+  "storageFileSystem": {
+    "itemId": "a04204cf-e3bf-5eb6-8323-0f3121afdd3b",
+    "key": "lustre",
+    "name": "LUSTRE",
+    "active": true
+  },
+  "storageDataType": {
+    "itemId": "6cea66c5-3133-54e1-9e5d-469deb675ceb",
+    "key": "store",
+    "name": "STORE",
+    "active": true,
+    "path": "store"
+  },
+  "target": {
+    "targetType": "project",
+    "targetItem": {
+      "itemId": "4fab79ed-2eef-5acc-a504-1170e6518736",
+      "key": "project-slug",
+      "name": "Project Name",
+      "unixGid": 30500,
+      "status": "active",
+      "active": true
+    }
+  },
+  "quotas": [
+    {
+      "type": "space",
+      "quota": 20.0,
+      "unit": "tera",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "space",
+      "quota": 18.0,
+      "unit": "tera",
+      "enforcementType": "soft"
+    },
+    {
+      "type": "inodes",
+      "quota": 40000000.0,
+      "unit": "none",
+      "enforcementType": "hard"
+    },
+    {
+      "type": "inodes",
+      "quota": 26600000.0,
+      "unit": "none",
+      "enforcementType": "soft"
+    }
+  ],
+  "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/order-uuid/approve_by_provider/",
+  "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/order-uuid/reject_by_provider/",
+  "set_state_done_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_state_done/",
+  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/"
 }
 ```
 
 **Action**:
 
-1. Archive or delete the data on the filesystem.
-2. Remove any configuration.
-3. **POST** to `set_state_done_url`.
+1. Archive or delete the data at the directory specified in `mountPoint.default`.
+2. Remove any quota configuration for the filesystem.
+3. **POST** to `approve_by_provider_url` (empty body) to acknowledge the request.
+4. **POST** to `set_state_done_url` (empty body) to confirm the deletion.
 
 ### 8.6. Detailed Waldur Workflow
 

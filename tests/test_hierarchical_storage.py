@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
+from tests.conftest import make_test_uuid
 
 from waldur_cscs_hpc_storage.models.enums import (
     QuotaType,
@@ -252,12 +253,13 @@ class TestCustomerLevelGeneration:
         storage_data_type = "store"
 
         # First create tenant
+        tenant_uuid = str(make_test_uuid("tenant-uuid"))
         parent_tenant_id = hierarchy_builder.get_or_create_tenant(
             tenant_id=tenant_id,
             tenant_name="CSCS",
             storage_system=storage_system,
             storage_data_type=storage_data_type,
-            offering_uuid="tenant-uuid",
+            offering_uuid=tenant_uuid,
         )
 
         customer_info = CustomerInfo(
@@ -289,7 +291,7 @@ class TestCustomerLevelGeneration:
         assert result.mountPoint.default == expected_path
 
         # Verify parent reference
-        assert result.parentItemId == parent_tenant_id
+        assert str(result.parentItemId) == parent_tenant_id
 
         # Verify permissions
         assert result.permission.value == "775"
@@ -382,12 +384,12 @@ class TestThreeTierHierarchyGeneration:
         # Mock customer data
         backend.waldur_service.get_offering_customers.return_value = {
             "mch": CustomerInfo(
-                itemId="customer-mch-id",
+                itemId=str(make_test_uuid("customer-mch-id")),
                 key="mch",
                 name="MCH",
             ),
             "eth": CustomerInfo(
-                itemId="customer-eth-id",
+                itemId=str(make_test_uuid("customer-eth-id")),
                 key="eth",
                 name="ETH",
             ),
@@ -559,7 +561,7 @@ class TestHierarchyFiltering:
 
         builder_store.get_or_create_customer(
             customer_info=CustomerInfo(
-                itemId="cust1",
+                itemId=str(make_test_uuid("cust1")),
                 key="mch",
                 name="MCH",
             ),
@@ -578,7 +580,7 @@ class TestHierarchyFiltering:
 
         builder_scratch.get_or_create_customer(
             customer_info=CustomerInfo(
-                itemId="cust2",
+                itemId=str(make_test_uuid("cust2")),
                 key="eth",
                 name="ETH",
             ),
@@ -679,7 +681,7 @@ class TestEdgeCases:
         for _ in range(3):
             hierarchy_builder.get_or_create_customer(
                 customer_info=CustomerInfo(
-                    itemId="cust1",
+                    itemId=str(make_test_uuid("cust1")),
                     key="mch",
                     name="MCH",
                 ),
@@ -701,7 +703,7 @@ class TestIntegrationScenarios:
         """Test hierarchy with multiple storage systems."""
         backend.waldur_service.get_offering_customers.return_value = {
             "customer1": CustomerInfo(
-                itemId="c1",
+                itemId=str(make_test_uuid("c1")),
                 key="customer1",
                 name="Customer 1",
             ),

@@ -1,6 +1,22 @@
 import pytest
 import os
-from unittest import mock
+from uuid import UUID, uuid5, NAMESPACE_DNS
+
+
+def make_test_uuid(name: str) -> UUID:
+    """Generate a deterministic UUID from a string for testing.
+
+    Args:
+        name: A readable string identifier
+
+    Returns:
+        A deterministic UUID generated from the string
+
+    Example:
+        >>> make_test_uuid("customer-123")
+        UUID('...')
+    """
+    return uuid5(NAMESPACE_DNS, f"test:{name}")
 
 
 @pytest.fixture(autouse=True)

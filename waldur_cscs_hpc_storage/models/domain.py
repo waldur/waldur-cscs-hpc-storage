@@ -1,4 +1,5 @@
 from typing import Optional, Union
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -29,7 +30,7 @@ class Quota(BaseModel):
 class StorageItem(BaseModel):
     """Represents a storage-related item (system, filesystem, or data type)."""
 
-    itemId: str
+    itemId: UUID
     key: str
     name: str
     active: bool = True
@@ -39,7 +40,7 @@ class StorageItem(BaseModel):
 class TargetItem(BaseModel):
     """Base class for target items."""
 
-    itemId: str
+    itemId: UUID
     key: Optional[str] = None
     name: Optional[str] = None
 
@@ -105,7 +106,7 @@ class StorageResource(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    itemId: str
+    itemId: UUID
     status: TargetStatus
     mountPoint: MountPoint
     permission: Permission
@@ -117,4 +118,4 @@ class StorageResource(BaseModel):
     # New fields for Update orders
     oldQuotas: Optional[list[Quota]] = None
     newQuotas: Optional[list[Quota]] = None
-    parentItemId: Optional[str] = None
+    parentItemId: Optional[UUID] = None

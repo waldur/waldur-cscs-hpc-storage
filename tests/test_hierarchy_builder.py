@@ -2,6 +2,7 @@
 
 import pytest
 
+from tests.conftest import make_test_uuid
 from waldur_cscs_hpc_storage.mapper import CustomerInfo, HierarchyBuilder
 from waldur_cscs_hpc_storage.models.enums import TargetStatus, TargetType
 from waldur_cscs_hpc_storage.models import StorageResource, MountPoint, Permission
@@ -17,22 +18,23 @@ class TestHierarchyBuilder:
 
     def test_get_or_create_tenant_new(self, builder):
         """Test creating a new tenant entry."""
+        offering_uuid = str(make_test_uuid("offering-uuid-123"))
         tenant_id = builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="offering-uuid-123",
+            offering_uuid=offering_uuid,
         )
 
-        assert tenant_id == "offering-uuid-123"
+        assert tenant_id == offering_uuid
 
         # Verify the tenant resource was created
         resources = builder.get_hierarchy_resources()
         assert len(resources) == 1
 
         tenant_resource = resources[0]
-        assert tenant_resource.itemId == "offering-uuid-123"
+        assert str(tenant_resource.itemId) == offering_uuid
         assert tenant_resource.target.targetType == TargetType.TENANT
         assert tenant_resource.target.targetItem.key == "cscs"
         assert tenant_resource.target.targetItem.name == "CSCS"
@@ -43,20 +45,22 @@ class TestHierarchyBuilder:
 
     def test_get_or_create_tenant_existing(self, builder):
         """Test that second call to get_or_create_tenant returns the same ID."""
+        offering_uuid_1 = str(make_test_uuid("offering-uuid-123"))
         tenant_id_1 = builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="offering-uuid-123",
+            offering_uuid=offering_uuid_1,
         )
 
+        offering_uuid_2 = str(make_test_uuid("different-uuid"))
         tenant_id_2 = builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS Different Name",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="different-uuid",
+            offering_uuid=offering_uuid_2,
         )
 
         assert tenant_id_1 == tenant_id_2
@@ -65,39 +69,43 @@ class TestHierarchyBuilder:
 
     def test_get_or_create_tenant_different_data_types(self, builder):
         """Test that different data types create different tenant entries."""
+        uuid_store = str(make_test_uuid("uuid-store"))
         tenant_id_store = builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="uuid-store",
+            offering_uuid=uuid_store,
         )
 
+        uuid_scratch = str(make_test_uuid("uuid-scratch"))
         tenant_id_scratch = builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="scratch",
-            offering_uuid="uuid-scratch",
+            offering_uuid=uuid_scratch,
         )
 
-        assert tenant_id_store == "uuid-store"
-        assert tenant_id_scratch == "uuid-scratch"
+        assert tenant_id_store == uuid_store
+        assert tenant_id_scratch == uuid_scratch
         assert len(builder.get_hierarchy_resources()) == 2
 
     def test_get_or_create_customer_new(self, builder):
         """Test creating a new customer entry."""
         # First create a tenant (required for parent reference)
+        tenant_uuid = str(make_test_uuid("tenant-uuid"))
         builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=tenant_uuid,
         )
 
+        customer_uuid = make_test_uuid("customer-uuid-123")
         customer_info = CustomerInfo(
-            itemId="customer-uuid-123",
+            itemId=str(customer_uuid),
             key="ethz",
             name="ETH Zurich",
         )
@@ -109,30 +117,32 @@ class TestHierarchyBuilder:
             tenant_id="cscs",
         )
 
-        assert customer_id == "customer-uuid-123"
+        assert customer_id == str(customer_uuid)
 
         resources = builder.get_hierarchy_resources()
         assert len(resources) == 2
 
         customer_resource = resources[1]
-        assert customer_resource.itemId == "customer-uuid-123"
+        assert str(customer_resource.itemId) == str(customer_uuid)
         assert customer_resource.target.targetType == TargetType.CUSTOMER
         assert customer_resource.target.targetItem.key == "ethz"
         assert customer_resource.target.targetItem.name == "ETH Zurich"
-        assert customer_resource.parentItemId == "tenant-uuid"
+        assert str(customer_resource.parentItemId) == tenant_uuid
 
     def test_get_or_create_customer_existing(self, builder):
         """Test that second call to get_or_create_customer returns the same ID."""
+        tenant_uuid = str(make_test_uuid("tenant-uuid"))
         builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=tenant_uuid,
         )
 
+        customer_uuid = make_test_uuid("customer-uuid-123")
         customer_info = CustomerInfo(
-            itemId="customer-uuid-123",
+            itemId=str(customer_uuid),
             key="ethz",
             name="ETH Zurich",
         )
@@ -144,9 +154,10 @@ class TestHierarchyBuilder:
             tenant_id="cscs",
         )
 
+        different_uuid = make_test_uuid("different-uuid")
         customer_id_2 = builder.get_or_create_customer(
             customer_info=CustomerInfo(
-                itemId="different-uuid",
+                itemId=str(different_uuid),
                 key="ethz",
                 name="Different",
             ),
@@ -161,16 +172,18 @@ class TestHierarchyBuilder:
 
     def test_get_or_create_customer_without_key(self, builder):
         """Test that customer info without 'key' returns None."""
+        tenant_uuid = str(make_test_uuid("tenant-uuid"))
         builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=tenant_uuid,
         )
 
+        customer_uuid = make_test_uuid("customer-uuid")
         customer_info = CustomerInfo(
-            itemId="customer-uuid", name="No Key Customer", key=""
+            itemId=str(customer_uuid), name="No Key Customer", key=""
         )
 
         customer_id = builder.get_or_create_customer(
@@ -186,16 +199,18 @@ class TestHierarchyBuilder:
 
     def test_get_customer_uuid(self, builder):
         """Test retrieving customer ID."""
+        tenant_uuid = str(make_test_uuid("tenant-uuid"))
         builder.get_or_create_tenant(
             tenant_id="cscs",
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=tenant_uuid,
         )
 
+        customer_uuid = make_test_uuid("customer-uuid-123")
         customer_info = CustomerInfo(
-            itemId="customer-uuid-123",
+            itemId=str(customer_uuid),
             key="ethz",
             name="ETH Zurich",
         )
@@ -213,7 +228,7 @@ class TestHierarchyBuilder:
             storage_system="capstor",
             storage_data_type="store",
         )
-        assert customer_id == "customer-uuid-123"
+        assert customer_id == str(customer_uuid)
 
         # Test retrieving non-existent customer
         non_existent = builder.get_customer_uuid(
@@ -230,11 +245,11 @@ class TestHierarchyBuilder:
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=str(make_test_uuid("tenant-uuid")),
         )
 
         customer_info = CustomerInfo(
-            itemId="customer-uuid-123",
+            itemId=str(make_test_uuid("customer-uuid-123")),
             key="ethz",
             name="ETH Zurich",
         )
@@ -254,18 +269,24 @@ class TestHierarchyBuilder:
         )
 
         project_resource = StorageResource(
-            itemId="project-resource-123",
+            itemId=str(make_test_uuid("project-resource-123")),
             status=TargetStatus.ACTIVE,
             mountPoint=MountPoint(default="/test/path"),
             permission=Permission(value="775"),
             quotas=None,
             target=Target(
                 targetType=TargetType.PROJECT,
-                targetItem=ProjectTargetItem(itemId="project-123"),
+                targetItem=ProjectTargetItem(itemId=str(make_test_uuid("project-123"))),
             ),
-            storageSystem=StorageItem(itemId="ss-1", key="capstor", name="CAPSTOR"),
-            storageFileSystem=StorageItem(itemId="fs-1", key="gpfs", name="GPFS"),
-            storageDataType=StorageItem(itemId="dt-1", key="store", name="STORE"),
+            storageSystem=StorageItem(
+                itemId=str(make_test_uuid("ss-1")), key="capstor", name="CAPSTOR"
+            ),
+            storageFileSystem=StorageItem(
+                itemId=str(make_test_uuid("fs-1")), key="gpfs", name="GPFS"
+            ),
+            storageDataType=StorageItem(
+                itemId=str(make_test_uuid("dt-1")), key="store", name="STORE"
+            ),
             parentItemId=None,
         )
 
@@ -276,7 +297,7 @@ class TestHierarchyBuilder:
             storage_data_type="store",
         )
 
-        assert project_resource.parentItemId == "customer-uuid-123"
+        assert project_resource.parentItemId == str(make_test_uuid("customer-uuid-123"))
 
     def test_assign_parent_to_project_no_matching_customer(self, builder):
         """Test that parentItemId remains None when customer doesn't exist."""
@@ -287,18 +308,24 @@ class TestHierarchyBuilder:
         )
 
         project_resource = StorageResource(
-            itemId="project-resource-123",
+            itemId=str(make_test_uuid("project-resource-123")),
             status=TargetStatus.ACTIVE,
             mountPoint=MountPoint(default="/test/path"),
             permission=Permission(value="775"),
             quotas=None,
             target=Target(
                 targetType=TargetType.PROJECT,
-                targetItem=ProjectTargetItem(itemId="project-123"),
+                targetItem=ProjectTargetItem(itemId=str(make_test_uuid("project-123"))),
             ),
-            storageSystem=StorageItem(itemId="ss-1", key="capstor", name="CAPSTOR"),
-            storageFileSystem=StorageItem(itemId="fs-1", key="gpfs", name="GPFS"),
-            storageDataType=StorageItem(itemId="dt-1", key="store", name="STORE"),
+            storageSystem=StorageItem(
+                itemId=str(make_test_uuid("ss-1")), key="capstor", name="CAPSTOR"
+            ),
+            storageFileSystem=StorageItem(
+                itemId=str(make_test_uuid("fs-1")), key="gpfs", name="GPFS"
+            ),
+            storageDataType=StorageItem(
+                itemId=str(make_test_uuid("dt-1")), key="store", name="STORE"
+            ),
             parentItemId=None,
         )
 
@@ -318,7 +345,7 @@ class TestHierarchyBuilder:
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=str(make_test_uuid("tenant-uuid")),
         )
 
         resources1 = builder.get_hierarchy_resources()
@@ -336,11 +363,11 @@ class TestHierarchyBuilder:
             tenant_name="CSCS",
             storage_system="capstor",
             storage_data_type="store",
-            offering_uuid="tenant-uuid",
+            offering_uuid=str(make_test_uuid("tenant-uuid")),
         )
 
         customer_info = CustomerInfo(
-            itemId="customer-uuid",
+            itemId=str(make_test_uuid("customer-uuid")),
             key="ethz",
             name="ETH",
         )

@@ -2,6 +2,7 @@ from unittest.mock import Mock, AsyncMock
 from uuid import uuid4
 
 import pytest
+from tests.conftest import make_test_uuid
 from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
@@ -99,16 +100,17 @@ class TestResourceMapper:
         mock_resource.order_in_progress = Unset()
         mock_resource.callback_urls = {}
 
+        parent_uuid = str(make_test_uuid("parent-uuid"))
         result = await mapper.map_resource(
-            mock_resource, "capstor", parent_item_id="parent-uuid"
+            mock_resource, "capstor", parent_item_id=parent_uuid
         )
 
-        assert result.itemId == mock_resource.uuid
+        assert str(result.itemId) == mock_resource.uuid
         assert result.storageSystem.key == "capstor"
         assert result.storageDataType.key == "store"
         assert result.target.targetItem.unixGid == 30042
         assert result.status == "active"
-        assert result.parentItemId == "parent-uuid"
+        assert str(result.parentItemId) == parent_uuid
 
     @pytest.mark.asyncio
     async def test_map_resource_quotas(self, mapper):
