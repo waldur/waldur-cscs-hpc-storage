@@ -228,7 +228,6 @@ Retrieves a paginated list of storage resources with optional filtering.
 | `data_type`         | String  | No       | -       | Filter by data type: `store`, `scratch`, `archive`, or `users`    |
 | `status`            | String  | No       | -       | Filter by status: `active`, `pending`, `updating`, `removing`, `error` |
 | `state`             | String  | No       | -       | Filter by Waldur state: `Creating`, `OK`, `Erred`, `Updating`, `Terminating` |
-| `offering_slug`     | String  | No       | -       | Comma-separated list of offering slugs to filter by               |
 | `page`              | Integer | No       | 1       | Page number for pagination (starts at 1)                          |
 | `page_size`         | Integer | No       | 100     | Number of items per page (max: 500)                               |
 
@@ -246,9 +245,6 @@ GET /api/storage-resources/?page=2&page_size=50
 
 # Filter by status
 GET /api/storage-resources/?status=active
-
-# Filter by multiple offering slugs
-GET /api/storage-resources/?offering_slug=capstor,vast
 ```
 
 #### Response
