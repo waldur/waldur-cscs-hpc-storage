@@ -50,7 +50,6 @@ def clean_env():
         "SENTRY_ENVIRONMENT",
         "SENTRY_TRACES_SAMPLE_RATE",
         "DEBUG",
-        "WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH",
     ]
     stashed = {}
     for var in vars_to_clear:

@@ -1,7 +1,7 @@
 """Integration tests for hierarchical storage API endpoints."""
 
 import os
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -14,20 +14,12 @@ from waldur_cscs_hpc_storage.config import (
     WaldurApiConfig,
 )
 from waldur_cscs_hpc_storage.models.enums import StorageSystem
-from pathlib import Path
 
-# Set up environment before importing the app
-test_config_path = Path(__file__).parent / "test_config.yaml"
-os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = str(test_config_path)
 os.environ["DISABLE_AUTH"] = "true"  # Also disable auth for these tests
 
-# Remove skipif since we set the config path
-# pytestmark = pytest.mark.skipif(...)
-
-
 try:
+    from waldur_cscs_hpc_storage.api.dependencies import get_config, get_waldur_service
     from waldur_cscs_hpc_storage.api.main import app
-    from waldur_cscs_hpc_storage.api.dependencies import get_waldur_service, get_config
     from waldur_cscs_hpc_storage.mapper import CustomerInfo
 except SystemExit:
     # If import fails due to configuration issues, skip all tests

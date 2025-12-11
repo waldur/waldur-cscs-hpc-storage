@@ -2,12 +2,12 @@
 
 import os
 from unittest import mock
-import pytest
-from waldur_cscs_hpc_storage.config.parser import load_config, mask_sensitive_data
+
 from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
 )
+from waldur_cscs_hpc_storage.config.parser import load_config, mask_sensitive_data
 from waldur_cscs_hpc_storage.models.enums import StorageSystem
 
 
@@ -42,15 +42,6 @@ def test_mask_sensitive_data():
     assert masked["safe_field"] == "safe"
 
 
-@pytest.fixture(autouse=True)
-def clean_env():
-    """Ensure no config file is loaded from env during tests."""
-    old_path = os.environ.pop("WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH", None)
-    yield
-    if old_path:
-        os.environ["WALDUR_CSCS_STORAGE_PROXY_CONFIG_PATH"] = old_path
-
-
 @mock.patch("waldur_cscs_hpc_storage.config.parser.logging.basicConfig")
 @mock.patch("waldur_cscs_hpc_storage.config.parser.logger")
 def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
@@ -61,6 +52,7 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
         "WALDUR_API_TOKEN": "e38cd56f1ce5bf4ef35905f2bdcf84f1d7f2cc5e",
         "STORAGE_SYSTEMS": '{"capstor": "lustre"}',
         "DEBUG": "true",
+        "CSCS_KEYCLOAK_CLIENT_ID": "test-client-id",
         "CSCS_KEYCLOAK_CLIENT_SECRET": "s3cr3t",
         "HPC_USER_DEVELOPMENT_MODE": "true",
     }
