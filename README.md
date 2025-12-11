@@ -193,51 +193,373 @@ Quotas are derived from the storage limit (in TB) set in Waldur.
 
 ## 6. API Reference
 
-### GET `/api/storage-resources/`
+This section provides comprehensive documentation for the Storage Proxy API endpoints.
 
-Retrieves the list of formatted storage resources.
+### 6.1. Authentication
+
+All API endpoints require authentication using an OIDC token unless `DISABLE_AUTH=true` is set in development mode.
+
+**Authentication Header:**
+
+```
+Authorization: Bearer <valid_oidc_token>
+```
+
+**Development Mode:**
+* Set `DISABLE_AUTH=true` to bypass authentication
+* Useful for local testing and integration development
+
+---
+
+### 6.2. GET `/api/storage-resources/`
+
+Retrieves a paginated list of storage resources with optional filtering.
+
+#### Request
 
 **Headers:**
-
-* `Authorization`: `Bearer <valid_oidc_token>`
+* `Authorization`: `Bearer <valid_oidc_token>` (required unless auth disabled)
 
 **Query Parameters:**
 
-| Parameter        | Type   | Required | Description                                             |
-| :--------------- | :----- | :------- | :------------------------------------------------------ |
-| `storage_system` | Enum   | No       | `capstor`, `vast`, or `iopsstor`. Filter by system.     |
-| `data_type`      | Enum   | No       | `store`, `scratch`, `archive`, `users`. Filter by type. |
-| `status`         | Enum   | No       | `active`, `pending`, `removing`, `error`.               |
-| `state`          | String | No       | Filter by specific Waldur resource state (e.g., `OK`).  |
-| `page`           | Int    | No       | Pagination page (default: 1).                           |
-| `page_size`      | Int    | No       | Items per page (default: 100, max: 500).                |
+| Parameter           | Type    | Required | Default | Description                                                       |
+|:--------------------|:--------|:---------|:--------|:------------------------------------------------------------------|
+| `storage_system`    | String  | No       | -       | Filter by storage system: `capstor`, `vast`, or `iopsstor`        |
+| `data_type`         | String  | No       | -       | Filter by data type: `store`, `scratch`, `archive`, or `users`    |
+| `status`            | String  | No       | -       | Filter by status: `active`, `pending`, `updating`, `removing`, `error` |
+| `state`             | String  | No       | -       | Filter by Waldur state: `Creating`, `OK`, `Erred`, `Updating`, `Terminating` |
+| `offering_slug`     | String  | No       | -       | Comma-separated list of offering slugs to filter by               |
+| `page`              | Integer | No       | 1       | Page number for pagination (starts at 1)                          |
+| `page_size`         | Integer | No       | 100     | Number of items per page (max: 500)                               |
 
-**Response Format:**
+**Example Requests:**
+
+```bash
+# Get all storage resources
+GET /api/storage-resources/
+
+# Filter by storage system and data type
+GET /api/storage-resources/?storage_system=capstor&data_type=store
+
+# Paginate results
+GET /api/storage-resources/?page=2&page_size=50
+
+# Filter by status
+GET /api/storage-resources/?status=active
+
+# Filter by multiple offering slugs
+GET /api/storage-resources/?offering_slug=capstor,vast
+```
+
+#### Response
+
+**Success Response (200 OK):**
 
 ```json
 {
   "status": "success",
   "resources": [
     {
-      "itemId": "uuid...",
+      "itemId": "a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
       "status": "active",
-      "mountPoint": { "default": "/capstor/store/cscs/customer/project" },
-      "permission": { "value": "775", "permissionType": "octal" },
-      "quotas": [
-        { "type": "space", "quota": 10.0, "unit": "tera", "enforcementType": "hard" }
-      ],
+      "parentItemId": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d",
+      "mountPoint": {
+        "default": "/capstor/store/cscs/customer-slug/project-slug"
+      },
+      "permission": {
+        "value": "2770",
+        "permissionType": "octal"
+      },
+      "storageSystem": {
+        "itemId": "4b4a996a-8d6b-556d-ad60-202cefa6ecc3",
+        "key": "capstor",
+        "name": "CAPSTOR",
+        "active": true
+      },
+      "storageFileSystem": {
+        "itemId": "a04204cf-e3bf-5eb6-8323-0f3121afdd3b",
+        "key": "lustre",
+        "name": "LUSTRE",
+        "active": true
+      },
+      "storageDataType": {
+        "itemId": "6cea66c5-3133-54e1-9e5d-469deb675ceb",
+        "key": "store",
+        "name": "STORE",
+        "active": true,
+        "path": "store"
+      },
       "target": {
         "targetType": "project",
         "targetItem": {
-            "name": "project-slug",
-            "unixGid": 30500,
-            "status": "active"
+          "itemId": "4fab79ed-2eef-5acc-a504-1170e6518736",
+          "key": "project-slug",
+          "name": "Project Name",
+          "unixGid": 30500,
+          "status": "active",
+          "active": true
         }
-      }
+      },
+      "quotas": [
+        {
+          "type": "space",
+          "quota": 10.0,
+          "unit": "tera",
+          "enforcementType": "hard"
+        },
+        {
+          "type": "space",
+          "quota": 10.0,
+          "unit": "tera",
+          "enforcementType": "soft"
+        },
+        {
+          "type": "inodes",
+          "quota": 10000000.0,
+          "unit": "none",
+          "enforcementType": "hard"
+        },
+        {
+          "type": "inodes",
+          "quota": 7500000.0,
+          "unit": "none",
+          "enforcementType": "soft"
+        }
+      ]
     }
   ],
-  "pagination": { ... }
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "total_count": 42,
+    "total_pages": 1
+  }
 }
+```
+
+**Empty Results (200 OK):**
+
+```json
+{
+  "status": "success",
+  "resources": [],
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "total_count": 0,
+    "total_pages": 0
+  }
+}
+```
+
+#### Response Fields
+
+##### Root Object
+
+| Field        | Type   | Description                                    |
+|:-------------|:-------|:-----------------------------------------------|
+| `status`     | String | Always `"success"` for successful requests     |
+| `resources`  | Array  | List of storage resource objects              |
+| `pagination` | Object | Pagination metadata                            |
+
+##### Resource Object
+
+| Field                  | Type   | Description                                          |
+|:-----------------------|:-------|:-----------------------------------------------------|
+| `itemId`               | UUID   | Unique identifier for this storage resource          |
+| `status`               | String | Resource status: `active`, `pending`, `updating`, `removing`, `error` |
+| `parentItemId`         | UUID   | UUID of parent resource (customer) or `null`         |
+| `mountPoint`           | Object | Mount point information                              |
+| `permission`           | Object | Permission settings                                  |
+| `storageSystem`        | Object | Storage system metadata                              |
+| `storageFileSystem`    | Object | File system metadata                                 |
+| `storageDataType`      | Object | Data type metadata                                   |
+| `target`               | Object | Target information (project/user/tenant/customer)    |
+| `quotas`               | Array  | Current quota settings (4 items: 2 space + 2 inodes) |
+| `oldQuotas`            | Array  | Previous quotas (only present during updates)        |
+| `newQuotas`            | Array  | New quotas (only present during updates)             |
+
+##### Additional Fields (When Available)
+
+These fields appear only when there's an active order/action:
+
+| Field                      | Type   | Description                                    |
+|:---------------------------|:-------|:-----------------------------------------------|
+| `approve_by_provider_url`  | String | URL to approve the pending action              |
+| `reject_by_provider_url`   | String | URL to reject the pending action               |
+| `set_state_done_url`       | String | URL to mark provisioning as complete           |
+| `set_backend_id_url`       | String | URL to set the backend identifier              |
+
+##### StorageItem Object (system/filesystem/datatype)
+
+| Field    | Type    | Description                               |
+|:---------|:--------|:------------------------------------------|
+| `itemId` | UUID    | Deterministic UUID for this item          |
+| `key`    | String  | Lowercase identifier (e.g., `"capstor"`)  |
+| `name`   | String  | Uppercase display name (e.g., `"CAPSTOR"`) |
+| `active` | Boolean | Whether this item is active               |
+| `path`   | String  | Path prefix (only for `storageDataType`)  |
+
+##### Target Object
+
+| Field        | Type   | Description                                          |
+|:-------------|:-------|:-----------------------------------------------------|
+| `targetType` | String | Type of target: `project`, `user`, `tenant`, `customer` |
+| `targetItem` | Object | Target-specific metadata (varies by type)            |
+
+##### TargetItem Object (Project)
+
+| Field      | Type    | Description                              |
+|:-----------|:--------|:-----------------------------------------|
+| `itemId`   | UUID    | Deterministic UUID for this project      |
+| `key`      | String  | Project key/slug                         |
+| `name`     | String  | Project name                             |
+| `unixGid`  | Integer | UNIX group ID for the project            |
+| `status`   | String  | Project status                           |
+| `active`   | Boolean | Whether project is active                |
+
+##### TargetItem Object (User)
+
+| Field            | Type    | Description                       |
+|:-----------------|:--------|:----------------------------------|
+| `itemId`         | UUID    | Deterministic UUID for this user  |
+| `key`            | String  | User key/slug                     |
+| `name`           | String  | User name                         |
+| `email`          | String  | User email address                |
+| `unixUid`        | Integer | UNIX user ID                      |
+| `status`         | String  | User status                       |
+| `active`         | Boolean | Whether user is active            |
+| `primaryProject` | Object  | Primary project information       |
+
+##### Quota Object
+
+| Field             | Type   | Description                                         |
+|:------------------|:-------|:----------------------------------------------------|
+| `type`            | String | Quota type: `space` or `inodes`                     |
+| `quota`           | Float  | Quota value                                         |
+| `unit`            | String | Unit: `tera` for space, `none` for inodes           |
+| `enforcementType` | String | Enforcement level: `hard` or `soft`                 |
+
+#### Error Responses
+
+**Unauthorized (401):**
+
+```json
+{
+  "detail": "Not authenticated"
+}
+```
+
+**Forbidden (403):**
+
+```json
+{
+  "detail": "Invalid or expired token"
+}
+```
+
+**Bad Request (400):**
+
+```json
+{
+  "detail": "Invalid parameter: page_size must be between 1 and 500"
+}
+```
+
+**Internal Server Error (500):**
+
+```json
+{
+  "detail": "Internal server error",
+  "error": "Error message details"
+}
+```
+
+---
+
+### 6.3. Response Status Values
+
+The `status` field in resources indicates the current lifecycle state:
+
+| Status      | Description                                                  |
+|:------------|:-------------------------------------------------------------|
+| `pending`   | Resource is being created, waiting for provisioning          |
+| `active`    | Resource is fully provisioned and operational                |
+| `updating`  | Resource is being updated (e.g., quota change in progress)   |
+| `removing`  | Resource is being terminated                                 |
+| `removed`   | Resource has been successfully terminated                    |
+| `error`     | Resource encountered an error during lifecycle operation     |
+
+---
+
+### 6.4. Filtering Examples
+
+#### Filter by Storage System
+
+```bash
+GET /api/storage-resources/?storage_system=capstor
+```
+
+Returns only resources on the CAPSTOR storage system.
+
+#### Filter by Data Type
+
+```bash
+GET /api/storage-resources/?data_type=users
+```
+
+Returns only user-type storage resources (home directories).
+
+#### Combine Multiple Filters
+
+```bash
+GET /api/storage-resources/?storage_system=vast&data_type=scratch&status=active
+```
+
+Returns only active scratch storage on the VAST system.
+
+#### Filter by Waldur State
+
+```bash
+GET /api/storage-resources/?state=Creating
+```
+
+Returns resources currently in the "Creating" state in Waldur.
+
+---
+
+### 6.5. Pagination
+
+The API supports pagination to handle large result sets efficiently.
+
+**Request Parameters:**
+* `page`: Page number (starting from 1)
+* `page_size`: Items per page (default: 100, maximum: 500)
+
+**Response Pagination Object:**
+
+```json
+{
+  "pagination": {
+    "page": 2,
+    "page_size": 50,
+    "total_count": 156,
+    "total_pages": 4
+  }
+}
+```
+
+**Example Navigation:**
+
+```bash
+# First page
+GET /api/storage-resources/?page=1&page_size=50
+
+# Next page
+GET /api/storage-resources/?page=2&page_size=50
+
+# Last page
+GET /api/storage-resources/?page=4&page_size=50
 ```
 
 ---
