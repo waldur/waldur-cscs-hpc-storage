@@ -4,12 +4,23 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
-from tests.conftest import make_test_uuid
 from pydantic import ValidationError
 from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.types import Unset
 
+from waldur_cscs_hpc_storage.config import (
+    BackendConfig,
+    StorageProxyConfig,
+    WaldurApiConfig,
+)
+from waldur_cscs_hpc_storage.mapper import QuotaCalculator, ResourceMapper
+from waldur_cscs_hpc_storage.mapper.mount_points import generate_project_mount_point
+from waldur_cscs_hpc_storage.models import (
+    Quota,
+    ResourceAttributes,
+    StorageResourceFilter,
+)
 from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
@@ -18,26 +29,10 @@ from waldur_cscs_hpc_storage.models.enums import (
     TargetStatus,
     TargetType,
 )
-from waldur_cscs_hpc_storage.models import Quota
-from waldur_cscs_hpc_storage.mapper.mount_points import generate_project_mount_point
-from waldur_cscs_hpc_storage.models import (
-    ParsedWaldurResource,
-    StorageResourceFilter,
-    ResourceAttributes,
-)
-from waldur_cscs_hpc_storage.config import (
-    BackendConfig,
-    StorageProxyConfig,
-    WaldurApiConfig,
-)
-from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
-from waldur_cscs_hpc_storage.mapper import HierarchyBuilder
-from waldur_cscs_hpc_storage.mapper import ResourceMapper
-from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
-from waldur_cscs_hpc_storage.mapper import QuotaCalculator
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.tests.conftest import make_test_uuid
 
 
 def create_mock_quotas(storage_limit: float = 150.0) -> list[Quota]:
@@ -249,7 +244,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.callback_urls = {}
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
+            mock_resource,
+            "lustre-fs",
+            parent_item_id=str(make_test_uuid("parent-uuid")),
         )
 
         assert str(storage_json.itemId) == mock_resource.uuid
@@ -326,7 +323,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
+            mock_resource,
+            "lustre-fs",
+            parent_item_id=str(make_test_uuid("parent-uuid")),
         )
 
         assert str(storage_json.itemId) == mock_resource.uuid
@@ -386,7 +385,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.callback_urls = {}
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
+            mock_resource,
+            "lustre-fs",
+            parent_item_id=str(make_test_uuid("parent-uuid")),
         )
 
         assert str(storage_json.itemId) == mock_resource.uuid
@@ -444,7 +445,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.callback_urls = {}
 
         storage_json = await self.orchestrator.mapper.map_resource(
-            mock_resource, "lustre-fs", parent_item_id=str(make_test_uuid("parent-uuid"))
+            mock_resource,
+            "lustre-fs",
+            parent_item_id=str(make_test_uuid("parent-uuid")),
         )
 
         assert str(storage_json.itemId) == mock_resource.uuid
@@ -533,7 +536,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
             mock_resource.state = waldur_state
 
             result = await backend.mapper.map_resource(
-                mock_resource, "test-storage", parent_item_id=str(make_test_uuid("parent"))
+                mock_resource,
+                "test-storage",
+                parent_item_id=str(make_test_uuid("parent")),
             )
 
             assert result.status == expected_status, (
@@ -591,7 +596,9 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
             mock_resource.effective_permissions = "775"
 
             result = await backend.mapper.map_resource(
-                mock_resource, "test-storage", parent_item_id=str(make_test_uuid("parent"))
+                mock_resource,
+                "test-storage",
+                parent_item_id=str(make_test_uuid("parent")),
             )
 
             actual_target_type = result.target.targetType

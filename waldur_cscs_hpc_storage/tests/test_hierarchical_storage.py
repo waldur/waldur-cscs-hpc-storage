@@ -5,27 +5,29 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
-from tests.conftest import make_test_uuid
 
-from waldur_cscs_hpc_storage.models.enums import (
-    QuotaType,
-    QuotaUnit,
-    EnforcementType,
+from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.mapper import (
+    CustomerInfo,
+    HierarchyBuilder,
+    QuotaCalculator,
+    ResourceMapper,
+)
+from waldur_cscs_hpc_storage.mapper.mount_points import (
+    generate_customer_mount_point,
+    generate_project_mount_point,
+    generate_tenant_mount_point,
 )
 from waldur_cscs_hpc_storage.models import Quota
-from waldur_cscs_hpc_storage.mapper.mount_points import generate_project_mount_point
-from waldur_cscs_hpc_storage.mapper.mount_points import generate_customer_mount_point
-from waldur_cscs_hpc_storage.mapper.mount_points import generate_tenant_mount_point
-from waldur_cscs_hpc_storage.config import (
-    BackendConfig,
+from waldur_cscs_hpc_storage.models.enums import (
+    EnforcementType,
+    QuotaType,
+    QuotaUnit,
 )
-
-from waldur_cscs_hpc_storage.mapper import CustomerInfo, HierarchyBuilder
-from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
-from waldur_cscs_hpc_storage.mapper import QuotaCalculator
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.tests.conftest import make_test_uuid
 
 
 @pytest.fixture
@@ -62,8 +64,9 @@ def hierarchy_builder():
 @pytest.fixture(autouse=True)
 def mock_gid_lookup():
     """Mock GID lookup for all tests in this module."""
-    from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
     from unittest.mock import AsyncMock
+
+    from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
 
     with patch.object(
         MockGidService, "get_project_unix_gid", new_callable=AsyncMock

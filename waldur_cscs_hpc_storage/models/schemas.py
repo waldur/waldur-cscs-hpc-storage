@@ -1,3 +1,4 @@
+from uuid import UUID
 from typing import Optional, Annotated
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
@@ -123,19 +124,19 @@ class ParsedWaldurResource(BaseModel):
     """
 
     # Identity & metadata
-    uuid: str
+    uuid: UUID
     name: str = ""
     slug: str = ""
     state: ResourceState = ""
 
     # Hierarchy info
-    offering_uuid: str
+    offering_uuid: UUID
     offering_name: str = ""
     offering_slug: str = ""
-    project_uuid: str
+    project_uuid: UUID
     project_name: str = ""
     project_slug: str = ""
-    customer_uuid: str
+    customer_uuid: UUID
     customer_name: str = ""
     customer_slug: str = ""
     provider_slug: str = ""

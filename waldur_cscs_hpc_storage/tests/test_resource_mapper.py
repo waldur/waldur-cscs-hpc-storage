@@ -1,19 +1,20 @@
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
-from tests.conftest import make_test_uuid
+from waldur_api_client.types import Unset
+
+from waldur_cscs_hpc_storage.config import BackendConfig
+from waldur_cscs_hpc_storage.mapper import QuotaCalculator, ResourceMapper
+from waldur_cscs_hpc_storage.models import Quota
 from waldur_cscs_hpc_storage.models.enums import (
     EnforcementType,
     QuotaType,
     QuotaUnit,
     TargetType,
 )
-from waldur_cscs_hpc_storage.models import Quota
-from waldur_cscs_hpc_storage.config import BackendConfig
-from waldur_cscs_hpc_storage.mapper import ResourceMapper
-from waldur_cscs_hpc_storage.mapper import QuotaCalculator
-from waldur_api_client.types import Unset
+
+from waldur_cscs_hpc_storage.tests.conftest import make_test_uuid
 
 
 def create_mock_quotas(storage_limit: float = 150.0) -> list[Quota]:

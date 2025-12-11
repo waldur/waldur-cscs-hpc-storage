@@ -1,5 +1,6 @@
 """Custom exceptions for the application."""
 
+from uuid import UUID
 from typing import Optional
 
 
@@ -30,7 +31,7 @@ class ResourceProcessingError(StorageProxyError):
 class MissingIdentityError(ResourceProcessingError):
     """Required UID/GID could not be found for a resource."""
 
-    def __init__(self, resource_uuid: str, identity_key: str):
+    def __init__(self, resource_uuid: UUID, identity_key: str):
         super().__init__(
             f"Could not resolve identity '{identity_key}' for resource {resource_uuid}"
         )

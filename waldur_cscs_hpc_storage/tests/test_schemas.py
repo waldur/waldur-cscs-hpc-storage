@@ -1,16 +1,19 @@
 from unittest.mock import Mock
-from waldur_api_client.models.order_state import OrderState
+
 from waldur_api_client.models.order_details import OrderDetails
+from waldur_api_client.models.order_state import OrderState
+
 from waldur_cscs_hpc_storage.models import ParsedWaldurResource
+from waldur_cscs_hpc_storage.tests.conftest import make_test_uuid
 
 
 class TestParsedWaldurResource:
     def test_callback_urls_empty(self):
         resource = ParsedWaldurResource(
-            uuid="123",
-            offering_uuid="456",
-            project_uuid="789",
-            customer_uuid="abc",
+            uuid=make_test_uuid("123"),
+            offering_uuid=make_test_uuid("456"),
+            project_uuid=make_test_uuid("789"),
+            customer_uuid=make_test_uuid("abc"),
             order_in_progress=None,
         )
         assert resource.callback_urls == {}
@@ -21,10 +24,10 @@ class TestParsedWaldurResource:
         mock_order.url = "http://example.com/api/orders/123/"
 
         resource = ParsedWaldurResource(
-            uuid="123",
-            offering_uuid="456",
-            project_uuid="789",
-            customer_uuid="abc",
+            uuid=make_test_uuid("123"),
+            offering_uuid=make_test_uuid("456"),
+            project_uuid=make_test_uuid("789"),
+            customer_uuid=make_test_uuid("abc"),
             order_in_progress=mock_order,
         )
 
@@ -46,10 +49,10 @@ class TestParsedWaldurResource:
         mock_order.url = "http://example.com/api/orders/123/"
 
         resource = ParsedWaldurResource(
-            uuid="123",
-            offering_uuid="456",
-            project_uuid="789",
-            customer_uuid="abc",
+            uuid=make_test_uuid("123"),
+            offering_uuid=make_test_uuid("456"),
+            project_uuid=make_test_uuid("789"),
+            customer_uuid=make_test_uuid("abc"),
             order_in_progress=mock_order,
         )
 
@@ -71,10 +74,10 @@ class TestParsedWaldurResource:
         mock_order.url = "http://example.com/api/orders/123/"
 
         resource = ParsedWaldurResource(
-            uuid="123",
-            offering_uuid="456",
-            project_uuid="789",
-            customer_uuid="abc",
+            uuid=make_test_uuid("123"),
+            offering_uuid=make_test_uuid("456"),
+            project_uuid=make_test_uuid("789"),
+            customer_uuid=make_test_uuid("abc"),
             order_in_progress=mock_order,
         )
 

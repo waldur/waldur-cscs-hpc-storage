@@ -1,9 +1,10 @@
+from uuid import UUID
 from uuid import NAMESPACE_OID, uuid5
 
 from waldur_cscs_hpc_storage.models.enums import TargetIdScope
 
 
-def _generate_scoped_id(scope: TargetIdScope, identifier: str) -> str:
+def _generate_scoped_id(scope: TargetIdScope, identifier: str) -> UUID:
     """Generate a deterministic UUID given a scope and identifier.
 
     Args:
@@ -13,10 +14,10 @@ def _generate_scoped_id(scope: TargetIdScope, identifier: str) -> str:
     Returns:
         Deterministic UUID string
     """
-    return str(uuid5(NAMESPACE_OID, f"{scope}:{identifier}"))
+    return uuid5(NAMESPACE_OID, f"{scope}:{identifier}")
 
 
-def generate_storage_system_target_id(system_name: str) -> str:
+def generate_storage_system_target_id(system_name: str) -> UUID:
     """Generate deterministic UUID for a storage system.
 
     Args:
@@ -28,7 +29,7 @@ def generate_storage_system_target_id(system_name: str) -> str:
     return _generate_scoped_id(TargetIdScope.STORAGE_SYSTEM, system_name)
 
 
-def generate_storage_filesystem_target_id(filesystem_name: str) -> str:
+def generate_storage_filesystem_target_id(filesystem_name: str) -> UUID:
     """Generate deterministic UUID for a storage filesystem.
 
     Args:
@@ -40,7 +41,7 @@ def generate_storage_filesystem_target_id(filesystem_name: str) -> str:
     return _generate_scoped_id(TargetIdScope.STORAGE_FILE_SYSTEM, filesystem_name)
 
 
-def generate_storage_data_type_target_id(data_type: str) -> str:
+def generate_storage_data_type_target_id(data_type: str) -> UUID:
     """Generate deterministic UUID for a storage data type.
 
     Args:
@@ -54,7 +55,7 @@ def generate_storage_data_type_target_id(data_type: str) -> str:
 
 def generate_tenant_resource_id(
     tenant_id: str, storage_system: str, data_type: str
-) -> str:
+) -> UUID:
     """Generate deterministic UUID for a tenant storage resource.
 
     Args:
@@ -71,7 +72,7 @@ def generate_tenant_resource_id(
     )
 
 
-def generate_tenant_target_id(tenant_id: str) -> str:
+def generate_tenant_target_id(tenant_id: str) -> UUID:
     """Generate deterministic UUID for a tenant target.
 
     Args:
@@ -83,7 +84,7 @@ def generate_tenant_target_id(tenant_id: str) -> str:
     return _generate_scoped_id(TargetIdScope.TENANT, tenant_id)
 
 
-def generate_customer_target_id(customer_slug: str) -> str:
+def generate_customer_target_id(customer_slug: str) -> UUID:
     """Generate deterministic UUID for a customer target.
 
     Args:
@@ -95,7 +96,7 @@ def generate_customer_target_id(customer_slug: str) -> str:
     return _generate_scoped_id(TargetIdScope.CUSTOMER, customer_slug)
 
 
-def generate_project_target_id(project_slug: str) -> str:
+def generate_project_target_id(project_slug: str) -> UUID:
     """Generate deterministic UUID for a project target.
 
     Args:
@@ -107,7 +108,7 @@ def generate_project_target_id(project_slug: str) -> str:
     return _generate_scoped_id(TargetIdScope.PROJECT, project_slug)
 
 
-def generate_user_target_id(user_slug: str) -> str:
+def generate_user_target_id(user_slug: str) -> UUID:
     """Generate deterministic UUID for a user target.
 
     Args:

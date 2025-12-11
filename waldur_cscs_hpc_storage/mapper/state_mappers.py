@@ -1,5 +1,6 @@
 """Mappers for Waldur state and storage data type to target types and statuses."""
 
+from uuid import UUID
 import logging
 from waldur_api_client.models.resource_state import ResourceState
 
@@ -47,7 +48,7 @@ def get_target_status_from_waldur_state(state: ResourceState) -> TargetStatus:
 
 def get_target_type_from_data_type(
     storage_data_type: str,
-    resource_uuid: str = "unknown",
+    resource_uuid: UUID,
 ) -> TargetType:
     """Map storage data type string to target type.
 

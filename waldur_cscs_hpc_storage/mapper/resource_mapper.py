@@ -1,3 +1,4 @@
+from uuid import UUID
 import logging
 from typing import Optional
 from uuid import uuid5, NAMESPACE_OID
@@ -85,7 +86,7 @@ class ResourceMapper:
         self,
         waldur_resource: ParsedWaldurResource,
         storage_system: str,
-        parent_item_id: Optional[str] = None,
+        parent_item_id: Optional[UUID] = None,
     ) -> StorageResource:
         """
         Transform a parsed Waldur resource into a StorageResource.

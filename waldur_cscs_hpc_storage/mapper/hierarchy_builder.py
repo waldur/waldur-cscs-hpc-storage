@@ -1,5 +1,6 @@
 """HierarchyBuilder: Manages the structural hierarchy (Tenants, Customers) for storage resources."""
 
+from uuid import UUID
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class CustomerInfo:
     key: str
-    itemId: str = ""
+    itemId: UUID
     name: str = ""
 
 
@@ -53,8 +54,8 @@ class HierarchyBuilder:
         Args:
             storage_file_system: The storage file system identifier (e.g., 'GPFS')
         """
-        self._tenant_entries: dict[str, str] = {}  # tenant_key -> itemId
-        self._customer_entries: dict[str, str] = {}  # customer_key -> itemId
+        self._tenant_entries: dict[str, UUID] = {}  # tenant_key -> itemId
+        self._customer_entries: dict[str, UUID] = {}  # customer_key -> itemId
         self._hierarchy_resources: list[StorageResource] = []
         self._storage_file_system = storage_file_system
 
@@ -76,9 +77,9 @@ class HierarchyBuilder:
         tenant_name: str,
         storage_system: str,
         storage_data_type: str,
-        offering_uuid: Optional[str] = None,
+        offering_uuid: Optional[UUID] = None,
         active: bool = False,
-    ) -> str:
+    ) -> UUID:
         """Create or retrieve a tenant entry.
 
         If a tenant entry for this combination already exists, returns its itemId.
@@ -171,7 +172,7 @@ class HierarchyBuilder:
         storage_data_type: str,
         tenant_id: str,
         active: bool = False,
-    ) -> Optional[str]:
+    ) -> Optional[UUID]:
         """Create or retrieve a customer entry.
 
         If a customer entry for this combination already exists, returns its itemId.
@@ -265,7 +266,7 @@ class HierarchyBuilder:
         customer_slug: str,
         storage_system: str,
         storage_data_type: str,
-    ) -> Optional[str]:
+    ) -> Optional[UUID]:
         """Get the itemId for an existing customer entry.
 
         Args:

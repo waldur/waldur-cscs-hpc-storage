@@ -1,3 +1,4 @@
+from uuid import UUID
 import logging
 from dataclasses import dataclass
 from typing import Optional
@@ -51,7 +52,7 @@ class WaldurService:
         )
 
     async def get_offering_customers(
-        self, offering_uuid: str
+        self, offering_uuid: UUID
     ) -> dict[str, CustomerInfo]:
         """Get customers for a specific offering.
 
