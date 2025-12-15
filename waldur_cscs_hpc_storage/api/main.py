@@ -57,7 +57,7 @@ async def storage_resources(
     user: Annotated[User, Depends(user_dependency)],
     orchestrator: Annotated[StorageOrchestrator, Depends(get_orchestrator)],
     filters: Annotated[StorageResourceFilter, Depends()],
-) -> JSONResponse:
+):
     """Exposes list of all storage resources with pagination and filtering."""
     storage_data = await orchestrator.get_resources(filters)
     return storage_data
