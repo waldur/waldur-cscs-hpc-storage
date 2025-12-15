@@ -109,7 +109,7 @@ class WaldurService:
         Returns:
             WaldurResourceResponse object containing parsed resources and pagination info
         """
-        filters = {"exclude_pending_transitional": True}
+        filters = {}
         if state:
             filters["state"] = [state]
 
@@ -123,6 +123,7 @@ class WaldurService:
                 client=self.client,
                 page=page,
                 page_size=page_size,
+                visible_to_providers=True,
                 **filters,
             )
         except Exception as e:

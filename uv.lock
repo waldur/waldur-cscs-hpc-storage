@@ -1499,16 +1499,12 @@ wheels = [
 
 [[package]]
 name = "waldur-api-client"
-version = "7.9.2"
-source = { registry = "https://pypi.org/simple" }
+version = "7.9.3"
+source = { git = "https://github.com/waldur/py-client.git#2986e4f64cf23995ee93d95f7a1351a0bee86230" }
 dependencies = [
     { name = "attrs" },
     { name = "httpx" },
     { name = "python-dateutil" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/61/30/109149d887814d6195c95b9d49041f1b33d9441061e66a29937c7b2d3d4c/waldur_api_client-7.9.2.tar.gz", hash = "sha256:b3d96a3d78431cc9fc645fba4414f3a98af986ffae39cf9bb46ffd9a2d57d69c", size = 1322175, upload-time = "2025-12-07T22:57:21.962Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/35/34/d98b87e976cc97bb77f413a94b468b983793e212e9a16162af707f08896f/waldur_api_client-7.9.2-py3-none-any.whl", hash = "sha256:4dc83a44f0c752f98c23e4e891fbaa00f90069253a50b142462fc9d7dee20f7a", size = 4469604, upload-time = "2025-12-07T22:57:19.504Z" },
 ]
 
 [[package]]
@@ -1539,7 +1535,7 @@ requires-dist = [
     { name = "httpx", extras = ["socks"], specifier = ">=0.24.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.0.0" },
-    { name = "waldur-api-client", specifier = ">=7.9.2" },
+    { name = "waldur-api-client", git = "https://github.com/waldur/py-client.git" },
 ]
 
 [package.metadata.requires-dev]

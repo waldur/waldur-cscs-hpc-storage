@@ -29,3 +29,6 @@ dev = [
     "respx",
     "pytest-cov",
 ]
+
+[tool.uv.sources]
+waldur-api-client = { git = "https://github.com/waldur/py-client.git" }
