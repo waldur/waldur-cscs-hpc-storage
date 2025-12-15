@@ -1,4 +1,3 @@
-from waldur_cscs_hpc_storage.serialization import JSONResponse
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
@@ -27,6 +26,7 @@ from waldur_cscs_hpc_storage.exceptions import (
 from waldur_cscs_hpc_storage.models import StorageResourceFilter
 from waldur_cscs_hpc_storage.services.auth import mock_user, setup_auth
 from waldur_cscs_hpc_storage.services.orchestrator import StorageOrchestrator
+from waldur_cscs_hpc_storage.serialization import JSONResponse
 
 # Load configuration
 config = load_config()
@@ -34,7 +34,7 @@ config = load_config()
 # Initialize global config for dependency injection
 set_global_config(config)
 
-app = FastAPI(redirect_slashes=True)
+app = FastAPI(redirect_slashes=True, default_response_class=JSONResponse)
 app.add_exception_handler(UpstreamServiceError, upstream_service_error_handler)
 app.add_exception_handler(ResourceProcessingError, resource_processing_error_handler)
 app.add_exception_handler(ConfigurationError, configuration_error_handler)
@@ -60,4 +60,4 @@ async def storage_resources(
 ) -> JSONResponse:
     """Exposes list of all storage resources with pagination and filtering."""
     storage_data = await orchestrator.get_resources(filters)
-    return JSONResponse(storage_data)
+    return storage_data
