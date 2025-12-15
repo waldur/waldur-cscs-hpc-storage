@@ -1,8 +1,8 @@
+from waldur_cscs_hpc_storage.serialization import JSONResponse
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
 from fastapi.logger import logger
-from fastapi.responses import JSONResponse
 from fastapi_keycloak_middleware import get_user
 from waldur_api_client.models.user import User
 
