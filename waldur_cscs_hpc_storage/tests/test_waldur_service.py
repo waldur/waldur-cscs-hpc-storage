@@ -74,5 +74,9 @@ class TestWaldurService:
         await service.list_resources(offering_slug=["slug1", "slug2"])
 
         mock_list.asyncio_detailed.assert_called_once_with(
-            client=service.client, offering_slug=["slug1,slug2"], page=1, page_size=100
+            client=service.client,
+            offering_slug=["slug1,slug2"],
+            exclude_pending_transitional=True,
+            page=1,
+            page_size=100,
         )

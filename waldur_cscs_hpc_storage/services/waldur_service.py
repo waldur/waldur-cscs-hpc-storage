@@ -109,7 +109,7 @@ class WaldurService:
         Returns:
             WaldurResourceResponse object containing parsed resources and pagination info
         """
-        filters = {}
+        filters = {"exclude_pending_transitional": True}
         if state:
             filters["state"] = [state]
 
