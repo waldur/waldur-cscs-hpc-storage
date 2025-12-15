@@ -76,7 +76,7 @@ class TestWaldurService:
         mock_list.asyncio_detailed.assert_called_once_with(
             client=service.client,
             offering_slug=["slug1,slug2"],
-            exclude_pending_transitional=True,
+            visible_to_providers=True,
             page=1,
             page_size=100,
         )
