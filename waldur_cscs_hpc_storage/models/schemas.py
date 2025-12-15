@@ -156,11 +156,19 @@ class ParsedWaldurResource(BaseModel):
 
     @classmethod
     def from_waldur_resource(cls, resource: Resource) -> "ParsedWaldurResource":
+        state = resource.state
+        if (
+            state in [ResourceState.UPDATING, ResourceState.TERMINATING]
+            and resource.order_in_progress
+            and resource.order_in_progress.state == OrderState.PENDING_CONSUMER
+        ):
+            state = ResourceState.OK
+
         return cls(
             uuid=resource.uuid.hex,
             name=resource.name,
             slug=resource.slug,
-            state=resource.state,
+            state=state,
             offering_uuid=resource.offering_uuid.hex,
             offering_name=resource.offering_name,
             offering_slug=resource.offering_slug,

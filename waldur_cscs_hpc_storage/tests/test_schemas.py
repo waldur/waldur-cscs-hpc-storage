@@ -2,6 +2,8 @@ from unittest.mock import Mock
 
 from waldur_api_client.models.order_details import OrderDetails
 from waldur_api_client.models.order_state import OrderState
+from waldur_api_client.models.resource import Resource
+from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.models import ParsedWaldurResource
 from waldur_cscs_hpc_storage.tests.conftest import make_test_uuid
@@ -87,3 +89,65 @@ class TestParsedWaldurResource:
             urls["set_backend_id_url"]
             == "http://example.com/api/orders/123/set_backend_id/"
         )
+
+
+class TestResourceStateParsing:
+    def _get_resource(self, state, order_state=None):
+        resource = Mock(spec=Resource)
+        resource.uuid = make_test_uuid("123")
+        resource.name = "Test Resource"
+        resource.slug = "test-resource"
+        resource.state = state
+        resource.offering_uuid = make_test_uuid("456")
+        resource.offering_name = "Test Offering"
+        resource.offering_slug = "test-offering"
+        resource.project_uuid = make_test_uuid("789")
+        resource.project_name = "Test Project"
+        resource.project_slug = "test-project"
+        resource.customer_uuid = make_test_uuid("abc")
+        resource.customer_name = "Test Customer"
+        resource.customer_slug = "test-customer"
+        resource.provider_slug = "test-provider"
+        resource.provider_name = "Test Provider"
+        resource.limits = None
+        resource.attributes = None
+        resource.options = None
+        resource.backend_metadata = None
+
+        if order_state:
+            order = Mock(spec=OrderDetails)
+            order.state = order_state
+            resource.order_in_progress = order
+        else:
+            resource.order_in_progress = None
+
+        return resource
+
+    def test_updating_pending_consumer(self):
+        resource = self._get_resource(
+            ResourceState.UPDATING, OrderState.PENDING_CONSUMER
+        )
+        parsed = ParsedWaldurResource.from_waldur_resource(resource)
+        assert parsed.state == ResourceState.OK
+
+    def test_terminating_pending_consumer(self):
+        resource = self._get_resource(
+            ResourceState.TERMINATING, OrderState.PENDING_CONSUMER
+        )
+        parsed = ParsedWaldurResource.from_waldur_resource(resource)
+        assert parsed.state == ResourceState.OK
+
+    def test_updating_executing(self):
+        resource = self._get_resource(ResourceState.UPDATING, OrderState.EXECUTING)
+        parsed = ParsedWaldurResource.from_waldur_resource(resource)
+        assert parsed.state == ResourceState.UPDATING
+
+    def test_ok_pending_consumer(self):
+        resource = self._get_resource(ResourceState.OK, OrderState.PENDING_CONSUMER)
+        parsed = ParsedWaldurResource.from_waldur_resource(resource)
+        assert parsed.state == ResourceState.OK
+
+    def test_no_order(self):
+        resource = self._get_resource(ResourceState.UPDATING)
+        parsed = ParsedWaldurResource.from_waldur_resource(resource)
+        assert parsed.state == ResourceState.UPDATING
