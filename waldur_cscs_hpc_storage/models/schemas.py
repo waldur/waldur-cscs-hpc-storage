@@ -252,7 +252,15 @@ class ParsedWaldurResource(BaseModel):
             allowed_actions.add("set_backend_id")
 
         base = order_url.rstrip("/")
-        return {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}
+        urls = {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}
+
+        if "/marketplace-orders/" in order_url:
+            api_root = order_url.split("/marketplace-orders/")[0]
+            urls["update_resource_options_url"] = (
+                f"{api_root}/marketplace-provider-resources/{self.uuid}/update_options_direct/"
+            )
+
+        return urls
 
 
 class StorageResourceFilter(BaseModel):
