@@ -108,12 +108,13 @@ def mock_waldur_resources():
 
         # Mock limits
         resource.limits = Mock()
-        resource.limits.additional_properties = {"storage": storage_limit}
+        resource.limits.additional_properties = {
+            "storage": storage_limit,
+        }
         resource.limits.storage = storage_limit
 
         # Mock options
         resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,

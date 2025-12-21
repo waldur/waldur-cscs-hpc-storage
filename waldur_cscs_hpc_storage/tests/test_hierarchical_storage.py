@@ -119,7 +119,6 @@ def create_mock_resource(
     # Mock options
     resource.options = Mock(
         permissions=None,
-        soft_quota_space=None,
         hard_quota_space=None,
         soft_quota_inodes=None,
         hard_quota_inodes=None,

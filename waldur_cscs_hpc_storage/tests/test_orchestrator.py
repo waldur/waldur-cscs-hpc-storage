@@ -225,7 +225,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.attributes = mock_attributes
 
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -290,7 +289,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.attributes = mock_attributes
 
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -366,7 +364,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_attributes.storage_data_type = "store"
         mock_resource.attributes = mock_attributes
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -423,7 +420,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.attributes = mock_attributes
 
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -507,7 +503,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -566,7 +561,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_limits.storage = 50
         mock_resource.limits = mock_limits
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -638,14 +632,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_limits.storage = 42.5  # Use float value
         mock_resource.limits = mock_limits
         mock_resource.options = Mock(
-            soft_quota_space=None,
-            hard_quota_space=None,
-            soft_quota_inodes=None,
-            hard_quota_inodes=None,
-            permissions=None,
-        )
-        mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
@@ -680,7 +666,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
     def test_storage_data_type_validation(self):
         """Test validation of storage_data_type parameter."""
-        backend = self._create_orchestrator()
+        _ = self._create_orchestrator()
 
         # Create a mock resource
         mock_resource = Mock()
@@ -716,7 +702,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
         mock_resource.options = Mock(
-            soft_quota_space=None,
             hard_quota_space=None,
             soft_quota_inodes=None,
             hard_quota_inodes=None,
