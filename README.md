@@ -1059,7 +1059,6 @@ When reporting quotas via the `update_resource_options_url`, the payload must ma
 
 | Quota Type | Enforcement Type | Mapped Key | Unit |
 | :--- | :--- | :--- | :--- |
-| `space` | `soft` | `soft_quota_space` | TB |
 | `space` | `hard` | `hard_quota_space` | TB |
 | `inodes` | `soft` | `soft_quota_inodes` | Count |
 | `inodes` | `hard` | `hard_quota_inodes` | Count |
@@ -1069,7 +1068,6 @@ When reporting quotas via the `update_resource_options_url`, the payload must ma
 ```json
 {
   "options": {
-    "soft_quota_space": 10.0,
     "hard_quota_space": 12.0,
     "soft_quota_inodes": 1000000,
     "hard_quota_inodes": 1500000

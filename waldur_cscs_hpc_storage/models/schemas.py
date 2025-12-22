@@ -81,9 +81,6 @@ class ResourceOptions(BaseModel):
     Used for administrative overrides of quotas and permissions.
     """
 
-    soft_quota_space: Optional[float] = Field(
-        None, ge=0, description="Override soft storage quota (TB)"
-    )
     hard_quota_space: Optional[float] = Field(
         None, ge=0, description="Override hard storage quota (TB)"
     )
