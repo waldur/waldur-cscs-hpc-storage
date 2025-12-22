@@ -613,7 +613,7 @@ The provisioner should run a reconciliation loop (e.g., every minute) that:
 1. Calls to `GET /api/storage-resources/` to list all resources.
 2. Iterates through the list and checks the `status` field.
 3. Performs the necessary action (Create, Update, Delete) based on the status.
-4. Reports back to Waldur via the `callback_url` (if provided) to finalize the state.
+4. Reports back to Waldur via the different callback URLs to finalize the state.
 
 ### 8.2. The 3-Step Provisioning Protocol
 
