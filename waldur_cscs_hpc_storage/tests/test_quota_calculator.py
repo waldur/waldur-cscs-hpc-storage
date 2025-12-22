@@ -1,8 +1,8 @@
 import pytest
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 from uuid import uuid4
 
-from waldur_api_client.models.order_state import OrderState
+
 from waldur_api_client.models.request_types import RequestTypes
 
 from waldur_cscs_hpc_storage.models.enums import (
@@ -88,7 +88,6 @@ class TestQuotaCalculator:
     ):
         """Test overriding quotas via resource options."""
         mock_resource.options = ResourceOptions(
-            soft_quota_space=5.0,
             hard_quota_space=15.0,
             soft_quota_inodes=500,
             hard_quota_inodes=1500,
@@ -117,8 +116,8 @@ class TestQuotaCalculator:
             if q.type == QuotaType.INODES and q.enforcementType == EnforcementType.HARD
         )
 
-        assert space_soft.quota == 5.0
-        assert space_hard.quota == 15.0
+        assert space_soft.quota == 10.0  # From limits.storage=10.0 (no override)
+        assert space_hard.quota == 15.0  # From options override
         assert inode_soft.quota == 500.0
         assert inode_hard.quota == 1500.0
 
@@ -131,10 +130,11 @@ class TestQuotaCalculator:
         assert quotas is None
 
         # But if overrides are present, it should respect them
-        mock_resource.options = ResourceOptions(soft_quota_space=1.0)
+        mock_resource.limits = ResourceLimits(storage=1.1)
+        # mock_resource.options = ResourceOptions(soft_quota_space=1.0) # Old way
         quotas_with_override = quota_calculator.calculate_quotas(mock_resource)
         assert quotas_with_override is not None
-        assert quotas_with_override[0].quota == 1.0
+        assert quotas_with_override[0].quota == 1.1
 
     def test_calculate_quotas_override_arguments(self, quota_calculator, mock_resource):
         """Test passing explicit override arguments to the method."""
@@ -257,8 +257,10 @@ class TestQuotaCalculator:
         mock_order = Mock()
         mock_order.type_ = RequestTypes.UPDATE
         mock_order.attributes = {
-            "old_limits": {"storage": 10.0},
-            "old_options": {"soft_quota_space": 5.0},  # Override old space
+            "old_limits": {
+                "storage": 10.0,
+            },
+            "old_options": {},
         }
         mock_order.limits = Mock()
         mock_order.limits.additional_properties = {"storage": 50.0}
@@ -279,7 +281,7 @@ class TestQuotaCalculator:
             for q in old
             if q.type == QuotaType.SPACE and q.enforcementType == EnforcementType.HARD
         )
-        assert old_soft.quota == 5.0
+        assert old_soft.quota == 10.0
         assert old_hard.quota == 10.0
 
         # New: storage=50. No option override, so soft=50, hard=50

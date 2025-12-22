@@ -43,11 +43,7 @@ class QuotaCalculator:
         storage_limit = limits.storage or 0.0
 
         # Calculate effective storage quotas (with option overrides)
-        storage_quota_soft_tb = (
-            options.soft_quota_space
-            if options.soft_quota_space is not None
-            else storage_limit
-        )
+        storage_quota_soft_tb = storage_limit
         storage_quota_hard_tb = (
             options.hard_quota_space
             if options.hard_quota_space is not None
