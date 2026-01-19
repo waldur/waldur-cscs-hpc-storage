@@ -228,34 +228,32 @@ class ParsedWaldurResource(BaseModel):
         except AttributeError:
             return {}
 
-        allowed_actions = set()
+        # Order-level actions (approve, reject, set_state_done, set_state_erred)
+        order_actions = set()
 
         if order_state == OrderState.PENDING_PROVIDER:
-            allowed_actions.update(
+            order_actions.update(
                 [
                     "approve_by_provider",
                     "reject_by_provider",
-                    "set_backend_id",
                     "set_state_done",
                 ]
             )
 
         if order_state == OrderState.EXECUTING:
-            allowed_actions.update(
-                ["set_state_done", "set_state_erred", "set_backend_id"]
-            )
-
-        if order_state == OrderState.DONE:
-            allowed_actions.add("set_backend_id")
+            order_actions.update(["set_state_done", "set_state_erred"])
 
         base = order_url.rstrip("/")
-        urls = {f"{action}_url": f"{base}/{action}/" for action in allowed_actions}
+        urls = {f"{action}_url": f"{base}/{action}/" for action in order_actions}
 
+        # Resource-level actions (set_backend_id, update_options_direct)
         if "/marketplace-orders/" in order_url:
             api_root = order_url.split("/marketplace-orders/")[0]
+            resource_base = f"{api_root}/marketplace-provider-resources/{self.uuid}"
             urls["update_resource_options_url"] = (
-                f"{api_root}/marketplace-provider-resources/{self.uuid}/update_options_direct/"
+                f"{resource_base}/update_options_direct/"
             )
+            urls["set_backend_id_url"] = f"{resource_base}/set_backend_id/"
 
         return urls
 

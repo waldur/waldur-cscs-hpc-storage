@@ -23,10 +23,11 @@ class TestParsedWaldurResource:
     def test_callback_urls_pending_provider(self):
         mock_order = Mock(spec=OrderDetails)
         mock_order.state = OrderState.PENDING_PROVIDER
-        mock_order.url = "http://example.com/api/orders/123/"
+        mock_order.url = "http://example.com/api/marketplace-orders/123/"
 
+        resource_uuid = make_test_uuid("123")
         resource = ParsedWaldurResource(
-            uuid=make_test_uuid("123"),
+            uuid=resource_uuid,
             offering_uuid=make_test_uuid("456"),
             project_uuid=make_test_uuid("789"),
             customer_uuid=make_test_uuid("abc"),
@@ -34,24 +35,33 @@ class TestParsedWaldurResource:
         )
 
         urls = resource.callback_urls
+        # Order-level actions
         assert "approve_by_provider_url" in urls
         assert (
             urls["approve_by_provider_url"]
-            == "http://example.com/api/orders/123/approve_by_provider/"
+            == "http://example.com/api/marketplace-orders/123/approve_by_provider/"
         )
         assert "reject_by_provider_url" in urls
         assert (
             urls["reject_by_provider_url"]
-            == "http://example.com/api/orders/123/reject_by_provider/"
+            == "http://example.com/api/marketplace-orders/123/reject_by_provider/"
         )
+        # Resource-level actions
+        assert "set_backend_id_url" in urls
+        assert (
+            urls["set_backend_id_url"]
+            == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
+        )
+        assert "update_resource_options_url" in urls
 
     def test_callback_urls_executing(self):
         mock_order = Mock(spec=OrderDetails)
         mock_order.state = OrderState.EXECUTING
-        mock_order.url = "http://example.com/api/orders/123/"
+        mock_order.url = "http://example.com/api/marketplace-orders/123/"
 
+        resource_uuid = make_test_uuid("123")
         resource = ParsedWaldurResource(
-            uuid=make_test_uuid("123"),
+            uuid=resource_uuid,
             offering_uuid=make_test_uuid("456"),
             project_uuid=make_test_uuid("789"),
             customer_uuid=make_test_uuid("abc"),
@@ -59,24 +69,32 @@ class TestParsedWaldurResource:
         )
 
         urls = resource.callback_urls
+        # Order-level actions
         assert "set_state_done_url" in urls
         assert (
             urls["set_state_done_url"]
-            == "http://example.com/api/orders/123/set_state_done/"
+            == "http://example.com/api/marketplace-orders/123/set_state_done/"
         )
         assert "set_state_erred_url" in urls
         assert (
             urls["set_state_erred_url"]
-            == "http://example.com/api/orders/123/set_state_erred/"
+            == "http://example.com/api/marketplace-orders/123/set_state_erred/"
+        )
+        # Resource-level actions
+        assert "set_backend_id_url" in urls
+        assert (
+            urls["set_backend_id_url"]
+            == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
 
     def test_callback_urls_done(self):
         mock_order = Mock(spec=OrderDetails)
         mock_order.state = OrderState.DONE
-        mock_order.url = "http://example.com/api/orders/123/"
+        mock_order.url = "http://example.com/api/marketplace-orders/123/"
 
+        resource_uuid = make_test_uuid("123")
         resource = ParsedWaldurResource(
-            uuid=make_test_uuid("123"),
+            uuid=resource_uuid,
             offering_uuid=make_test_uuid("456"),
             project_uuid=make_test_uuid("789"),
             customer_uuid=make_test_uuid("abc"),
@@ -84,11 +102,16 @@ class TestParsedWaldurResource:
         )
 
         urls = resource.callback_urls
+        # No order-level actions for DONE state
+        assert "approve_by_provider_url" not in urls
+        assert "set_state_done_url" not in urls
+        # Resource-level actions are always available when order URL is valid
         assert "set_backend_id_url" in urls
         assert (
             urls["set_backend_id_url"]
-            == "http://example.com/api/orders/123/set_backend_id/"
+            == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
+        assert "update_resource_options_url" in urls
 
 
 class TestResourceStateParsing:
