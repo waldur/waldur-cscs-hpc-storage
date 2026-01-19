@@ -249,9 +249,7 @@ class ParsedWaldurResource(BaseModel):
         # Resource-level actions (set_backend_id, update_options_direct)
         if "/marketplace-orders/" in order_url:
             api_root = order_url.split("/marketplace-orders/")[0]
-            resource_base = (
-                f"{api_root}/marketplace-provider-resources/{self.uuid}"
-            )
+            resource_base = f"{api_root}/marketplace-provider-resources/{self.uuid}"
             urls["update_resource_options_url"] = (
                 f"{resource_base}/update_options_direct/"
             )
