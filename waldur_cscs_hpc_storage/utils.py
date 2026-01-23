@@ -6,7 +6,6 @@ from pydantic import BaseModel
 def paginate_response(
     resources: Sequence[BaseModel],
     filters: BaseModel,
-    total_api_count: int,
     extra_filters: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
@@ -15,7 +14,6 @@ def paginate_response(
     Args:
         resources: List of Pydantic models to serialize and paginate.
         filters: Pydantic model containing filter parameters (must have page and page_size).
-        total_api_count: Total count from the upstream API (for reference).
         extra_filters: Dict of additional filters to include in the response (e.g. calculated ones).
 
     Returns:
@@ -42,7 +40,6 @@ def paginate_response(
             "offset": (page - 1) * page_size,
             "pages": total_pages,
             "total": total_items,
-            "api_total": total_api_count,
         },
         "filters_applied": filters_applied,
     }

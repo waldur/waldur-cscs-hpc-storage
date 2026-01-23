@@ -77,7 +77,6 @@ class StorageOrchestrator:
             state=filters.state,
         )
         raw_resources = response.resources
-        total_api_count = response.total_count
 
         # 2. Process resources if any exist
         if raw_resources:
@@ -101,7 +100,6 @@ class StorageOrchestrator:
         return paginate_response(
             resources=filtered_resources,
             filters=filters,
-            total_api_count=total_api_count,
             extra_filters=extra_filters,
         )
 
