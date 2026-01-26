@@ -206,6 +206,7 @@ Authorization: Bearer <valid_oidc_token>
 ```
 
 **Development Mode:**
+
 * Set `DISABLE_AUTH=true` to bypass authentication
 * Useful for local testing and integration development
 
@@ -218,6 +219,7 @@ Retrieves a paginated list of storage resources with optional filtering.
 #### Request
 
 **Headers:**
+
 * `Authorization`: `Bearer <valid_oidc_token>` (required unless auth disabled)
 
 **Query Parameters:**
@@ -325,10 +327,12 @@ GET /api/storage-resources/?status=active
     }
   ],
   "pagination": {
-    "page": 1,
-    "page_size": 100,
-    "total_count": 42,
-    "total_pages": 1
+    "current": 1,
+    "limit": 100,
+    "offset": 0,
+    "pages": 1,
+    "total": 42,
+    "has_next": false
   }
 }
 ```
@@ -340,10 +344,12 @@ GET /api/storage-resources/?status=active
   "status": "success",
   "resources": [],
   "pagination": {
-    "page": 1,
-    "page_size": 100,
-    "total_count": 0,
-    "total_pages": 0
+    "current": 1,
+    "limit": 100,
+    "offset": 0,
+    "pages": 0,
+    "total": 0,
+    "has_next": false
   }
 }
 ```
@@ -435,6 +441,17 @@ These fields appear only when there's an active order/action:
 | `quota`           | Float  | Quota value                                         |
 | `unit`            | String | Unit: `tera` for space, `none` for inodes           |
 | `enforcementType` | String | Enforcement level: `hard` or `soft`                 |
+
+##### Pagination Object
+
+| Field      | Type    | Description                                      |
+|:-----------|:--------|:-------------------------------------------------|
+| `current`  | Integer | Current page number                              |
+| `limit`    | Integer | Items per page                                   |
+| `offset`   | Integer | Number of items skipped                          |
+| `pages`    | Integer | Total number of pages                            |
+| `total`    | Integer | Total number of items across all pages           |
+| `has_next` | Boolean | `true` if there are more pages to fetch          |
 
 #### Error Responses
 
@@ -529,6 +546,7 @@ Returns resources currently in the "Creating" state in Waldur.
 The API supports pagination to handle large result sets efficiently.
 
 **Request Parameters:**
+
 * `page`: Page number (starting from 1)
 * `page_size`: Items per page (default: 100, maximum: 500)
 
@@ -537,10 +555,12 @@ The API supports pagination to handle large result sets efficiently.
 ```json
 {
   "pagination": {
-    "page": 2,
-    "page_size": 50,
-    "total_count": 156,
-    "total_pages": 4
+    "current": 2,
+    "limit": 50,
+    "offset": 50,
+    "pages": 4,
+    "total": 156,
+    "has_next": true
   }
 }
 ```
