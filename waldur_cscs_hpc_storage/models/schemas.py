@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Optional, Annotated, Any, Dict
+from typing import Optional, Annotated
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
 from waldur_api_client.models.order_details import OrderDetails
