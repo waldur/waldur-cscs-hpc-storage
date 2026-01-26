@@ -32,3 +32,6 @@ dev = [
 
 [tool.uv.sources]
 waldur-api-client = { git = "https://github.com/waldur/py-client.git" }
+
+[tool.mypy]
+ignore_missing_imports = true

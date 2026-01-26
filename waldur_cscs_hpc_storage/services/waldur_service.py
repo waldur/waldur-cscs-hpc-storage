@@ -47,6 +47,7 @@ class WaldurService:
             verify_ssl=waldur_api_config.verify_ssl,
             httpx_args=httpx_args,
         )
+        self.storage_attributes_field = waldur_api_config.storage_attributes_field
         logger.debug(
             "Waldur API client initialized for URL: %s", waldur_api_config.api_url
         )
