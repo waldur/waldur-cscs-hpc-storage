@@ -221,7 +221,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # Create mock attributes
         mock_attributes = Mock()
         mock_attributes.permissions = "2770"
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_resource.attributes = mock_attributes
 
         mock_resource.options = Mock(
@@ -285,7 +285,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # Create mock attributes
         mock_attributes = Mock()
         mock_attributes.permissions = "2770"
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_resource.attributes = mock_attributes
 
         mock_resource.options = Mock(
@@ -361,7 +361,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # Create mock attributes
         mock_attributes = Mock()
         mock_attributes.permissions = "2770"
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_resource.attributes = mock_attributes
         mock_resource.options = Mock(
             hard_quota_space=None,
@@ -416,7 +416,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         # Create mock attributes
         mock_attributes = Mock()
         mock_attributes.permissions = "2770"
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_resource.attributes = mock_attributes
 
         mock_resource.options = Mock(
@@ -433,7 +433,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.effective_permissions = "2770"
         mock_resource.render_quotas.return_value = create_mock_quotas(150.0)
 
-        # Create mock order_in_progress without UUID
         # Create mock order_in_progress without UUID
         mock_order = Mock()
         mock_order.uuid = Unset()
@@ -452,8 +451,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
     def test_invalid_attribute_types_validation(self):
         """Test that non-string attribute values raise clear validation errors."""
-        """Test that non-string attribute values raise clear validation errors."""
-        # backend = self._create_orchestrator() # Removed unused variable
 
         # Create a mock resource
         mock_resource = Mock()
@@ -472,14 +469,14 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
         with pytest.raises(ValidationError):
             # Manually triggering validation by creating model with bad data
-            ResourceAttributes(permissions=["775", "770"])  # type: ignore
+            ResourceAttributes(storage={"permissions": ["775", "770"]})  # type: ignore
 
     def test_invalid_storage_data_type(self):
         """Test invalid storage data type."""
         # The schema uses a validator that falls back to STORE on error.
         # So we expect it to NOT raise, but default to STORE.
-        attr = ResourceAttributes(storage_data_type={"type": "store"})  # type: ignore
-        assert attr.storage_data_type == StorageDataType.STORE
+        attr = ResourceAttributes(storage={"storage_data_type": {"type": "store"}})  # type: ignore
+        assert attr.storage.storage_data_type == StorageDataType.STORE
 
     @pytest.mark.asyncio
     async def test_status_mapping_from_waldur_state(self):
@@ -499,7 +496,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.limits = mock_limits
 
         mock_attributes = Mock()
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
         mock_resource.options = Mock(
@@ -581,7 +578,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         for storage_data_type, expected_target_type in test_cases:
             # Create mock attributes with storage_data_type
             mock_attributes = Mock()
-            mock_attributes.storage_data_type = storage_data_type
+            mock_attributes.storage = Mock(storage_data_type=storage_data_type)
             mock_attributes.permissions = "775"
             mock_resource.attributes = mock_attributes
 
@@ -639,7 +636,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         )
 
         mock_attributes = Mock()
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
 
@@ -664,20 +661,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
                 f"Quota value {quota_value} should be float, got {type(quota_value)}"
             )
 
-    def test_storage_data_type_validation(self):
-        """Test validation of storage_data_type parameter."""
-        _ = self._create_orchestrator()
-
-        # Create a mock resource
-        mock_resource = Mock()
-        mock_resource.uuid = Mock()
-        mock_resource.uuid = str(uuid4())
-
-        # Test with invalid data type (list)
-        # Assuming we don't strict type check in Mapper anymore or we removed validation
-        # I'll just skip this test or remove it.
-        pass
-
     @pytest.mark.asyncio
     async def test_system_identifiers_use_deterministic_uuids(self):
         """Test that system identifiers use deterministic UUIDs generated from their names."""
@@ -698,7 +681,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         mock_resource.limits = mock_limits
 
         mock_attributes = Mock()
-        mock_attributes.storage_data_type = "store"
+        mock_attributes.storage = Mock(storage_data_type="store")
         mock_attributes.permissions = "775"
         mock_resource.attributes = mock_attributes
         mock_resource.options = Mock(
@@ -809,8 +792,6 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         r3.storageDataType.key = "scratch"
         r3.status = "removing"
         r3.callback_urls = {}
-
-        mock_resources = [r1, r2, r3]
 
         mock_resources = [r1, r2, r3]
 

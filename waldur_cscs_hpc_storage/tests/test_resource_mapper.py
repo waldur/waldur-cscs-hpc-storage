@@ -85,7 +85,9 @@ class TestResourceMapper:
         mock_resource.state = "OK"
 
         mock_resource.limits = Mock(storage=100)
-        mock_resource.attributes = Mock(permissions="2770", storage_data_type="store")
+        mock_resource.attributes = Mock(
+            permissions="2770", storage=Mock(storage_data_type="store")
+        )
         mock_resource.options = Mock(
             hard_quota_space=None,
             soft_quota_inodes=None,
@@ -123,7 +125,9 @@ class TestResourceMapper:
         mock_resource.state = "OK"
 
         mock_resource.limits = Mock(storage=50)
-        mock_resource.attributes = Mock(permissions="2770", storage_data_type="store")
+        mock_resource.attributes = Mock(
+            permissions="2770", storage=Mock(storage_data_type="store")
+        )
         mock_resource.options = Mock(
             hard_quota_space=None,
             soft_quota_inodes=None,
@@ -157,7 +161,9 @@ class TestResourceMapper:
         mock_resource.state = "OK"
 
         mock_resource.limits = Mock(storage=50)
-        mock_resource.attributes = Mock(permissions="2770", storage_data_type="users")
+        mock_resource.attributes = Mock(
+            permissions="2770", storage=Mock(storage_data_type="users")
+        )
         mock_resource.options = Mock(
             hard_quota_space=None,
             soft_quota_inodes=None,

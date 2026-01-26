@@ -181,18 +181,10 @@ class ParsedWaldurResource(BaseModel):
         )
         storage_dict = attributes_source.get(storage_attributes_field, {})
 
-        # Build clean attributes payload ONLY from the nested storage_dict
-        # Top-level legacy fields are ignored.
         cleaned_attributes = {}
 
         if storage_dict:
             cleaned_attributes["storage"] = storage_dict
-            if "storage_data_type" in storage_dict:
-                cleaned_attributes["storage_data_type"] = storage_dict[
-                    "storage_data_type"
-                ]
-            if "permissions" in storage_dict:
-                cleaned_attributes["permissions"] = storage_dict["permissions"]
 
         parsed_attributes = ResourceAttributes(**cleaned_attributes)
 

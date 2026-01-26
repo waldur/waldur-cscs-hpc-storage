@@ -113,7 +113,7 @@ def create_mock_resource(
 
     # Mock attributes
     resource.attributes = Mock()
-    resource.attributes.storage_data_type = storage_data_type
+    resource.attributes.storage = Mock(storage_data_type=storage_data_type)
     resource.attributes.permissions = "2770"
 
     # Mock options
@@ -430,7 +430,7 @@ class TestThreeTierHierarchyGeneration:
 
         for resource in resources:
             storage_system_name = resource.offering_slug
-            storage_data_type = resource.attributes.storage_data_type or "store"
+            storage_data_type = resource.attributes.storage.storage_data_type or "store"
             tenant_id = resource.provider_slug
             tenant_name = resource.provider_name
 
@@ -738,7 +738,7 @@ class TestIntegrationScenarios:
 
         for resource in resources:
             storage_system = resource.offering_slug
-            data_type = resource.attributes.storage_data_type
+            data_type = resource.attributes.storage.storage_data_type
             tenant_id = resource.provider_slug
 
             # Create tenant
