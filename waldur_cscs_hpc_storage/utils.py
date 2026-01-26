@@ -7,6 +7,7 @@ def paginate_response(
     resources: Sequence[BaseModel],
     filters: BaseModel,
     extra_filters: Optional[Dict[str, Any]] = None,
+    total_count: Optional[int] = None,
 ) -> Dict[str, Any]:
     """
     Generic pagination and serialization utility.
@@ -15,6 +16,7 @@ def paginate_response(
         resources: List of Pydantic models to serialize and paginate.
         filters: Pydantic model containing filter parameters (must have page and page_size).
         extra_filters: Dict of additional filters to include in the response (e.g. calculated ones).
+        total_count: Optional total number of items across all pages. Defaults to len(resources).
 
     Returns:
         Dict containing the formatted response with 'status', 'resources', 'pagination', and 'filters_applied'.
@@ -24,8 +26,9 @@ def paginate_response(
     page = getattr(filters, "page", 1)
     page_size = getattr(filters, "page_size", 100)
 
-    total_items = len(resources)
+    total_items = total_count if total_count is not None else len(resources)
     total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 0
+    has_next = page < total_pages
 
     filters_applied = filters.model_dump(exclude_none=True)
     if extra_filters:
@@ -40,6 +43,7 @@ def paginate_response(
             "offset": (page - 1) * page_size,
             "pages": total_pages,
             "total": total_items,
+            "has_next": has_next,
         },
         "filters_applied": filters_applied,
     }

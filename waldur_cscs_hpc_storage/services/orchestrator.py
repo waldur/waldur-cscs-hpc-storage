@@ -101,6 +101,7 @@ class StorageOrchestrator:
             resources=filtered_resources,
             filters=filters,
             extra_filters=extra_filters,
+            total_count=response.total_count,
         )
 
     async def _process_resources(
