@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import Optional, Annotated
+from typing import Optional, Annotated, Any, Dict
 from pydantic import BaseModel, Field, field_validator, BeforeValidator
 
 from waldur_api_client.models.order_details import OrderDetails
@@ -47,15 +47,33 @@ class ResourceLimits(BaseModel):
     model_config = {"extra": "ignore"}
 
 
-class ResourceAttributes(BaseModel):
+class BaseStorageConfig(BaseModel):
     """
-    Validates the 'attributes' field from WaldurResource.
+    Shared fields between user request (StorageConfig) and overrides (ResourceOptions).
+    """
+
+    hard_quota_space: Optional[float] = Field(
+        None, ge=0, description="Storage quota in Terabytes"
+    )
+    soft_quota_inodes: LooseInt = Field(None, ge=0, description="Soft inode quota")
+    hard_quota_inodes: LooseInt = Field(None, ge=0, description="Hard inode quota")
+    permissions: Optional[str] = Field(
+        None, pattern=r"^[0-7]{3,4}$", description="Unix permission string (e.g., 775)"
+    )
+
+    model_config = {"extra": "ignore"}
+
+
+class StorageConfig(BaseStorageConfig):
+    """
+    Strict definition of the nested 'storage' dictionary (User Request).
     """
 
     storage_data_type: StorageDataType = Field(
         default=StorageDataType.STORE,
         description="Type of storage (store, scratch, etc.)",
     )
+    # Override permissions to provide a default for the base request
     permissions: str = Field(
         default="775",
         pattern=r"^[0-7]{3,4}$",
@@ -65,39 +83,32 @@ class ResourceAttributes(BaseModel):
     @field_validator("storage_data_type", mode="before")
     @classmethod
     def validate_data_type(cls, v):
-        # Handle cases where the API might send None or empty string
         if not v:
             return StorageDataType.STORE
         try:
-            StorageDataType(v)
-            return v
+            return StorageDataType(v)
         except ValueError:
             return StorageDataType.STORE
 
 
-class ResourceOptions(BaseModel):
+class ResourceAttributes(BaseModel):
+    """
+    Validates the 'attributes' field from WaldurResource.
+    Now strictly contains the nested storage configuration.
+    """
+
+    storage: StorageConfig = Field(default_factory=StorageConfig)
+
+    model_config = {"extra": "ignore"}
+
+
+class ResourceOptions(BaseStorageConfig):
     """
     Validates the 'options' field from WaldurResource.
     Used for administrative overrides of quotas and permissions.
     """
 
-    hard_quota_space: Optional[float] = Field(
-        None, ge=0, description="Override hard storage quota (TB)"
-    )
-
-    # Using LooseInt to handle cases where API sends numbers as strings "10000.0"
-    soft_quota_inodes: LooseInt = Field(
-        None, ge=0, description="Override soft inode quota"
-    )
-    hard_quota_inodes: LooseInt = Field(
-        None, ge=0, description="Override hard inode quota"
-    )
-
-    permissions: Optional[str] = Field(
-        None, pattern=r"^[0-7]{3,4}$", description="Override permissions"
-    )
-
-    model_config = {"extra": "ignore"}
+    pass
 
 
 class ResourceBackendMetadata(BaseModel):
@@ -152,7 +163,9 @@ class ParsedWaldurResource(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     @classmethod
-    def from_waldur_resource(cls, resource: Resource) -> "ParsedWaldurResource":
+    def from_waldur_resource(
+        cls, resource: Resource, storage_attributes_field: str = "storage"
+    ) -> "ParsedWaldurResource":
         state = resource.state
         if (
             state in [ResourceState.UPDATING, ResourceState.TERMINATING]
@@ -160,6 +173,46 @@ class ParsedWaldurResource(BaseModel):
             and resource.order_in_progress.state == OrderState.PENDING_CONSUMER
         ):
             state = ResourceState.OK
+
+        # Prepare attributes and extract nested storage fields if present
+        # We start with proper defaults via models and only apply what is in the nested dict
+        attributes_source = (
+            resource.attributes.additional_properties if resource.attributes else {}
+        )
+        storage_dict = attributes_source.get(storage_attributes_field, {})
+
+        # Build clean attributes payload ONLY from the nested storage_dict
+        # Top-level legacy fields are ignored.
+        cleaned_attributes = {}
+
+        if storage_dict:
+            cleaned_attributes["storage"] = storage_dict
+            if "storage_data_type" in storage_dict:
+                cleaned_attributes["storage_data_type"] = storage_dict[
+                    "storage_data_type"
+                ]
+            if "permissions" in storage_dict:
+                cleaned_attributes["permissions"] = storage_dict["permissions"]
+
+        parsed_attributes = ResourceAttributes(**cleaned_attributes)
+
+        # Prepare options
+        raw_options = resource.options if resource.options else {}
+
+        # Extract quotas from storage dict into options if not already present in options
+        if storage_dict:
+            # Map fields from storage dict to ResourceOptions fields
+            # storage dict keys: hard_quota_space, soft_quota_inodes, hard_quota_inodes
+            quota_keys = [
+                "hard_quota_space",
+                "soft_quota_inodes",
+                "hard_quota_inodes",
+            ]
+
+            for key in quota_keys:
+                if key in storage_dict and key not in raw_options:
+                    raw_options[key] = storage_dict[key]
+        parsed_options = ResourceOptions(**raw_options)
 
         return cls(
             uuid=resource.uuid.hex,
@@ -190,12 +243,8 @@ class ParsedWaldurResource(BaseModel):
             limits=resource.limits
             and ResourceLimits(**resource.limits.additional_properties)
             or ResourceLimits(),
-            attributes=resource.attributes
-            and ResourceAttributes(**resource.attributes.additional_properties)
-            or ResourceAttributes(),
-            options=resource.options
-            and ResourceOptions(**resource.options)
-            or ResourceOptions(),
+            attributes=parsed_attributes,
+            options=parsed_options,
             backend_metadata=resource.backend_metadata
             and ResourceBackendMetadata(
                 **resource.backend_metadata.additional_properties
@@ -207,7 +256,8 @@ class ParsedWaldurResource(BaseModel):
     @property
     def effective_permissions(self) -> str:
         """Logic extracted from _extract_permissions"""
-        return self.options.permissions or self.attributes.permissions
+        # effective_permissions -> options override -> or storage default
+        return self.options.permissions or self.attributes.storage.permissions
 
     @property
     def callback_urls(self) -> dict[str, str]:

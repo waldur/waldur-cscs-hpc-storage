@@ -132,7 +132,8 @@ class WaldurService:
             raise WaldurClientError(msg, original_error=e) from e
 
         parsed_resources = [
-            ParsedWaldurResource.from_waldur_resource(r) for r in response.parsed
+            ParsedWaldurResource.from_waldur_resource(r, self.storage_attributes_field)
+            for r in response.parsed
         ]
         total = int(response.headers.get("x-result-count", 0))
 

@@ -104,7 +104,7 @@ class ResourceMapper:
         logger.debug("Mapping resource %s for system %s", resource_uuid, storage_system)
 
         # 1. Determine Data Type & Target Type
-        storage_data_type_str = waldur_resource.attributes.storage_data_type
+        storage_data_type_str = waldur_resource.attributes.storage.storage_data_type
         target_type = get_target_type_from_data_type(
             storage_data_type_str, resource_uuid
         )

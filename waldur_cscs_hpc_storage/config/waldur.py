@@ -18,6 +18,9 @@ class WaldurApiConfig(BaseSettings):
     verify_ssl: bool = Field(True, alias="WALDUR_VERIFY_SSL")
     socks_proxy: Optional[str] = Field(None, alias="WALDUR_SOCKS_PROXY")
     agent_header: Optional[str] = None
+    storage_attributes_field: str = Field(
+        "storage", alias="WALDUR_STORAGE_ATTRIBUTES_FIELD"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

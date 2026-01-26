@@ -108,6 +108,7 @@ STORAGE_SYSTEMS='{"capstor": "cscs-capstor-offering", "vast": "cscs-vast-offerin
 | `WALDUR_API_TOKEN`   | **Required** | Token for a Service Provider user in Waldur.       |
 | `WALDUR_VERIFY_SSL`  | `True`       | Validate SSL certificates.                         |
 | `WALDUR_SOCKS_PROXY` | `None`       | Optional SOCKS proxy (e.g., `socks5://host:port`). |
+| `WALDUR_STORAGE_ATTRIBUTES_FIELD` | `storage` | Key within `attributes` dict for storage settings. |
 
 #### C. Authentication (Incoming Security)
 
@@ -187,7 +188,19 @@ Quotas are derived from the storage limit (in TB) set in Waldur.
 2. **Soft Inode Limit** = `Base Inodes` * `inode_soft_coefficient`
 3. **Hard Inode Limit** = `Base Inodes` * `inode_hard_coefficient`
 
-*Note: Administrative overrides in Waldur (Resource Options) take precedence over these calculations.*
+*Note: Administrative overrides in Waldur (Resource Options or `attributes.storage`) take precedence over these calculations.*
+
+### 5.4. Resource Configuration
+
+The proxy determines resource properties (permissions, quotas, data type) by checking sources in the following order of precedence:
+
+1. **`options`** (Overrides): Administrative overrides for quotas and permissions.
+2. **`attributes.storage`** (User Request): Nested dictionary containing all storage settings.
+
+#### Understanding Attributes vs. Options
+
+* **Attributes (`attributes`)**: Represent the **user-requested configuration**. This is what the user fills out in the ordering form. In the context of this proxy, the "aggregated storage field" (configurable via `WALDUR_STORAGE_ATTRIBUTES_FIELD`) lives here.
+* **Options (`options`)**: Represent **administrative overrides**. These settings are typically hidden from the end-user and are used by administrators to force specific quotas or permissions, overriding the user's request.
 
 ---
 
