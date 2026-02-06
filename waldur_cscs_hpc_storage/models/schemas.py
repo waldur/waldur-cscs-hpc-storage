@@ -288,13 +288,10 @@ class ParsedWaldurResource(BaseModel):
         base = order_url.rstrip("/")
         urls = {f"{action}_url": f"{base}/{action}/" for action in order_actions}
 
-        # Resource-level actions (set_backend_id, update_options_direct)
+        # Resource-level actions (set_backend_id)
         if "/marketplace-orders/" in order_url:
             api_root = order_url.split("/marketplace-orders/")[0]
             resource_base = f"{api_root}/marketplace-provider-resources/{self.uuid}"
-            urls["update_resource_options_url"] = (
-                f"{resource_base}/update_options_direct/"
-            )
             urls["set_backend_id_url"] = f"{resource_base}/set_backend_id/"
 
         return urls

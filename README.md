@@ -652,16 +652,14 @@ The provisioner should run a reconciliation loop (e.g., every minute) that:
 
 A complete provisioning flow involves three distinct callbacks to Waldur. This ensures the Order transitions correctly through its state machine:
 
-1. **Approve/Reject** (`approve_by_provider_url`):
+1. **Approve with Options** (`approve_by_provider_url`):
     * **When**: Order is in `PENDING_PROVIDER` state.
-    * **Purpose**: Acknowledges the request. Moves Order to `EXECUTING`.
+    * **Purpose**: Acknowledges the request and reports applied quotas. Moves Order to `EXECUTING`.
+    * **Payload**: `{"attributes": {"new_options": {"hard_quota_space": 10.0, "soft_quota_inodes": 1000000, ...}}}`
 2. **Set State Done** (`set_state_done_url`):
     * **When**: Order is in `EXECUTING` state (provisioning finished).
     * **Purpose**: Confirms the work is complete. Moves Order to `DONE`.
-3. **Report Quotas** (`update_resource_options_url`):
-    * **When**: Order is in `EXECUTING` state (before `set_state_done`).
-    * **Purpose**: Reports the actual applied quotas back to Waldur.
-4. **Set Backend ID** (`set_backend_id_url`):
+3. **Set Backend ID** (`set_backend_id_url`):
     * **When**: Order is in `DONE` state (or `EXECUTING`).
     * **Purpose**: Links the Waldur resource to the specific backend identifier.
 
@@ -745,8 +743,7 @@ The JSON payload will look like this:
   "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/approve_by_provider/",
   "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/reject_by_provider/",
   "set_state_done_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_state_done/",
-  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/",
-  "update_resource_options_url": "https://waldur.example.com/api/marketplace-provider-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/update_options_direct/"
+  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/"
 }
 ```
 
@@ -756,10 +753,14 @@ The JSON payload will look like this:
 2. Set the Quotas (Space & Inodes from `quotas` - both soft and hard limits).
 3. Set the Ownership (GID from `target.targetItem.unixGid`).
 4. Set the Permissions (from `permission.value`).
-5. **POST** to `approve_by_provider_url` (empty body) to acknowledge the request.
-6. **POST** to `update_resource_options_url` with the applied quotas (e.g. `{"options": {"soft_quota_space": 10.0}}`).
-7. **POST** to `set_state_done_url` (empty body) to signal completion.
-8. **POST** to `set_backend_id_url` with the backend identifier.
+5. **POST** to `approve_by_provider_url` with the applied quotas:
+
+   ```json
+   {"attributes": {"new_options": {"hard_quota_space": 10.0, "soft_quota_inodes": 7500000, "hard_quota_inodes": 10000000}}}
+   ```
+
+6. **POST** to `set_state_done_url` (empty body) to signal completion.
+7. **POST** to `set_backend_id_url` with the backend identifier.
 
 Once approved, the resource state in Waldur becomes `OK`, and the proxy status becomes `active`.
 
@@ -893,17 +894,20 @@ The proxy provides both `oldQuotas` (current state) and `newQuotas` (desired sta
   "approve_by_provider_url": "https://waldur.example.com/api/marketplace-orders/b8c0d1e2-f3a4-5b6c-7d8e-9f0a1b2c3d4e/approve_by_provider/",
   "reject_by_provider_url": "https://waldur.example.com/api/marketplace-orders/b8c0d1e2-f3a4-5b6c-7d8e-9f0a1b2c3d4e/reject_by_provider/",
   "set_state_done_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_state_done/",
-  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/",
-  "update_resource_options_url": "https://waldur.example.com/api/marketplace-provider-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/update_options_direct/"
+  "set_backend_id_url": "https://waldur.example.com/api/marketplace-resources/a7b9c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d/set_backend_id/"
 }
 ```
 
 **Action**:
 
 1. Apply the new quotas from `newQuotas` to the directory at `mountPoint.default`.
-2. **POST** to `approve_by_provider_url` (empty body) to acknowledge the request.
-3. **POST** to `update_resource_options_url` with the applied quotas.
-4. **POST** to `set_state_done_url` (empty body) to confirm the update.
+2. **POST** to `approve_by_provider_url` with the applied quotas:
+
+   ```json
+   {"attributes": {"new_options": {"hard_quota_space": 20.0, "soft_quota_inodes": 26600000, "hard_quota_inodes": 40000000}}}
+   ```
+
+3. **POST** to `set_state_done_url` (empty body) to confirm the update.
 
 ### 8.5. The Terminate Flow
 
@@ -1086,7 +1090,7 @@ stateDiagram-v2
 
 ### 8.7. Quota Reporting Format
 
-When reporting quotas via the `update_resource_options_url`, the payload must map the internal quota representation to specific keys expected by Waldur.
+When reporting quotas via the `approve_by_provider_url`, the payload must map the internal quota representation to specific keys expected by Waldur. Quotas are sent as part of the `attributes.new_options` object.
 
 **Mapping Table:**
 
@@ -1100,10 +1104,12 @@ When reporting quotas via the `update_resource_options_url`, the payload must ma
 
 ```json
 {
-  "options": {
-    "hard_quota_space": 12.0,
-    "soft_quota_inodes": 1000000,
-    "hard_quota_inodes": 1500000
+  "attributes": {
+    "new_options": {
+      "hard_quota_space": 12.0,
+      "soft_quota_inodes": 1000000,
+      "hard_quota_inodes": 1500000
+    }
   }
 }
 ```
