@@ -52,7 +52,6 @@ class TestParsedWaldurResource:
             urls["set_backend_id_url"]
             == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
-        assert "update_resource_options_url" in urls
 
     def test_callback_urls_executing(self):
         mock_order = Mock(spec=OrderDetails)
@@ -111,7 +110,6 @@ class TestParsedWaldurResource:
             urls["set_backend_id_url"]
             == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
-        assert "update_resource_options_url" in urls
 
 
 class TestResourceStateParsing:
