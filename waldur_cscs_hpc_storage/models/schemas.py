@@ -251,6 +251,13 @@ class ParsedWaldurResource(BaseModel):
             api_root = order_url.split("/marketplace-orders/")[0]
             resource_base = f"{api_root}/marketplace-provider-resources/{self.uuid}"
             urls["set_backend_id_url"] = f"{resource_base}/set_backend_id/"
+            if self.state in [
+                ResourceState.ERRED,
+                ResourceState.CREATING,
+                ResourceState.UPDATING,
+                ResourceState.TERMINATING,
+            ]:
+                urls["set_state_ok_url"] = f"{resource_base}/set_state_ok/"
 
         return urls
 
