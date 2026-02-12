@@ -111,6 +111,45 @@ class TestParsedWaldurResource:
             == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
 
+    def test_callback_urls_set_state_ok(self):
+        for state in [
+            ResourceState.ERRED,
+            ResourceState.CREATING,
+            ResourceState.UPDATING,
+            ResourceState.TERMINATING,
+        ]:
+            resource_uuid = make_test_uuid("123")
+            resource = ParsedWaldurResource(
+                uuid=resource_uuid,
+                offering_uuid=make_test_uuid("456"),
+                project_uuid=make_test_uuid("789"),
+                customer_uuid=make_test_uuid("abc"),
+                state=state,
+                order_in_progress=Mock(
+                    spec=OrderDetails,
+                    url="http://example.com/api/marketplace-orders/123/",
+                ),
+            )
+            urls = resource.callback_urls
+            assert "set_state_ok_url" in urls
+            assert (
+                urls["set_state_ok_url"]
+                == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_state_ok/"
+            )
+
+        # Test disallowed state
+        resource = ParsedWaldurResource(
+            uuid=make_test_uuid("123"),
+            offering_uuid=make_test_uuid("456"),
+            project_uuid=make_test_uuid("789"),
+            customer_uuid=make_test_uuid("abc"),
+            state=ResourceState.OK,
+            order_in_progress=Mock(
+                spec=OrderDetails, url="http://example.com/api/marketplace-orders/123/"
+            ),
+        )
+        assert "set_state_ok_url" not in resource.callback_urls
+
 
 class TestResourceStateParsing:
     def _get_resource(self, state, order_state=None):
