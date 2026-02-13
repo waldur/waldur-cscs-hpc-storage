@@ -23,19 +23,36 @@ class TestReverseStatusMapping:
                 )
 
     def test_pending_maps_to_creating(self):
-        assert get_waldur_state_from_target_status(TargetStatus.PENDING) == ResourceState.CREATING
+        assert (
+            get_waldur_state_from_target_status(TargetStatus.PENDING)
+            == ResourceState.CREATING
+        )
 
     def test_active_maps_to_ok(self):
-        assert get_waldur_state_from_target_status(TargetStatus.ACTIVE) == ResourceState.OK
+        assert (
+            get_waldur_state_from_target_status(TargetStatus.ACTIVE) == ResourceState.OK
+        )
 
     def test_error_maps_to_erred(self):
-        assert get_waldur_state_from_target_status(TargetStatus.ERROR) == ResourceState.ERRED
+        assert (
+            get_waldur_state_from_target_status(TargetStatus.ERROR)
+            == ResourceState.ERRED
+        )
 
     def test_removing_maps_to_terminating(self):
-        assert get_waldur_state_from_target_status(TargetStatus.REMOVING) == ResourceState.TERMINATING
+        assert (
+            get_waldur_state_from_target_status(TargetStatus.REMOVING)
+            == ResourceState.TERMINATING
+        )
 
     def test_removed_maps_to_terminated(self):
-        assert get_waldur_state_from_target_status(TargetStatus.REMOVED) == ResourceState.TERMINATED
+        assert (
+            get_waldur_state_from_target_status(TargetStatus.REMOVED)
+            == ResourceState.TERMINATED
+        )
 
     def test_updating_maps_to_updating(self):
-        assert get_waldur_state_from_target_status(TargetStatus.UPDATING) == ResourceState.UPDATING
+        assert (
+            get_waldur_state_from_target_status(TargetStatus.UPDATING)
+            == ResourceState.UPDATING
+        )

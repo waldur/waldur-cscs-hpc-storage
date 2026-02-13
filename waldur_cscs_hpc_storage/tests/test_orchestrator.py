@@ -915,9 +915,7 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
         )
 
         # Case 1: Default pagination (page=1, page_size=100)
-        result = await self.orchestrator.get_resources(
-            filters=StorageResourceFilter()
-        )
+        result = await self.orchestrator.get_resources(filters=StorageResourceFilter())
 
         # Verify list_all_resources was called (not list_resources)
         self.orchestrator.waldur_service.list_all_resources.assert_called_once()

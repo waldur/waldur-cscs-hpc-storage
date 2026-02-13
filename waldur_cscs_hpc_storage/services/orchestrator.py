@@ -12,7 +12,9 @@ from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.mapper import HierarchyBuilder
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
-from waldur_cscs_hpc_storage.mapper.state_mappers import get_waldur_state_from_target_status
+from waldur_cscs_hpc_storage.mapper.state_mappers import (
+    get_waldur_state_from_target_status,
+)
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_cscs_hpc_storage.utils import paginate_response
 
