@@ -907,35 +907,48 @@ class TestStorageOrchestrator(TestStorageOrchestratorBase):
 
     @pytest.mark.asyncio
     async def test_pagination_support(self):
-        """Test pagination support via get_resources (delegated to Orchestrator)."""
+        """Test pagination support via get_resources with local page slicing."""
         # Setup mock response parameters
-        mock_response = Mock()
-        mock_response.resources = []
-        mock_response.total_count = 0
-        self.orchestrator.waldur_service.list_resources.return_value = mock_response
-        self.orchestrator.waldur_service.get_offering_customers.return_value = {}
+        self.orchestrator.waldur_service.list_all_resources = AsyncMock(return_value=[])
+        self.orchestrator.waldur_service.get_offering_customers = AsyncMock(
+            return_value={}
+        )
 
         # Case 1: Default pagination (page=1, page_size=100)
-        await self.orchestrator.get_resources(filters=StorageResourceFilter())
+        result = await self.orchestrator.get_resources(
+            filters=StorageResourceFilter()
+        )
 
-        # Verify call args
-        call_args = self.orchestrator.waldur_service.list_resources.call_args
-        assert call_args is not None
-        _, kwargs = call_args
-        assert kwargs["page"] == 1
-        assert kwargs["page_size"] == 100  # Default
+        # Verify list_all_resources was called (not list_resources)
+        self.orchestrator.waldur_service.list_all_resources.assert_called_once()
+        assert result["pagination"]["current"] == 1
+        assert result["pagination"]["limit"] == 100
 
         # Reset mock
-        self.orchestrator.waldur_service.list_resources.reset_mock()
+        self.orchestrator.waldur_service.list_all_resources.reset_mock()
 
-        # Case 2: Explicit pagination
-        await self.orchestrator.get_resources(
+        # Case 2: Explicit pagination — page slicing is handled locally
+        result = await self.orchestrator.get_resources(
             filters=StorageResourceFilter(page=2, page_size=50)
         )
 
-        call_args = self.orchestrator.waldur_service.list_resources.call_args
+        self.orchestrator.waldur_service.list_all_resources.assert_called_once()
+        assert result["pagination"]["current"] == 2
+        assert result["pagination"]["limit"] == 50
+
+    @pytest.mark.asyncio
+    async def test_status_filter_pushed_to_waldur_as_state(self):
+        """Test that status filter is converted to Waldur state and pushed to API."""
+        self.orchestrator.waldur_service.list_all_resources = AsyncMock(return_value=[])
+        self.orchestrator.waldur_service.get_offering_customers = AsyncMock(
+            return_value={}
+        )
+
+        await self.orchestrator.get_resources(
+            filters=StorageResourceFilter(status=TargetStatus.PENDING)
+        )
+
+        call_args = self.orchestrator.waldur_service.list_all_resources.call_args
         assert call_args is not None
         _, kwargs = call_args
-        # Should be exactly what we passed
-        assert kwargs["page"] == 2
-        assert kwargs["page_size"] == 50
+        assert kwargs["state"] == ResourceState.CREATING

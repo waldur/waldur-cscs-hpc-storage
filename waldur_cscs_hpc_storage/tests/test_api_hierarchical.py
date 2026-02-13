@@ -30,7 +30,7 @@ except SystemExit:
 def mock_waldur_service():
     """Create a mock WaldurService."""
     mock = Mock()
-    mock.list_resources = AsyncMock()
+    mock.list_all_resources = AsyncMock()
     mock.get_offering_customers = AsyncMock()
     return mock
 
@@ -206,10 +206,7 @@ class TestHierarchicalStorageAPI:
             mock_offering_customers
         )
 
-        mock_response = Mock()
-        mock_response.resources = mock_waldur_resources
-        mock_response.total_count = len(mock_waldur_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = mock_waldur_resources
 
         response = client.get("/api/storage-resources/")
 
@@ -262,10 +259,7 @@ class TestHierarchicalStorageAPI:
             mock_offering_customers
         )
 
-        mock_response = Mock()
-        mock_response.resources = mock_waldur_resources
-        mock_response.total_count = len(mock_waldur_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = mock_waldur_resources
 
         response = client.get("/api/storage-resources/")
         data = response.json()
@@ -321,10 +315,7 @@ class TestHierarchicalStorageAPI:
             r for r in mock_waldur_resources if r.offering_slug == "capstor"
         ]
 
-        mock_response = Mock()
-        mock_response.resources = capstor_resources
-        mock_response.total_count = len(capstor_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = capstor_resources
 
         response = client.get("/api/storage-resources/?storage_system=capstor")
 
@@ -358,9 +349,7 @@ class TestHierarchicalStorageAPI:
 
     def test_pagination_with_hierarchy(self, client, mock_waldur_service):
         """Test that pagination works correctly with hierarchical resources."""
-        mock_waldur_service.list_resources.return_value = Mock(
-            resources=[], total_count=0
-        )
+        mock_waldur_service.list_all_resources.return_value = []
 
         response = client.get("/api/storage-resources/?page=1&page_size=5")
 
@@ -402,10 +391,7 @@ class TestHierarchicalStorageAPI:
             mock_offering_customers
         )
 
-        mock_response = Mock()
-        mock_response.resources = mock_waldur_resources
-        mock_response.total_count = len(mock_waldur_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = mock_waldur_resources
 
         response = client.get("/api/storage-resources/?data_type=store")
 
@@ -438,10 +424,7 @@ class TestHierarchyValidation:
             mock_offering_customers
         )
 
-        mock_response = Mock()
-        mock_response.resources = mock_waldur_resources
-        mock_response.total_count = len(mock_waldur_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = mock_waldur_resources
 
         response = client.get("/api/storage-resources/")
         data = response.json()
@@ -486,10 +469,7 @@ class TestHierarchyValidation:
             mock_offering_customers
         )
 
-        mock_response = Mock()
-        mock_response.resources = mock_waldur_resources
-        mock_response.total_count = len(mock_waldur_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = mock_waldur_resources
 
         response = client.get("/api/storage-resources/")
         data = response.json()
@@ -550,10 +530,7 @@ class TestHierarchyValidation:
         mock_waldur_service.get_offering_customers.return_value = (
             mock_offering_customers
         )
-        mock_response = Mock()
-        mock_response.resources = mock_waldur_resources
-        mock_response.total_count = len(mock_waldur_resources)
-        mock_waldur_service.list_resources.return_value = mock_response
+        mock_waldur_service.list_all_resources.return_value = mock_waldur_resources
 
         response = client.get("/api/storage-resources/")
 
@@ -587,9 +564,7 @@ class TestAPIResponseStructure:
 
     def test_response_schema_compliance(self, client, mock_waldur_service):
         """Test that the API response follows the expected schema."""
-        mock_waldur_service.list_resources.return_value = Mock(
-            resources=[], total_count=0
-        )
+        mock_waldur_service.list_all_resources.return_value = []
 
         response = client.get("/api/storage-resources/")
 
@@ -643,9 +618,7 @@ class TestAPIResponseStructure:
 
     def test_filters_applied_info(self, client, mock_waldur_service):
         """Test that filters_applied information is included in responses."""
-        mock_waldur_service.list_resources.return_value = Mock(
-            resources=[], total_count=0
-        )
+        mock_waldur_service.list_all_resources.return_value = []
 
         response = client.get(
             "/api/storage-resources/?storage_system=capstor&data_type=store&status=active"

@@ -12,6 +12,7 @@ from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.mapper import HierarchyBuilder
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.mapper.state_mappers import get_waldur_state_from_target_status
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_cscs_hpc_storage.utils import paginate_response
 
@@ -69,30 +70,34 @@ class StorageOrchestrator:
 
         logger.info("Orchestrating resource fetch for slugs: %s", offering_slugs)
 
-        # 1. Fetch raw data from Waldur
-        response = await self.waldur_service.list_resources(
-            page=filters.page,
-            page_size=filters.page_size,
-            offering_slug=offering_slugs,
-            state=filters.state,
-        )
-        raw_resources = response.resources
+        # 1. Push status filter to Waldur as state parameter
+        waldur_state = None
+        if filters.status:
+            waldur_state = get_waldur_state_from_target_status(filters.status)
 
-        # 2. Process resources if any exist
+        # 2. Fetch all resources from Waldur (handles data_type post-filtering correctly)
+        raw_resources = await self.waldur_service.list_all_resources(
+            offering_slug=offering_slugs,
+            state=waldur_state,
+        )
+
+        # 3. Process resources if any exist
         if raw_resources:
             processed_resources = await self._process_resources(raw_resources)
         else:
             processed_resources = []
 
-        # 3. Apply post-processing filters (Memory-side filtering)
+        # 4. Apply post-processing filters (Memory-side filtering)
         # Note: We filter *after* hierarchy building because the API
         # might return a 'Project' that we want, but we also need its
         # 'Tenant' and 'Customer' parents which are generated locally.
+        # Status is still filtered here as a safety net (the state override
+        # logic in ParsedWaldurResource can change the mapped status).
         filtered_resources = self._filter_resources(
             processed_resources, filters.data_type, filters.status
         )
 
-        # 4. Serialize and Paginate
+        # 5. Paginate the filtered results locally
         extra_filters = {
             "offering_slugs": offering_slugs,
         }
@@ -101,7 +106,6 @@ class StorageOrchestrator:
             resources=filtered_resources,
             filters=filters,
             extra_filters=extra_filters,
-            total_count=response.total_count,
         )
 
     async def _process_resources(
