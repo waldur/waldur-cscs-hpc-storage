@@ -88,6 +88,43 @@ class WaldurService:
         )
         return customers
 
+    async def list_all_resources(
+        self,
+        offering_slug: Optional[list[str]] = None,
+        state: Optional[ResourceState] = None,
+    ) -> list[ParsedWaldurResource]:
+        """Fetch all resources from Waldur API across all pages.
+
+        Args:
+            offering_slug: Optional slug or list of slugs of the offering
+            state: Optional resource state filter
+
+        Returns:
+            List of all parsed resources
+        """
+        filters = {}
+        if state:
+            filters["state"] = [state]
+
+        if offering_slug:
+            filters["offering_slug"] = [",".join(offering_slug)]
+
+        try:
+            response = await marketplace_resources_list.asyncio_all(
+                client=self.client,
+                visible_to_providers=True,
+                **filters,
+            )
+        except Exception as e:
+            msg = f"Failed to fetch all resources for offerings {offering_slug}"
+            logger.exception(msg)
+            raise WaldurClientError(msg, original_error=e) from e
+
+        if not response:
+            return []
+
+        return [ParsedWaldurResource.from_waldur_resource(r) for r in response]
+
     async def list_resources(
         self,
         offering_slug: Optional[list[str]] = None,

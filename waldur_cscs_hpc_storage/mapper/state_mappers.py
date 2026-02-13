@@ -92,3 +92,26 @@ def get_target_type_from_data_type(
         target_type,
     )
     return target_type
+
+
+# Reverse mapping from target status to Waldur resource state
+REVERSE_STATUS_MAPPING: dict[TargetStatus, ResourceState] = {
+    TargetStatus.PENDING: ResourceState.CREATING,
+    TargetStatus.ACTIVE: ResourceState.OK,
+    TargetStatus.ERROR: ResourceState.ERRED,
+    TargetStatus.REMOVING: ResourceState.TERMINATING,
+    TargetStatus.REMOVED: ResourceState.TERMINATED,
+    TargetStatus.UPDATING: ResourceState.UPDATING,
+}
+
+
+def get_waldur_state_from_target_status(status: TargetStatus) -> ResourceState | None:
+    """Map target status to Waldur resource state for API filtering.
+
+    Args:
+        status: Target status enum value (e.g., TargetStatus.PENDING)
+
+    Returns:
+        Corresponding ResourceState enum value, or None if no mapping exists
+    """
+    return REVERSE_STATUS_MAPPING.get(status)

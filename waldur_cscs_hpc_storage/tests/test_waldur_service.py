@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
+from waldur_api_client.models.resource_state import ResourceState
 from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
 from waldur_cscs_hpc_storage.exceptions import WaldurClientError
@@ -80,3 +81,57 @@ class TestWaldurService:
             page=1,
             page_size=100,
         )
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
+    async def test_list_all_resources_success(self, mock_list, service):
+        mock_resource = Mock()
+        mock_list.asyncio_all = AsyncMock(return_value=[mock_resource])
+
+        with patch(
+            "waldur_cscs_hpc_storage.services.waldur_service.ParsedWaldurResource"
+        ) as mock_parsed:
+            mock_parsed.from_waldur_resource.return_value = mock_resource
+            result = await service.list_all_resources(offering_slug=["slug1"])
+
+        assert len(result) == 1
+        mock_list.asyncio_all.assert_called_once_with(
+            client=service.client,
+            offering_slug=["slug1"],
+            visible_to_providers=True,
+        )
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
+    async def test_list_all_resources_with_state(self, mock_list, service):
+        mock_list.asyncio_all = AsyncMock(return_value=[])
+
+        result = await service.list_all_resources(
+            offering_slug=["slug1"],
+            state=ResourceState.CREATING,
+        )
+
+        assert result == []
+        mock_list.asyncio_all.assert_called_once_with(
+            client=service.client,
+            offering_slug=["slug1"],
+            state=[ResourceState.CREATING],
+            visible_to_providers=True,
+        )
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
+    async def test_list_all_resources_empty(self, mock_list, service):
+        mock_list.asyncio_all = AsyncMock(return_value=[])
+
+        result = await service.list_all_resources()
+
+        assert result == []
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.waldur_service.marketplace_resources_list")
+    async def test_list_all_resources_error(self, mock_list, service):
+        mock_list.asyncio_all = AsyncMock(side_effect=Exception("API Error"))
+
+        with pytest.raises(WaldurClientError):
+            await service.list_all_resources(offering_slug=["slug1"])

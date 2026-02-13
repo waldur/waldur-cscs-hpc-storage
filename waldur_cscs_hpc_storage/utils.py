@@ -21,14 +21,19 @@ def paginate_response(
     Returns:
         Dict containing the formatted response with 'status', 'resources', 'pagination', and 'filters_applied'.
     """
-    serialized_resources = [r.model_dump(by_alias=True) for r in resources]
-
     page = getattr(filters, "page", 1)
     page_size = getattr(filters, "page_size", 100)
 
     total_items = total_count if total_count is not None else len(resources)
     total_pages = (total_items + page_size - 1) // page_size if total_items > 0 else 0
     has_next = page < total_pages
+
+    # Slice to the requested page
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_resources = resources[start:end]
+
+    serialized_resources = [r.model_dump(by_alias=True) for r in page_resources]
 
     filters_applied = filters.model_dump(exclude_none=True)
     if extra_filters:

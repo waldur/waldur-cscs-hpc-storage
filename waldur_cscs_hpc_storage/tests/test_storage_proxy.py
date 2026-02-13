@@ -487,27 +487,22 @@ class TestStorageProxyAPI:
         assert filters.storage_system is None
 
     @patch(
-        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_resources"
+        "waldur_cscs_hpc_storage.services.waldur_service.WaldurService.list_all_resources"
     )
-    def test_comma_separated_slugs_in_waldur_api_call(self, mock_list_resources):
+    def test_comma_separated_slugs_in_waldur_api_call(self, mock_list_all_resources):
         """Test that the backend uses comma-separated offering slugs when calling Waldur API."""
         # Mock the API response
-        mock_response = WaldurResourceResponse(resources=[], total_count=0)
-        mock_list_resources.return_value = mock_response
+        mock_list_all_resources.return_value = []
 
         # Make a request without storage_system filter (should use all storage systems)
         response = self.client.get("/api/storage-resources/")
         assert response.status_code == 200
 
         # Verify the API was called
-        mock_list_resources.assert_called_once()
-        call_args = mock_list_resources.call_args
+        mock_list_all_resources.assert_called_once()
+        call_args = mock_list_all_resources.call_args
 
         # Check that offering_slug parameter is a list of slugs
         offering_slug_param = call_args[1]["offering_slug"]
         assert isinstance(offering_slug_param, list)
         assert set(offering_slug_param) == {"capstor", "vast", "iopsstor"}
-
-        # Verify other expected parameters
-        assert call_args[1]["page"] == 1
-        assert call_args[1]["page_size"] == 100
