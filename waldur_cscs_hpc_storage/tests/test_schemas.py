@@ -52,6 +52,11 @@ class TestParsedWaldurResource:
             urls["set_backend_id_url"]
             == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
+        assert "update_resource_options_url" in urls
+        assert (
+            urls["update_resource_options_url"]
+            == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/update_options_direct/"
+        )
 
     def test_callback_urls_executing(self):
         mock_order = Mock(spec=OrderDetails)
@@ -85,6 +90,7 @@ class TestParsedWaldurResource:
             urls["set_backend_id_url"]
             == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
+        assert "update_resource_options_url" not in urls
 
     def test_callback_urls_done(self):
         mock_order = Mock(spec=OrderDetails)
@@ -110,6 +116,7 @@ class TestParsedWaldurResource:
             urls["set_backend_id_url"]
             == f"http://example.com/api/marketplace-provider-resources/{resource_uuid}/set_backend_id/"
         )
+        assert "update_resource_options_url" not in urls
 
     def test_callback_urls_set_state_ok(self):
         for state in [
