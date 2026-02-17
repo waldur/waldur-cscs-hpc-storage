@@ -444,7 +444,9 @@ class TestGidService:
 
     @pytest.mark.asyncio
     @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.AsyncClient")
-    async def test_batch_resolve_gids_skips_cached(self, mock_client_class, gid_service):
+    async def test_batch_resolve_gids_skips_cached(
+        self, mock_client_class, gid_service
+    ):
         """Test batch GID resolution skips already-cached slugs."""
         from datetime import timedelta
 

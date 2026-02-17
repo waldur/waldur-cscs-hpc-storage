@@ -217,7 +217,9 @@ class GidService:
 
         if not uncached_slugs:
             logger.debug("All %d project slugs found in cache", len(project_slugs))
-            return {s: self._gid_cache[s] for s in project_slugs if s in self._gid_cache}
+            return {
+                s: self._gid_cache[s] for s in project_slugs if s in self._gid_cache
+            }
 
         logger.info(
             "Batch resolving GIDs for %d projects (%d cached, %d to fetch)",
@@ -242,7 +244,10 @@ class GidService:
                 len(uncached_slugs),
             )
         except Exception as e:
-            logger.warning("Batch GID resolution failed, will fall back to individual lookups: %s", e)
+            logger.warning(
+                "Batch GID resolution failed, will fall back to individual lookups: %s",
+                e,
+            )
 
         return {s: self._gid_cache[s] for s in project_slugs if s in self._gid_cache}
 
