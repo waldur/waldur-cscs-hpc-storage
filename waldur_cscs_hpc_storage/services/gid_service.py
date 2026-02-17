@@ -201,6 +201,51 @@ class GidService:
         """
         return 30000 + hash(project_slug) % 10000
 
+    async def batch_resolve_gids(self, project_slugs: list[str]) -> dict[str, int]:
+        """Resolve GIDs for multiple project slugs in a single API call.
+
+        Fetches all uncached slugs in one batch request and populates the cache.
+
+        Args:
+            project_slugs: List of project slugs to resolve
+
+        Returns:
+            Dict mapping project slug to unix GID for successfully resolved projects
+        """
+        # Filter out already-cached slugs
+        uncached_slugs = [s for s in project_slugs if s not in self._gid_cache]
+
+        if not uncached_slugs:
+            logger.debug("All %d project slugs found in cache", len(project_slugs))
+            return {s: self._gid_cache[s] for s in project_slugs if s in self._gid_cache}
+
+        logger.info(
+            "Batch resolving GIDs for %d projects (%d cached, %d to fetch)",
+            len(project_slugs),
+            len(project_slugs) - len(uncached_slugs),
+            len(uncached_slugs),
+        )
+
+        try:
+            projects_data = await self.get_projects(uncached_slugs)
+
+            for project in projects_data:
+                posix_name = project.get("posixName")
+                unix_gid = project.get("unixGid")
+                if posix_name and unix_gid is not None:
+                    self._gid_cache[posix_name] = unix_gid
+
+            resolved = len([s for s in uncached_slugs if s in self._gid_cache])
+            logger.info(
+                "Batch GID resolution complete: %d/%d resolved",
+                resolved,
+                len(uncached_slugs),
+            )
+        except Exception as e:
+            logger.warning("Batch GID resolution failed, will fall back to individual lookups: %s", e)
+
+        return {s: self._gid_cache[s] for s in project_slugs if s in self._gid_cache}
+
     async def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for a specific project slug.
 

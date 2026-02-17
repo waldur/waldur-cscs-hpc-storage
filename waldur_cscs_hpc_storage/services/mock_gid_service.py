@@ -38,6 +38,27 @@ class MockGidService:
         """
         return 30000 + hash(project_slug) % 10000
 
+    async def batch_resolve_gids(self, project_slugs: list[str]) -> dict[str, int]:
+        """Batch resolve GIDs for multiple project slugs.
+
+        In development mode, generates and caches mock GIDs for all slugs.
+
+        Args:
+            project_slugs: List of project slugs to resolve
+
+        Returns:
+            Dict mapping project slug to mock GID
+        """
+        result = {}
+        for slug in project_slugs:
+            if slug not in self._gid_cache:
+                if self.development_mode:
+                    self._gid_cache[slug] = self._generate_mock_gid(slug)
+                else:
+                    continue
+            result[slug] = self._gid_cache[slug]
+        return result
+
     async def get_project_unix_gid(self, project_slug: str) -> Optional[int]:
         """Get unixGid for a specific project slug.
 

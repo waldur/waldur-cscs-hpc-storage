@@ -125,6 +125,13 @@ class StorageOrchestrator:
             customers = await self.waldur_service.get_offering_customers(offering_uuid)
             all_offering_customers.update(customers)
 
+        # A2. Batch pre-fetch GIDs for all projects in a single API call
+        project_slugs = [
+            r.project_slug for r in raw_resources if r.project_slug
+        ]
+        if project_slugs:
+            await self.mapper.gid_service.batch_resolve_gids(project_slugs)
+
         # B. Initialize a fresh HierarchyBuilder for this request
         hierarchy_builder = HierarchyBuilder(
             self.config.backend_settings.storage_file_system

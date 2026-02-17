@@ -16,6 +16,12 @@ logger = logging.getLogger(__name__)
 # Global config instance (loaded at startup in main.py)
 _config: Optional[StorageProxyConfig] = None
 
+# Singleton service instances (persist across requests for caching)
+_waldur_service: Optional[WaldurService] = None
+_gid_service: Optional[Union[GidService, MockGidService]] = None
+_quota_calculator: Optional[QuotaCalculator] = None
+_mapper: Optional[ResourceMapper] = None
+
 
 def set_global_config(config: StorageProxyConfig):
     """Called by main.py on startup to inject the loaded configuration."""
@@ -34,26 +40,36 @@ def get_waldur_service(
     config: Annotated[StorageProxyConfig, Depends(get_config)],
 ) -> WaldurService:
     """
-    Creates a singleton WaldurService.
+    Returns a singleton WaldurService, reused across requests.
     """
-    if not config.waldur_api:
-        raise ValueError("Waldur API configuration is missing")
-    return WaldurService(config.waldur_api)
+    global _waldur_service
+    if _waldur_service is None:
+        if not config.waldur_api:
+            raise ValueError("Waldur API configuration is missing")
+        _waldur_service = WaldurService(config.waldur_api)
+    return _waldur_service
 
 
 def get_gid_service(
     config: Annotated[StorageProxyConfig, Depends(get_config)],
-) -> Union[GidService, MockGidService]:  # Corrected return type hint
+) -> Union[GidService, MockGidService]:
     """
-    Creates a GidService or MockGidService based on configuration.
+    Returns a singleton GidService or MockGidService.
+
+    The GID cache persists across requests, avoiding redundant
+    HPC User API calls for already-resolved project slugs.
     """
+    global _gid_service
+    if _gid_service is not None:
+        return _gid_service
+
     # 1. Try to initialize the real HPC User API client
     if config.hpc_user_api and config.hpc_user_api.api_url:
         try:
             # development_mode is already synced in config_parser.py
-            service = GidService(config.hpc_user_api)
+            _gid_service = GidService(config.hpc_user_api)
             logger.info("Initialized real HPC User API client")
-            return service
+            return _gid_service
         except Exception as e:
             logger.warning("Failed to initialize real GidService: %s", e)
             if not config.hpc_user_api.development_mode:
@@ -63,16 +79,20 @@ def get_gid_service(
     logger.info("Using MockGidService (HPC User API not configured or failed)")
     # Default to False if hpc_user_api is not configured
     dev_mode = config.hpc_user_api.development_mode if config.hpc_user_api else False
-    return MockGidService(dev_mode)
+    _gid_service = MockGidService(dev_mode)
+    return _gid_service
 
 
 def get_quota_calculator(
     config: Annotated[StorageProxyConfig, Depends(get_config)],
 ) -> QuotaCalculator:
     """
-    Creates the QuotaCalculator.
+    Returns a singleton QuotaCalculator.
     """
-    return QuotaCalculator(config.backend_settings)
+    global _quota_calculator
+    if _quota_calculator is None:
+        _quota_calculator = QuotaCalculator(config.backend_settings)
+    return _quota_calculator
 
 
 def get_mapper(
@@ -81,9 +101,12 @@ def get_mapper(
     quota_calculator: Annotated[QuotaCalculator, Depends(get_quota_calculator)],
 ) -> ResourceMapper:
     """
-    Creates the ResourceMapper, injecting the specific GID service strategy.
+    Returns a singleton ResourceMapper.
     """
-    return ResourceMapper(config.backend_settings, gid_service, quota_calculator)
+    global _mapper
+    if _mapper is None:
+        _mapper = ResourceMapper(config.backend_settings, gid_service, quota_calculator)
+    return _mapper
 
 
 def get_orchestrator(
@@ -94,8 +117,9 @@ def get_orchestrator(
     """
     Factory function for StorageOrchestrator.
 
-    This is the main dependency used in route handlers.
-    but creating a new instance is cheap and safe.
+    Creates a new instance per request. This is intentional — the orchestrator
+    holds per-request state (hierarchy builder). The expensive services it
+    depends on (WaldurService, ResourceMapper, GidService) are singletons.
     """
     return StorageOrchestrator(
         config=config, waldur_service=waldur_service, mapper=mapper

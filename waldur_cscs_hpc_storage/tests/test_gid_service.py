@@ -411,3 +411,132 @@ class TestGidService:
         result = await gid_service.ping()
 
         assert result is False
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.AsyncClient")
+    async def test_batch_resolve_gids_success(self, mock_client_class, gid_service):
+        """Test batch GID resolution fetches all slugs in one call."""
+        from datetime import timedelta
+
+        future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [
+                {"posixName": "proj1", "unixGid": 1001},
+                {"posixName": "proj2", "unixGid": 1002},
+                {"posixName": "proj3", "unixGid": 1003},
+            ]
+        }
+        mock_response.raise_for_status.return_value = None
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+
+        result = await gid_service.batch_resolve_gids(["proj1", "proj2", "proj3"])
+
+        assert result == {"proj1": 1001, "proj2": 1002, "proj3": 1003}
+        # Single API call for all 3 projects
+        assert mock_client_instance.get.call_count == 1
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.AsyncClient")
+    async def test_batch_resolve_gids_skips_cached(self, mock_client_class, gid_service):
+        """Test batch GID resolution skips already-cached slugs."""
+        from datetime import timedelta
+
+        future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
+
+        # Pre-populate cache
+        gid_service._gid_cache["proj1"] = 1001
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [{"posixName": "proj2", "unixGid": 1002}]
+        }
+        mock_response.raise_for_status.return_value = None
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+
+        result = await gid_service.batch_resolve_gids(["proj1", "proj2"])
+
+        assert result == {"proj1": 1001, "proj2": 1002}
+        # Only fetched proj2 (proj1 was cached)
+        call_args = mock_client_instance.get.call_args
+        assert call_args[1]["params"]["projects"] == ["proj2"]
+
+    @pytest.mark.asyncio
+    async def test_batch_resolve_gids_all_cached(self, gid_service):
+        """Test batch GID resolution returns immediately when all slugs are cached."""
+        gid_service._gid_cache["proj1"] = 1001
+        gid_service._gid_cache["proj2"] = 1002
+
+        result = await gid_service.batch_resolve_gids(["proj1", "proj2"])
+
+        assert result == {"proj1": 1001, "proj2": 1002}
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.AsyncClient")
+    async def test_batch_resolve_gids_populates_cache_for_individual_lookups(
+        self, mock_client_class, gid_service
+    ):
+        """Test that batch resolution populates cache used by get_project_unix_gid."""
+        from datetime import timedelta
+
+        future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
+
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "projects": [
+                {"posixName": "proj1", "unixGid": 1001},
+                {"posixName": "proj2", "unixGid": 1002},
+            ]
+        }
+        mock_response.raise_for_status.return_value = None
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+
+        await gid_service.batch_resolve_gids(["proj1", "proj2"])
+
+        # Now individual lookups should use cache (no API calls)
+        mock_client_instance.get.reset_mock()
+        result = await gid_service.get_project_unix_gid("proj1")
+        assert result == 1001
+        # No additional API call was made
+        mock_client_instance.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    @patch("waldur_cscs_hpc_storage.services.gid_service.httpx.AsyncClient")
+    async def test_batch_resolve_gids_handles_api_error_gracefully(
+        self, mock_client_class, gid_service
+    ):
+        """Test batch resolution falls back gracefully on API errors."""
+        from datetime import timedelta
+
+        future_time = datetime.now(tz=timezone.utc) + timedelta(hours=1)
+        gid_service._token = "test_token"
+        gid_service._token_expires_at = future_time
+
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "500 Server Error", request=Mock(), response=Mock()
+        )
+
+        mock_client_instance = AsyncMock()
+        mock_client_instance.get.return_value = mock_response
+        mock_client_class.return_value.__aenter__.return_value = mock_client_instance
+
+        # Should not raise, returns empty dict
+        result = await gid_service.batch_resolve_gids(["proj1", "proj2"])
+        assert result == {}
