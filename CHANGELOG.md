@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.1 - 2026-03-27
+
+### Highlights
+
+This is a patch release that fixes a CI reliability issue where the release script produced malformed changelog files, causing pre-commit hooks to fail.
+
+### Bug Fixes
+
+- **Release script**: Fix trailing blank line in generated CHANGELOG.md that caused the `end-of-file-fixer` pre-commit hook to fail in CI.
+
+### Statistics
+
+> 1 commit, 2 files changed (+5/-4 lines)
+
+---
+
 ## 0.8.0 - 2026-03-27
 
 ### Highlights

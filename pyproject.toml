@@ -1,6 +1,6 @@
 [project]
 name = "waldur-cscs-hpc-storage"
-version = "0.8.0"
+version = "0.8.1"
 description = "CSCS HPC Storage proxy"
 readme = "README.md"
 authors = [{ name = "OpenNode Team", email = "info@opennodecloud.com" }]
