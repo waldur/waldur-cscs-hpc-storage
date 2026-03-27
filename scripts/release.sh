@@ -47,25 +47,31 @@ echo "=== Releasing waldur-cscs-hpc-storage $VERSION (current: $CURRENT) ==="
 echo ""
 
 # ── Step 1: Bump version in pyproject.toml ───────────────────────────────
-echo "[1/4] Bumping version in pyproject.toml..."
+echo "[1/5] Bumping version in pyproject.toml..."
 sed -i.bak "s/^version = \".*\"$/version = \"$VERSION\"/" pyproject.toml
 rm -f pyproject.toml.bak
 echo "  $CURRENT -> $VERSION"
 echo ""
 
 # ── Step 2: Regenerate lockfile ──────────────────────────────────────────
-echo "[2/4] Regenerating uv.lock..."
+echo "[2/5] Regenerating uv.lock..."
 uv lock
 echo ""
 
-# ── Step 3: Commit ───────────────────────────────────────────────────────
-echo "[3/4] Committing release..."
+# ── Step 3: Generate changelog ───────────────────────────────────────────
+echo "[3/5] Generating changelog..."
+"$SCRIPT_DIR/changelog.sh" "$VERSION"
+echo ""
+
+# ── Step 4: Commit ───────────────────────────────────────────────────────
+echo "[4/5] Committing release..."
 git add pyproject.toml uv.lock
+git add CHANGELOG.md
 git commit -m "Release $VERSION"
 echo ""
 
-# ── Step 4: Tag ──────────────────────────────────────────────────────────
-echo "[4/4] Tagging $VERSION..."
+# ── Step 5: Tag ──────────────────────────────────────────────────────────
+echo "[5/5] Tagging $VERSION..."
 git tag "$VERSION"
 echo ""
 
