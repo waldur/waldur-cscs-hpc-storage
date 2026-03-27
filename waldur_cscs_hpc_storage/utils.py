@@ -1,6 +1,14 @@
+from importlib.metadata import version, PackageNotFoundError
 from typing import Any, Dict, Optional, Sequence
 
 from pydantic import BaseModel
+
+
+def get_version() -> str:
+    try:
+        return version("waldur-cscs-hpc-storage")
+    except PackageNotFoundError:
+        return "dev"
 
 
 def paginate_response(
@@ -40,6 +48,7 @@ def paginate_response(
         filters_applied.update(extra_filters)
 
     return {
+        "version": get_version(),
         "status": "success",
         "resources": serialized_resources,
         "pagination": {
