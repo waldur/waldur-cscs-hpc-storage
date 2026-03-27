@@ -33,8 +33,9 @@ if [ -z "${PREV_TAG:-}" ]; then
 fi
 
 if [ -z "${PREV_TAG:-}" ]; then
-    echo "Error: could not determine previous version (no CHANGELOG.md header and no git tags)."
-    exit 1
+    # First release — use the initial commit as the base
+    PREV_TAG=$(git -C "$PROJECT_DIR" rev-list --max-parents=0 HEAD | head -n 1)
+    echo "No previous version found, using initial commit as base."
 fi
 
 echo "=== waldur-cscs-hpc-storage changelog: $VERSION (since $PREV_TAG) ==="
