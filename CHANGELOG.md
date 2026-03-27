@@ -47,4 +47,3 @@ This is the first formal release of the CSCS HPC Storage Proxy, representing a g
 > 179 commits, 76 files changed (+9852/−6724 lines)
 
 ---
-

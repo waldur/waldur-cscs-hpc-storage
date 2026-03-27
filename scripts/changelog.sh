@@ -111,12 +111,15 @@ echo ""
 echo "[3/3] Updating CHANGELOG.md..."
 
 if [ -f "$CHANGELOG" ]; then
+    EXISTING_TAIL=$(tail -n +3 "$CHANGELOG")   # skip existing "# Changelog\n" header
     {
         echo "# Changelog"
         echo ""
         cat "$TMP_ENTRY"
-        echo ""
-        tail -n +3 "$CHANGELOG"   # skip existing "# Changelog\n" header
+        if [ -n "$EXISTING_TAIL" ]; then
+            echo ""
+            echo "$EXISTING_TAIL"
+        fi
     } > /tmp/waldur-cscs-hpc-storage-final-changelog.md
     mv /tmp/waldur-cscs-hpc-storage-final-changelog.md "$CHANGELOG"
 else
@@ -124,7 +127,6 @@ else
         echo "# Changelog"
         echo ""
         cat "$TMP_ENTRY"
-        echo ""
     } > "$CHANGELOG"
 fi
 
