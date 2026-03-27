@@ -1,3 +1,23 @@
+from posixpath import dirname
+
+
+def derive_parent_mount_points(backend_id: str) -> tuple[str, str]:
+    """Derive tenant and customer mount point paths from a backend_id.
+
+    Splits the backend_id path to extract parent (customer) and grandparent (tenant) paths.
+
+    Args:
+        backend_id: The full backend path (e.g., '/scratch/mch/msclim')
+
+    Returns:
+        Tuple of (tenant_path, customer_path)
+        e.g. ('/scratch', '/scratch/mch')
+    """
+    customer_path = dirname(backend_id.rstrip("/"))
+    tenant_path = dirname(customer_path)
+    return tenant_path, customer_path
+
+
 def generate_tenant_mount_point(
     storage_system: str,
     data_type: str,

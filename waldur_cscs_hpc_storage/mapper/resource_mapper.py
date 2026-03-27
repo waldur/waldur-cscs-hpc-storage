@@ -139,14 +139,17 @@ class ResourceMapper:
                 e,
             )
 
-        # 5. Generate Mount Point
-        mount_point_path = generate_project_mount_point(
-            storage_system=storage_system,
-            tenant_id=waldur_resource.provider_slug,
-            customer=waldur_resource.customer_slug,
-            project_id=waldur_resource.project_slug,
-            data_type=storage_data_type_str,
-        )
+        # 5. Generate Mount Point — use backend_id as path if set
+        if isinstance(waldur_resource.backend_id, str) and waldur_resource.backend_id:
+            mount_point_path = waldur_resource.backend_id
+        else:
+            mount_point_path = generate_project_mount_point(
+                storage_system=storage_system,
+                tenant_id=waldur_resource.provider_slug,
+                customer=waldur_resource.customer_slug,
+                project_id=waldur_resource.project_slug,
+                data_type=storage_data_type_str,
+            )
 
         # 6. Determine Status
         cscs_status = get_target_status_from_waldur_state(waldur_resource.state)
