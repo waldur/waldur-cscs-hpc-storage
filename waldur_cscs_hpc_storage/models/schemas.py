@@ -125,6 +125,7 @@ class ParsedWaldurResource(BaseModel):
     name: str = ""
     slug: str = ""
     state: ResourceState = ""
+    backend_id: Optional[str] = None
 
     # Hierarchy info
     offering_uuid: UUID
@@ -186,6 +187,12 @@ class ParsedWaldurResource(BaseModel):
                 if hasattr(resource, "provider_name")
                 and not isinstance(resource.provider_name, Unset)
                 else ""
+            ),
+            backend_id=(
+                resource.backend_id
+                if hasattr(resource, "backend_id")
+                and isinstance(resource.backend_id, str)
+                else None
             ),
             limits=resource.limits
             and ResourceLimits(**resource.limits.additional_properties)

@@ -1,4 +1,3 @@
-import pytest
 from pydantic import BaseModel
 from waldur_cscs_hpc_storage.utils import paginate_response
 

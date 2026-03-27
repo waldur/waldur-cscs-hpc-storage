@@ -32,7 +32,6 @@ from waldur_cscs_hpc_storage.models.enums import (
     TargetStatus,
 )
 from waldur_cscs_hpc_storage.api.main import app  # noqa: E402
-from waldur_cscs_hpc_storage.services.waldur_service import WaldurResourceResponse
 
 
 class TestStorageProxyAPI:
