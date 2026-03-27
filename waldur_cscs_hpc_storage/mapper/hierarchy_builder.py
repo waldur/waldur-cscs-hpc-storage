@@ -79,6 +79,7 @@ class HierarchyBuilder:
         storage_data_type: str,
         offering_uuid: Optional[UUID] = None,
         active: bool = False,
+        mount_point_override: Optional[str] = None,
     ) -> UUID:
         """Create or retrieve a tenant entry.
 
@@ -105,7 +106,7 @@ class HierarchyBuilder:
             return self._tenant_entries[tenant_key]
 
         # Generate mount point for tenant
-        mount_point = generate_tenant_mount_point(
+        mount_point = mount_point_override or generate_tenant_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             data_type=storage_data_type,
@@ -172,6 +173,7 @@ class HierarchyBuilder:
         storage_data_type: str,
         tenant_id: str,
         active: bool = False,
+        mount_point_override: Optional[str] = None,
     ) -> Optional[UUID]:
         """Create or retrieve a customer entry.
 
@@ -208,7 +210,7 @@ class HierarchyBuilder:
         parent_tenant_id = self._tenant_entries.get(tenant_key)
 
         # Generate mount point for customer
-        mount_point = generate_customer_mount_point(
+        mount_point = mount_point_override or generate_customer_mount_point(
             storage_system=storage_system,
             tenant_id=tenant_id,
             customer=customer_slug,

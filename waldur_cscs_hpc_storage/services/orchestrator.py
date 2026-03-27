@@ -12,6 +12,7 @@ from waldur_cscs_hpc_storage.config import StorageProxyConfig
 from waldur_cscs_hpc_storage.exceptions import ResourceProcessingError
 from waldur_cscs_hpc_storage.mapper import HierarchyBuilder
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
+from waldur_cscs_hpc_storage.mapper.mount_points import derive_parent_mount_points
 from waldur_cscs_hpc_storage.mapper.state_mappers import (
     get_waldur_state_from_target_status,
 )
@@ -147,7 +148,15 @@ class StorageOrchestrator:
                     resource.attributes.storage_data_type or StorageDataType.STORE.value
                 )
 
-                # 2. Register Tenant (Top Level)
+                # 2. Derive mount point overrides from backend_id
+                tenant_mount_override = None
+                customer_mount_override = None
+                if resource.backend_id:
+                    tenant_mount_override, customer_mount_override = (
+                        derive_parent_mount_points(resource.backend_id)
+                    )
+
+                # 3. Register Tenant (Top Level)
                 tenant_id = resource.provider_slug
                 tenant_name = resource.provider_name or tenant_id.upper()
 
@@ -157,9 +166,10 @@ class StorageOrchestrator:
                     storage_system=storage_system,
                     storage_data_type=storage_data_type_str,
                     offering_uuid=resource.offering_uuid,
+                    mount_point_override=tenant_mount_override,
                 )
 
-                # 3. Register Customer (Mid Level)
+                # 4. Register Customer (Mid Level)
                 if resource.customer_slug in all_offering_customers:
                     customer_info = all_offering_customers[resource.customer_slug]
                     hierarchy_builder.get_or_create_customer(
@@ -167,9 +177,10 @@ class StorageOrchestrator:
                         storage_system=storage_system,
                         storage_data_type=storage_data_type_str,
                         tenant_id=tenant_id,
+                        mount_point_override=customer_mount_override,
                     )
 
-                # 4. Map the Project/User Resource (Bottom Level)
+                # 5. Map the Project/User Resource (Bottom Level)
                 # We need the parent ID (Customer ID) to link the project correctly
                 customer_id = hierarchy_builder.get_customer_uuid(
                     customer_slug=resource.customer_slug,
