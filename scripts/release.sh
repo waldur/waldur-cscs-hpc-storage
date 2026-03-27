@@ -42,7 +42,7 @@ if git rev-parse "$VERSION" >/dev/null 2>&1; then
 fi
 
 # ── Show current version ─────────────────────────────────────────────────
-CURRENT=$(grep -oP '^version = "\K[^"]+' pyproject.toml)
+CURRENT=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
 echo "=== Releasing waldur-cscs-hpc-storage $VERSION (current: $CURRENT) ==="
 echo ""
 
