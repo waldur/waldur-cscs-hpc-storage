@@ -92,6 +92,8 @@ class WaldurService:
         self,
         offering_slug: Optional[list[str]] = None,
         state: Optional[ResourceState] = None,
+        customer_uuid: Optional[str] = None,
+        project_uuid: Optional[str] = None,
     ) -> list[ParsedWaldurResource]:
         """Fetch all resources from Waldur API across all pages.
 
@@ -108,6 +110,12 @@ class WaldurService:
 
         if offering_slug:
             filters["offering_slug"] = [",".join(offering_slug)]
+
+        if customer_uuid:
+            filters["customer_uuid"] = customer_uuid
+
+        if project_uuid:
+            filters["project_uuid"] = project_uuid
 
         try:
             response = await marketplace_resources_list.asyncio_all(

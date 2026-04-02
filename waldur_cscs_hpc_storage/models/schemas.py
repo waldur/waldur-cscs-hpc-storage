@@ -293,3 +293,11 @@ class StorageResourceFilter(BaseModel):
         Optional[TargetStatus],
         Field(description="Status filter"),
     ] = None
+    customer_uuid: Annotated[
+        Optional[str],
+        Field(default=None, description="Filter by customer UUID"),
+    ] = None
+    project_uuid: Annotated[
+        Optional[str],
+        Field(default=None, description="Filter by project UUID"),
+    ] = None

@@ -82,6 +82,8 @@ class StorageOrchestrator:
         raw_resources = await self.waldur_service.list_all_resources(
             offering_slug=offering_slugs,
             state=waldur_state,
+            customer_uuid=filters.customer_uuid,
+            project_uuid=filters.project_uuid,
         )
 
         # 3. Process resources if any exist
