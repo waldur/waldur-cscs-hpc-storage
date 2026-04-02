@@ -9,6 +9,9 @@ from waldur_api_client.api.marketplace_provider_offerings import (
     marketplace_provider_offerings_customers_list,
 )
 from waldur_api_client.api.marketplace_resources import marketplace_resources_list
+from waldur_api_client.models.marketplace_resources_list_field_item import (
+    MarketplaceResourcesListFieldItem as FieldItem,
+)
 from waldur_api_client.models.resource_state import ResourceState
 
 from waldur_cscs_hpc_storage.models import ParsedWaldurResource
@@ -17,6 +20,32 @@ from waldur_cscs_hpc_storage.exceptions import WaldurClientError
 from waldur_cscs_hpc_storage.mapper import CustomerInfo
 
 logger = logging.getLogger(__name__)
+
+# Only request fields that ParsedWaldurResource actually uses.
+# This reduces Waldur API response payload significantly.
+RESOURCE_FIELDS = [
+    FieldItem.UUID,
+    FieldItem.NAME,
+    FieldItem.SLUG,
+    FieldItem.STATE,
+    FieldItem.OFFERING_UUID,
+    FieldItem.OFFERING_NAME,
+    FieldItem.OFFERING_SLUG,
+    FieldItem.PROJECT_UUID,
+    FieldItem.PROJECT_NAME,
+    FieldItem.PROJECT_SLUG,
+    FieldItem.CUSTOMER_UUID,
+    FieldItem.CUSTOMER_NAME,
+    FieldItem.CUSTOMER_SLUG,
+    FieldItem.PROVIDER_SLUG,
+    FieldItem.PROVIDER_NAME,
+    FieldItem.BACKEND_ID,
+    FieldItem.LIMITS,
+    FieldItem.ATTRIBUTES,
+    FieldItem.OPTIONS,
+    FieldItem.BACKEND_METADATA,
+    FieldItem.ORDER_IN_PROGRESS,
+]
 
 
 @dataclass
@@ -121,6 +150,7 @@ class WaldurService:
             response = await marketplace_resources_list.asyncio_all(
                 client=self.client,
                 visible_to_providers=True,
+                field=RESOURCE_FIELDS,
                 **filters,
             )
         except Exception as e:
@@ -169,6 +199,7 @@ class WaldurService:
                 page=page,
                 page_size=page_size,
                 visible_to_providers=True,
+                field=RESOURCE_FIELDS,
                 **filters,
             )
         except Exception as e:

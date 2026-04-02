@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, Mock, patch
 from waldur_api_client.models.resource_state import ResourceState
-from waldur_cscs_hpc_storage.services.waldur_service import WaldurService
+from waldur_cscs_hpc_storage.services.waldur_service import RESOURCE_FIELDS, WaldurService
 from waldur_cscs_hpc_storage.config import WaldurApiConfig
 from waldur_cscs_hpc_storage.exceptions import WaldurClientError
 
@@ -78,6 +78,7 @@ class TestWaldurService:
             client=service.client,
             offering_slug=["slug1,slug2"],
             visible_to_providers=True,
+            field=RESOURCE_FIELDS,
             page=1,
             page_size=100,
         )
@@ -99,6 +100,7 @@ class TestWaldurService:
             client=service.client,
             offering_slug=["slug1"],
             visible_to_providers=True,
+            field=RESOURCE_FIELDS,
         )
 
     @pytest.mark.asyncio
@@ -117,6 +119,7 @@ class TestWaldurService:
             offering_slug=["slug1"],
             state=[ResourceState.CREATING],
             visible_to_providers=True,
+            field=RESOURCE_FIELDS,
         )
 
     @pytest.mark.asyncio
