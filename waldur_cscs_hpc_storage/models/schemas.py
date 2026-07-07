@@ -10,7 +10,6 @@ from waldur_api_client.types import Unset
 
 # Re-importing Enums from your existing structure to ensure compatibility
 from waldur_cscs_hpc_storage.models.enums import (
-    StorageDataType,
     StorageSystem,
     TargetStatus,
 )
@@ -52,9 +51,9 @@ class ResourceAttributes(BaseModel):
     Validates the 'attributes' field from WaldurResource.
     """
 
-    storage_data_type: StorageDataType = Field(
-        default=StorageDataType.STORE,
-        description="Type of storage (store, scratch, etc.)",
+    storage_data_type: str = Field(
+        default="store",
+        description="Type of storage (store, scratch, workspace, etc.)",
     )
     permissions: str = Field(
         default="775",
@@ -64,15 +63,13 @@ class ResourceAttributes(BaseModel):
 
     @field_validator("storage_data_type", mode="before")
     @classmethod
-    def validate_data_type(cls, v):
-        # Handle cases where the API might send None or empty string
-        if not v:
-            return StorageDataType.STORE
-        try:
-            StorageDataType(v)
-            return v
-        except ValueError:
-            return StorageDataType.STORE
+    def normalize_data_type(cls, v):
+        # The allowed data types are defined per offering in Waldur, not here.
+        # Accept any value and only normalize case/whitespace so it maps
+        # consistently to a mount path. Empty/None falls back to "store".
+        if not isinstance(v, str) or not v.strip():
+            return "store"
+        return v.strip().lower()
 
 
 class ResourceOptions(BaseModel):
@@ -286,10 +283,19 @@ class StorageResourceFilter(BaseModel):
         int, Field(ge=1, le=500, description="Number of items per page")
     ] = 100
     data_type: Annotated[
-        Optional[StorageDataType],
+        Optional[str],
         Field(description="Data type filter"),
     ] = None
     status: Annotated[
         Optional[TargetStatus],
         Field(description="Status filter"),
     ] = None
+
+    @field_validator("data_type", mode="before")
+    @classmethod
+    def normalize_data_type_filter(cls, v):
+        # Match the normalization applied to resource data types so filtering
+        # by e.g. "Workspace" or "workspace" behaves identically.
+        if not isinstance(v, str) or not v.strip():
+            return None
+        return v.strip().lower()
