@@ -5,7 +5,11 @@ from waldur_api_client.models.order_state import OrderState
 from waldur_api_client.models.resource import Resource
 from waldur_api_client.models.resource_state import ResourceState
 
-from waldur_cscs_hpc_storage.models import ParsedWaldurResource
+from waldur_cscs_hpc_storage.models import (
+    ParsedWaldurResource,
+    ResourceAttributes,
+    StorageResourceFilter,
+)
 from waldur_cscs_hpc_storage.tests.conftest import make_test_uuid
 
 
@@ -218,3 +222,59 @@ class TestResourceStateParsing:
         resource = self._get_resource(ResourceState.UPDATING)
         parsed = ParsedWaldurResource.from_waldur_resource(resource)
         assert parsed.state == ResourceState.UPDATING
+
+
+class TestResourceAttributesDataType:
+    """The storage data type is defined per offering, so any value is accepted
+    and only normalized — it must never be silently rewritten to a default."""
+
+    def test_builtin_type_preserved(self):
+        assert ResourceAttributes(storage_data_type="scratch").storage_data_type == (
+            "scratch"
+        )
+
+    def test_offering_defined_type_preserved(self):
+        # Regression: "workspace" used to be coerced to "store".
+        assert (
+            ResourceAttributes(storage_data_type="workspace").storage_data_type
+            == "workspace"
+        )
+
+    def test_case_is_normalized(self):
+        # Offering choices may be capitalized (e.g. "Workspace").
+        assert (
+            ResourceAttributes(storage_data_type="Workspace").storage_data_type
+            == "workspace"
+        )
+
+    def test_whitespace_is_stripped(self):
+        assert (
+            ResourceAttributes(storage_data_type="  Store  ").storage_data_type
+            == "store"
+        )
+
+    def test_empty_falls_back_to_store(self):
+        assert ResourceAttributes(storage_data_type="").storage_data_type == "store"
+
+    def test_none_falls_back_to_store(self):
+        assert ResourceAttributes(storage_data_type=None).storage_data_type == "store"
+
+    def test_default_is_store(self):
+        assert ResourceAttributes().storage_data_type == "store"
+
+
+class TestStorageResourceFilterDataType:
+    """Filtering by an offering-defined data type must not raise (previously a
+    non-enum value produced a 422) and must normalize the same way."""
+
+    def test_offering_defined_type_accepted(self):
+        assert StorageResourceFilter(data_type="workspace").data_type == "workspace"
+
+    def test_case_is_normalized(self):
+        assert StorageResourceFilter(data_type="Workspace").data_type == "workspace"
+
+    def test_blank_becomes_none(self):
+        assert StorageResourceFilter(data_type="  ").data_type is None
+
+    def test_default_is_none(self):
+        assert StorageResourceFilter().data_type is None

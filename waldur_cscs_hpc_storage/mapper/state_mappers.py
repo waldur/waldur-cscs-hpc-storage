@@ -69,9 +69,11 @@ def get_target_type_from_data_type(
         logger.error(error_msg)
         raise TypeError(error_msg)
 
-    # Validate that storage_data_type is a supported type
+    # Validate that storage_data_type is a supported type. Normalize case so
+    # values coming straight from an offering (e.g. "Users") still match; any
+    # value not in the known set falls through to the PROJECT default below.
     try:
-        data_type_enum = StorageDataType(storage_data_type)
+        data_type_enum = StorageDataType(storage_data_type.strip().lower())
     except ValueError:
         data_type_enum = None
 

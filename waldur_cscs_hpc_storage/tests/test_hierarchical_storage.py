@@ -221,8 +221,10 @@ class TestTenantLevelGeneration:
         tenant_id = "cscs"
         storage_system = "capstor"
 
-        # Test different data types
-        data_types = ["store", "archive", "users", "scratch"]
+        # Include a non-builtin data type ("workspace") defined only in the
+        # offering to ensure the path respects it rather than collapsing to a
+        # default like "store".
+        data_types = ["store", "archive", "users", "scratch", "workspace"]
 
         for data_type in data_types:
             hierarchy_builder.get_or_create_tenant(
@@ -233,7 +235,7 @@ class TestTenantLevelGeneration:
             )
 
         results = hierarchy_builder.get_hierarchy_resources()
-        assert len(results) == 4
+        assert len(results) == len(data_types)
 
         # Verify unique mount points
         mount_points = [r.mountPoint.default for r in results]
