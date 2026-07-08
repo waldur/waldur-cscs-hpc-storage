@@ -212,7 +212,7 @@ class StorageOrchestrator:
     def _filter_resources(
         self,
         resources: List[StorageResource],
-        data_type: Optional[StorageDataType],
+        data_type: Optional[str],
         status: Optional[TargetStatus],
     ) -> List[StorageResource]:
         """
@@ -225,10 +225,10 @@ class StorageOrchestrator:
         for res in resources:
             # Filter by Data Type
             if data_type:
-                # Access the 'key' or 'value' from the StorageItem
-                # The StorageItem.key is lowercase (e.g., 'store')
+                # StorageItem.key is the normalized lowercase data type,
+                # matching the already-normalized filter value.
                 res_type = res.storageDataType.key
-                if res_type != data_type.value:
+                if res_type != data_type:
                     continue
 
             # Filter by Status
