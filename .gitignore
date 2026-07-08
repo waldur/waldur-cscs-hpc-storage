@@ -40,6 +40,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
+# Kubernetes manifests (contain environment-specific config)
+k8s/
+
 # OS
 .DS_Store
 Thumbs.db
