@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9.0 - 2026-07-08
+
+### Highlights
+
+This release makes storage data type a first-class dimension of the API. Mount point paths and resource filters now respect the storage data type, so consumers receive correctly scoped paths and can filter resources by data type without post-processing. This produces more accurate hierarchical storage output for backends that provision multiple data types under the same tenant.
+
+### Improvements
+
+- **Mapper**: Respect the storage data type when constructing mount point paths, ensuring paths reflect the resource's data type [HPCMP-497].
+- **API**: Support filtering resources by storage data type in the hierarchical storage response [HPCMP-497].
+- **Schemas**: Extend request/response schemas to carry the storage data type through the pipeline [HPCMP-497].
+
+### Statistics
+
+> 2 commits, 7 files changed (+136/-25 lines)
+
+---
+
 ## 0.8.1 - 2026-03-27
 
 ### Highlights
