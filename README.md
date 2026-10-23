@@ -92,7 +92,7 @@ Set variables in the environment or use a `.env` file (e.g., via Docker Compose 
 | Env Variable      | Type | Default      | Description                                                           |
 | :---------------- | :--- | :----------- | :-------------------------------------------------------------------- |
 | `DEBUG`           | Bool | `False`      | Enables verbose logging.                                              |
-| `STORAGE_SYSTEMS` | Dict | **Required** | Maps the API `storage_system` parameter to Waldur **Offering Slugs**. |
+| `STORAGE_SYSTEMS` | Dict | **Required** | Maps storage system names (any non-empty string, used as the API `storage_system` parameter) to Waldur **Offering Slugs**. |
 
 **Example:**
 
@@ -226,7 +226,7 @@ Retrieves a paginated list of storage resources with optional filtering.
 
 | Parameter           | Type    | Required | Default | Description                                                       |
 |:--------------------|:--------|:---------|:--------|:------------------------------------------------------------------|
-| `storage_system`    | String  | No       | -       | Filter by storage system: `capstor`, `vast`, or `iopsstor`        |
+| `storage_system`    | String  | No       | -       | Filter by storage system: any name configured in `STORAGE_SYSTEMS` |
 | `data_type`         | String  | No       | -       | Filter by data type: `store`, `scratch`, `archive`, or `users`    |
 | `status`            | String  | No       | -       | Filter by status: `active`, `pending`, `updating`, `removing`, `error` |
 | `state`             | String  | No       | -       | Filter by Waldur state: `Creating`, `OK`, `Erred`, `Updating`, `Terminating` |

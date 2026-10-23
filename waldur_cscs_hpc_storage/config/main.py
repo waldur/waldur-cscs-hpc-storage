@@ -1,14 +1,30 @@
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import Field, field_validator
+from pydantic import AfterValidator, Field, StringConstraints, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from waldur_cscs_hpc_storage.models.enums import StorageSystem
 from waldur_cscs_hpc_storage.config.auth import AuthConfig
 from waldur_cscs_hpc_storage.config.backend import BackendConfig
 from waldur_cscs_hpc_storage.config.hpc_user import HpcUserApiConfig
 from waldur_cscs_hpc_storage.config.sentry import SentryConfig
 from waldur_cscs_hpc_storage.config.waldur import WaldurApiConfig
+
+
+def _check_no_comma(slug: str) -> str:
+    # Offering slugs are joined with ',' in the Waldur offering_slug filter
+    if "," in slug:
+        raise ValueError("Offering slug must not contain ','")
+    return slug
+
+
+StorageSystemName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1)
+]
+OfferingSlug = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1),
+    AfterValidator(_check_no_comma),
+]
 
 
 class StorageProxyConfig(BaseSettings):
@@ -22,7 +38,7 @@ class StorageProxyConfig(BaseSettings):
     debug: bool = Field(default=False, alias="DEBUG")
     waldur_api: WaldurApiConfig = Field(default_factory=WaldurApiConfig)
     backend_settings: BackendConfig = Field(default_factory=BackendConfig)
-    storage_systems: dict[StorageSystem, str]
+    storage_systems: dict[StorageSystemName, OfferingSlug]
     auth: Optional[AuthConfig] = Field(default_factory=AuthConfig)
     hpc_user_api: Optional[HpcUserApiConfig] = Field(default_factory=HpcUserApiConfig)
     sentry: Optional[SentryConfig] = Field(default_factory=SentryConfig)
@@ -39,9 +55,7 @@ class StorageProxyConfig(BaseSettings):
 
     @field_validator("storage_systems")
     @classmethod
-    def check_storage_systems(
-        cls, v: dict[StorageSystem, str]
-    ) -> dict[StorageSystem, str]:
+    def check_storage_systems(cls, v: dict[str, str]) -> dict[str, str]:
         if not v:
             raise ValueError("At least one storage_system mapping is required")
         return v
