@@ -8,6 +8,7 @@ from waldur_api_client.models.user import User
 from waldur_cscs_hpc_storage.config import load_config
 from waldur_cscs_hpc_storage.api.dependencies import (
     get_orchestrator,
+    get_storage_resource_filter,
     set_global_config,
 )
 from waldur_cscs_hpc_storage.api.handlers import (
@@ -56,7 +57,7 @@ else:
 async def storage_resources(
     user: Annotated[User, Depends(user_dependency)],
     orchestrator: Annotated[StorageOrchestrator, Depends(get_orchestrator)],
-    filters: Annotated[StorageResourceFilter, Depends()],
+    filters: Annotated[StorageResourceFilter, Depends(get_storage_resource_filter)],
 ):
     """Exposes list of all storage resources with pagination and filtering."""
     storage_data = await orchestrator.get_resources(filters)

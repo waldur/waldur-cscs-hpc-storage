@@ -11,7 +11,6 @@ from waldur_cscs_hpc_storage.config import (
     WaldurApiConfig,
     AuthConfig,
 )
-from waldur_cscs_hpc_storage.models.enums import StorageSystem
 
 
 class TestBackendConfigValidation:
@@ -119,11 +118,43 @@ class TestStorageProxyConfigValidation:
         }
         config = StorageProxyConfig(
             waldur_api=valid_waldur_api,
-            storage_systems={StorageSystem.CAPSTOR: "slug"},
+            storage_systems={"capstor": "slug"},
             hpc_user_api=HpcUserApiConfig(development_mode=True),
             auth=AuthConfig(disable_auth=True),
         )
-        assert config.storage_systems == {StorageSystem.CAPSTOR: "slug"}
+        assert config.storage_systems == {"capstor": "slug"}
+
+    def test_storage_systems_custom_names(self):
+        """Test that storage system names are not limited to a fixed set."""
+        valid_waldur_api = {
+            "api_url": "http://u.com",
+            "access_token": "a" * 40,
+        }
+        config = StorageProxyConfig(
+            waldur_api=valid_waldur_api,
+            storage_systems={"ritom": "ritom", "iopsstor": "iopsstor_3"},
+            hpc_user_api=HpcUserApiConfig(development_mode=True),
+            auth=AuthConfig(disable_auth=True),
+        )
+        assert config.storage_systems == {"ritom": "ritom", "iopsstor": "iopsstor_3"}
+
+    @pytest.mark.parametrize(
+        "storage_systems", [{"": "slug"}, {" ": "slug"}, {"capstor": ""}]
+    )
+    def test_storage_systems_empty_name_or_slug(self, storage_systems):
+        """Test that blank storage system names and offering slugs are rejected."""
+        valid_waldur_api = {
+            "api_url": "http://u.com",
+            "access_token": "a" * 40,
+        }
+        with pytest.raises(ValidationError) as exc:
+            StorageProxyConfig(
+                waldur_api=valid_waldur_api,
+                storage_systems=storage_systems,
+                hpc_user_api=HpcUserApiConfig(development_mode=True),
+                auth=AuthConfig(disable_auth=True),
+            )
+        assert "must be non-empty" in str(exc.value)
 
 
 class TestSentryConfigValidation:

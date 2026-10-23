@@ -8,7 +8,6 @@ from waldur_cscs_hpc_storage.config import (
     WaldurApiConfig,
 )
 from waldur_cscs_hpc_storage.config.parser import load_config, mask_sensitive_data
-from waldur_cscs_hpc_storage.models.enums import StorageSystem
 
 
 def test_mask_sensitive_data():
@@ -65,9 +64,7 @@ def test_load_config_logs_masked_data(mock_logger, mock_basic_config):
     assert config.auth.keycloak_client_secret == "s3cr3t"
 
     # Verify storage systems loaded correctly
-    # Note: keys in dictionary are now Enum members, but input JSON keys are strings.
-    # Pydantic should convert them if possible.
-    assert config.storage_systems[StorageSystem.CAPSTOR] == "lustre"
+    assert config.storage_systems["capstor"] == "lustre"
 
     # Verify logger usage
     # We expect an INFO log with "Merged configuration"
@@ -136,4 +133,4 @@ def test_env_loading_nested_in_main_config():
 
         # Verify StorageProxyConfig direct fields
         assert config.debug is True
-        assert config.storage_systems == {StorageSystem.CAPSTOR: "lustre"}
+        assert config.storage_systems == {"capstor": "lustre"}

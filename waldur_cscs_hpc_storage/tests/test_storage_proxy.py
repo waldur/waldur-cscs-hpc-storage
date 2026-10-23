@@ -28,9 +28,9 @@ os.environ["USE_MOCK_TARGET_ITEMS"] = "true"
 
 from waldur_cscs_hpc_storage.models.enums import (
     StorageDataType,
-    StorageSystem,
     TargetStatus,
 )
+from waldur_cscs_hpc_storage.api.dependencies import get_config  # noqa: E402
 from waldur_cscs_hpc_storage.api.main import app  # noqa: E402
 
 
@@ -96,7 +96,7 @@ class TestStorageProxyAPI:
         mock_backend.assert_called_once()
         call_args = mock_backend.call_args
         filters = call_args[0][0]
-        assert filters.storage_system == StorageSystem(storage_system)
+        assert filters.storage_system == storage_system
 
     def test_invalid_storage_system_filter(self):
         """Test invalid storage system filter values."""
@@ -363,17 +363,13 @@ class TestStorageProxyAPI:
         assert filters.status == TargetStatus.ACTIVE
         assert filters.page == 1
         assert filters.page_size == 50
-        assert filters.storage_system == StorageSystem.CAPSTOR
+        assert filters.storage_system == "capstor"
 
     @patch(
         "waldur_cscs_hpc_storage.services.orchestrator.StorageOrchestrator.get_resources"
     )
-    def test_unconfigured_storage_system(self, mock_backend):
-        """Test behavior when requesting a valid but unconfigured storage system."""
-        # This test ensures that the API handles storage systems that are valid enum values
-        # but not configured in the storage_systems mapping
-
-        # Mock the backend to return proper JSON-serializable data
+    def test_custom_and_unconfigured_storage_system(self, mock_backend):
+        """Test that storage_system accepts exactly the configured system names."""
         mock_backend.return_value = {
             "status": "success",
             "resources": [],
@@ -385,10 +381,25 @@ class TestStorageProxyAPI:
                 "total": 0,
             },
         }
+        custom_config = get_config().model_copy(
+            update={"storage_systems": {"ritom": "ritom", "iopsstor": "iopsstor_3"}}
+        )
+        app.dependency_overrides[get_config] = lambda: custom_config
+        try:
+            response = self.client.get("/api/storage-resources/?storage_system=ritom")
+            assert response.status_code == 200
+            filters = mock_backend.call_args[0][0]
+            assert filters.storage_system == "ritom"
 
-        # First, let's test with a configured storage system to ensure the mock works
-        response = self.client.get("/api/storage-resources/?storage_system=capstor")
-        assert response.status_code == 200
+            # capstor is not configured here, so it must be rejected
+            response = self.client.get("/api/storage-resources/?storage_system=capstor")
+            assert response.status_code == 422
+            error = response.json()["detail"][0]
+            assert error["loc"] == ["query", "storage_system"]
+            assert error["input"] == "capstor"
+            assert "'ritom', 'iopsstor'" in error["msg"]
+        finally:
+            app.dependency_overrides.pop(get_config, None)
 
     @patch(
         "waldur_cscs_hpc_storage.services.orchestrator.StorageOrchestrator.get_resources"

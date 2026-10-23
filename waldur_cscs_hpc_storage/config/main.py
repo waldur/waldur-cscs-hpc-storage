@@ -3,7 +3,6 @@ from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from waldur_cscs_hpc_storage.models.enums import StorageSystem
 from waldur_cscs_hpc_storage.config.auth import AuthConfig
 from waldur_cscs_hpc_storage.config.backend import BackendConfig
 from waldur_cscs_hpc_storage.config.hpc_user import HpcUserApiConfig
@@ -22,7 +21,7 @@ class StorageProxyConfig(BaseSettings):
     debug: bool = Field(default=False, alias="DEBUG")
     waldur_api: WaldurApiConfig = Field(default_factory=WaldurApiConfig)
     backend_settings: BackendConfig = Field(default_factory=BackendConfig)
-    storage_systems: dict[StorageSystem, str]
+    storage_systems: dict[str, str]
     auth: Optional[AuthConfig] = Field(default_factory=AuthConfig)
     hpc_user_api: Optional[HpcUserApiConfig] = Field(default_factory=HpcUserApiConfig)
     sentry: Optional[SentryConfig] = Field(default_factory=SentryConfig)
@@ -39,9 +38,12 @@ class StorageProxyConfig(BaseSettings):
 
     @field_validator("storage_systems")
     @classmethod
-    def check_storage_systems(
-        cls, v: dict[StorageSystem, str]
-    ) -> dict[StorageSystem, str]:
+    def check_storage_systems(cls, v: dict[str, str]) -> dict[str, str]:
         if not v:
             raise ValueError("At least one storage_system mapping is required")
+        for name, offering_slug in v.items():
+            if not name.strip() or not offering_slug.strip():
+                raise ValueError(
+                    "Storage system names and offering slugs must be non-empty"
+                )
         return v

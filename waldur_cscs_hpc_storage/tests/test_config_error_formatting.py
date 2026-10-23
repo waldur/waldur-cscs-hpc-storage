@@ -31,22 +31,18 @@ def test_format_validation_error_basic():
             )
 
 
-def test_format_validation_error_enum():
-    """Test formatting of enum validation error."""
+def test_format_validation_error_nested_dict_value():
+    """Test formatting of a validation error inside a dict field."""
     with mock.patch.dict("os.environ", {}, clear=True):
-        try:
+        with pytest.raises(ValidationError) as exc:
             StorageProxyConfig(
                 waldur_api={"api_url": "http://example.com", "access_token": "0" * 40},
-                storage_systems={
-                    "invalid_key": "lustre"
-                },  # Should be StorageSystem enum
+                storage_systems={"capstor": 123},  # Offering slug must be a string
                 auth={"disable_auth": True},
                 hpc_user_api={"development_mode": True},
             )
-        except ValidationError as e:
-            formatted = _format_validation_error(e)
-            assert "storage_systems.invalid_key" in formatted
-            # Exact message depends on pydantic version but should indicate invalid enum
+        formatted = _format_validation_error(exc.value)
+        assert "storage_systems.capstor" in formatted
 
 
 def test_load_config_prints_error_and_exits(capsys):
