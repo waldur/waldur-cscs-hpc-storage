@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.10.0 - 2026-10-23
+
+### Highlights
+
+You can now use any storage system name in `STORAGE_SYSTEMS`. Until this release only `capstor`, `vast` and `iopsstor` were accepted. The API checks the `storage_system` filter against the names you configured, so adding a new storage system no longer needs a code change. Startup validation of the mapping is also stricter, so bad offering slugs fail early.
+
+### What's New
+
+- **Config**: `STORAGE_SYSTEMS` keys can be any non-empty string, and each key becomes a valid value for the API `storage_system` parameter.
+
+### Improvements
+
+- **API**: The `storage_system` query filter is checked at request time against the configured storage systems. Unknown values return a validation error that lists the allowed names.
+- **Config**: Storage system names and offering slugs have surrounding whitespace removed and must not be empty. Offering slugs also must not contain `,` because slugs are joined with commas in the Waldur `offering_slug` filter.
+- **Docs**: The README and `.env.example` now describe the free-form storage system names.
+
+### Breaking Changes
+
+- **Models**: The `StorageSystem` enum has been removed and is no longer exported from `waldur_cscs_hpc_storage.models` or `waldur_cscs_hpc_storage.config`.
+
+### Statistics
+
+> 1 commit, 14 files changed (+148/-64 lines)
+
+---
+
 ## 0.9.0 - 2026-07-08
 
 ### Highlights
