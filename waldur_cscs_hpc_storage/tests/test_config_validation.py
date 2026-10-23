@@ -138,11 +138,33 @@ class TestStorageProxyConfigValidation:
         )
         assert config.storage_systems == {"ritom": "ritom", "iopsstor": "iopsstor_3"}
 
+    def test_storage_systems_strips_whitespace(self):
+        """Test that storage system names and offering slugs are stripped."""
+        valid_waldur_api = {
+            "api_url": "http://u.com",
+            "access_token": "a" * 40,
+        }
+        config = StorageProxyConfig(
+            waldur_api=valid_waldur_api,
+            storage_systems={" vast ": " vast_1 "},
+            hpc_user_api=HpcUserApiConfig(development_mode=True),
+            auth=AuthConfig(disable_auth=True),
+        )
+        assert config.storage_systems == {"vast": "vast_1"}
+
     @pytest.mark.parametrize(
-        "storage_systems", [{"": "slug"}, {" ": "slug"}, {"capstor": ""}]
+        "storage_systems, expected_error",
+        [
+            ({"": "slug"}, "at least 1 character"),
+            ({" ": "slug"}, "at least 1 character"),
+            ({"capstor": " "}, "at least 1 character"),
+            ({"capstor": "a,b"}, "must not contain ','"),
+        ],
     )
-    def test_storage_systems_empty_name_or_slug(self, storage_systems):
-        """Test that blank storage system names and offering slugs are rejected."""
+    def test_storage_systems_invalid_name_or_slug(
+        self, storage_systems, expected_error
+    ):
+        """Test that blank names and blank or comma-separated slugs are rejected."""
         valid_waldur_api = {
             "api_url": "http://u.com",
             "access_token": "a" * 40,
@@ -154,7 +176,7 @@ class TestStorageProxyConfigValidation:
                 hpc_user_api=HpcUserApiConfig(development_mode=True),
                 auth=AuthConfig(disable_auth=True),
             )
-        assert "must be non-empty" in str(exc.value)
+        assert expected_error in str(exc.value)
 
 
 class TestSentryConfigValidation:
