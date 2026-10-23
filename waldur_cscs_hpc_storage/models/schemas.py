@@ -9,10 +9,7 @@ from waldur_api_client.models.resource_state import ResourceState
 from waldur_api_client.types import Unset
 
 # Re-importing Enums from your existing structure to ensure compatibility
-from waldur_cscs_hpc_storage.models.enums import (
-    StorageSystem,
-    TargetStatus,
-)
+from waldur_cscs_hpc_storage.models.enums import TargetStatus
 from waldur_cscs_hpc_storage.models.domain import (
     TenantTargetItem,
     CustomerTargetItem,
@@ -274,8 +271,8 @@ class StorageResourceFilter(BaseModel):
     """Filter parameters for storage resources endpoint."""
 
     storage_system: Annotated[
-        Optional[StorageSystem],
-        Field(description="Storage system filter"),
+        Optional[str],
+        Field(min_length=1, description="Storage system filter"),
     ] = None
     state: Optional[ResourceState] = None
     page: Annotated[int, Field(ge=1, description="Page number (starts from 1)")] = 1

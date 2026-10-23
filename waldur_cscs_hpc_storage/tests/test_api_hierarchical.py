@@ -13,7 +13,6 @@ from waldur_cscs_hpc_storage.config import (
     StorageProxyConfig,
     WaldurApiConfig,
 )
-from waldur_cscs_hpc_storage.models.enums import StorageSystem
 
 os.environ["DISABLE_AUTH"] = "true"  # Also disable auth for these tests
 
@@ -50,9 +49,9 @@ def mock_config():
             inode_hard_coefficient=1.0,
         ),
         storage_systems={
-            StorageSystem.CAPSTOR: "capstor",
-            StorageSystem.VAST: "vast",
-            StorageSystem.IOPSSTOR: "iopsstor",
+            "capstor": "capstor",
+            "vast": "vast",
+            "iopsstor": "iopsstor",
         },
         auth=None,
         hpc_user_api=HpcUserApiConfig(development_mode=True),

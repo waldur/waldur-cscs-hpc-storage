@@ -31,14 +31,6 @@ class TargetType(StrEnum):
     CUSTOMER = "customer"
 
 
-class StorageSystem(StrEnum):
-    """Allowed storage system values."""
-
-    CAPSTOR = "capstor"
-    VAST = "vast"
-    IOPSSTOR = "iopsstor"
-
-
 class QuotaType(StrEnum):
     """Type of quota."""
 

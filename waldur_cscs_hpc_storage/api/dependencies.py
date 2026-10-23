@@ -2,8 +2,10 @@ import logging
 from typing import Annotated, Optional, Union
 
 from fastapi import Depends
+from fastapi.exceptions import RequestValidationError
 
 from waldur_cscs_hpc_storage.config import StorageProxyConfig
+from waldur_cscs_hpc_storage.models import StorageResourceFilter
 from waldur_cscs_hpc_storage.services.gid_service import GidService
 from waldur_cscs_hpc_storage.mapper import ResourceMapper
 from waldur_cscs_hpc_storage.services.mock_gid_service import MockGidService
@@ -124,3 +126,28 @@ def get_orchestrator(
     return StorageOrchestrator(
         config=config, waldur_service=waldur_service, mapper=mapper
     )
+
+
+def get_storage_resource_filter(
+    filters: Annotated[StorageResourceFilter, Depends()],
+    config: Annotated[StorageProxyConfig, Depends(get_config)],
+) -> StorageResourceFilter:
+    """
+    Validates the storage_system filter against the configured storage systems.
+
+    Storage system names come from the STORAGE_SYSTEMS mapping, so they can
+    only be checked at request time.
+    """
+    if filters.storage_system and filters.storage_system not in config.storage_systems:
+        allowed = ", ".join(f"'{name}'" for name in config.storage_systems)
+        raise RequestValidationError(
+            [
+                {
+                    "type": "enum",
+                    "loc": ("query", "storage_system"),
+                    "msg": f"Input should be one of: {allowed}",
+                    "input": filters.storage_system,
+                }
+            ]
+        )
+    return filters
