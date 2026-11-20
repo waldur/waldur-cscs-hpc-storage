@@ -12,7 +12,7 @@ EXPOSE 8080
 
 RUN apk add git
 
-RUN pip install uv --no-cache && uv sync && uv pip install "uvicorn[standard]"
+RUN pip install --no-cache-dir uv==0.13.7 && uv sync && uv pip install "uvicorn[standard]"
 
 ENV PATH="/app/.venv/bin:$PATH"
 
